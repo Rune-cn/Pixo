@@ -18,7 +18,7 @@ object PixivApi {
         PixivHttp.refreshClient()
     }
 
-    // ---------- 插画 / 漫画（读 → 网页） ----------
+    // ---------- 插画 / 漫画（读 → 网页；收藏列表 → Token/网页） ----------
 
     suspend fun fetchRanking(mode: String, page: Int = 1): List<PixivWork> =
         WebPixivApi.fetchRanking(mode, page)
@@ -30,7 +30,8 @@ object PixivApi {
         WebPixivApi.searchArtworks(word, page)
 
     suspend fun fetchIllustBookmarks(rest: String, offset: Int = 0, limit: Int = 24): List<PixivWork> =
-        WebPixivApi.fetchIllustBookmarks(rest, offset, limit)
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchIllustBookmarks(rest, offset, limit)
+        else WebPixivApi.fetchIllustBookmarks(rest, offset, limit)
 
     // ---------- 小说（读 → 网页） ----------
 
