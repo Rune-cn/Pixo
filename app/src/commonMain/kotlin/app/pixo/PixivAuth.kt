@@ -1,10 +1,12 @@
 package app.pixo
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
+import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -18,6 +20,7 @@ object PixivAuth {
     const val CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
     const val HASH_SECRET = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
     private const val TOKEN_URL = "https://oauth.secure.pixiv.net/auth/token"
+    private const val REDIRECT_URI = "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback"
     private const val FORM = "application/x-www-form-urlencoded"
 
     var refreshToken: String
@@ -96,6 +99,65 @@ object PixivAuth {
         lastLoginUser = ""
         AppPrefs.selfUserId = 0L
         PixivHttp.refreshClient()
+    }
+
+    /**
+     * PKCE 登录（Authorization Code + PKCE，2022 年后 Pixiv 唯一登录方式）。
+     * 返回 (code_verifier, code_challenge)，浏览器打开授权页登录后跳转 pixiv://account/login?code=XXXX，
+     * 用 code + verifier 调 [exchangeAuthCode] 换 refresh_token。
+     */
+    fun pkceChallenge(): Pair<String, String> {
+        val bytes = ByteArray(32)
+        java.security.SecureRandom().nextBytes(bytes)
+        val verifier = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        val digest = MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII))
+        val challenge = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
+        return verifier to challenge
+    }
+
+    fun pkceLoginUrl(challenge: String): String =
+        "https://app-api.pixiv.net/web/v1/login?code_challenge=$challenge&code_challenge_method=S256&client=pixiv-android"
+
+    /** 用授权码 + verifier 换 token；成功返回 null，失败返回错误描述。 */
+    suspend fun exchangeAuthCode(code: String, verifier: String): String? = withContext(ioDispatcher) {
+        try {
+            val ts = PixivHttp.appApiTimestamp()
+            val form = "client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET&code=${URLEncoder.encode(code, "UTF-8")}" +
+                "&code_verifier=$verifier&grant_type=authorization_code&include_policy=true" +
+                "&redirect_uri=${URLEncoder.encode(REDIRECT_URI, "UTF-8")}"
+            val request = Request.Builder()
+                .url(TOKEN_URL)
+                .post(form.toRequestBody(FORM.toMediaType()))
+                .header("User-Agent", PixivHttp.APP_USER_AGENT)
+                .header("App-OS", "android")
+                .header("App-OS-Version", "11")
+                .header("App-Version", "5.0.234")
+                .header("Content-Type", FORM)
+                .header("X-Client-Time", ts)
+                .header("X-Client-Hash", PixivHttp.appApiHash(ts))
+                .build()
+            val text = PixivHttp.client.newCall(request).execute().use { r ->
+                val body = r.body?.string().orEmpty()
+                if (!r.isSuccessful) throw java.io.IOException("HTTP ${r.code} $body")
+                body
+            }
+            val result = kotlinx.serialization.json.Json.parseToJsonElement(text).jsonObject
+            val access = result.str("access_token")
+            if (access.isBlank()) return@withContext "登录失败：响应缺少 access_token"
+            accessToken = access
+            result.str("refresh_token").takeIf { it.isNotBlank() }?.let { refreshToken = it }
+            val user = result.obj("user")
+            val name = user?.str("name").orEmpty()
+            val account = user?.str("account").orEmpty()
+            lastLoginUser = if (name.isNotBlank() && account.isNotBlank()) "$name (@$account)" else name
+            AppPrefs.selfUserId = user?.lng("id") ?: 0L
+            PixivHttp.refreshClient()
+            log("PixivAuth", "PKCE 登录成功 user=$lastLoginUser id=${AppPrefs.selfUserId}")
+            null
+        } catch (e: Exception) {
+            log("PixivAuth", "PKCE 登录失败: ${e.message}")
+            e.message ?: "登录失败"
+        }
     }
 
     private suspend fun requestToken(formData: String, grant: String): JsonObject =
