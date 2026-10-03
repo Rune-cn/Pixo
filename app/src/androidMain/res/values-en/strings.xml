@@ -37,6 +37,7 @@
     <string name="ranking">Ranking</string>
     <string name="search_pixiv">Search Pixiv</string>
     <string name="discover">Discover</string>
+    <string name="recommended">Recommended</string>
     <string name="search_hint">Type keywords to search illustrations and manga</string>
     <string name="author_prefix">Author: </string>
     <string name="comments">Comments</string>
@@ -97,4 +98,5 @@
     <string name="crash_log">Crash log</string>
     <string name="clear_crash_log">Clear crash log</string>
     <string name="crash_none">No crash log</string>
+    <string name="copy_all">Copy all</string>
 </resources>
