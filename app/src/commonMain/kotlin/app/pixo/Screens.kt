@@ -969,9 +969,7 @@ private fun IllustDetail(
                             onSearchTag = onSearchTag,
                             onOpenUser = onOpenUser,
                             feedback = feedback,
-                            bookmarkBusy = bookmarkBusy,
                             onLongPressTag = { tag -> copiedTag = tag },
-                            onBookmark = ::toggleBookmark,
                         )
                     }
                 }
@@ -988,11 +986,47 @@ private fun IllustDetail(
             }
         }
 
+        var showBookmarkMenu by remember { mutableStateOf(false) }
+        FloatingButton(
+            onClick = { showBookmarkMenu = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).padding(bottom = 64.dp),
+        ) {
+            Icon(imageVector = MiuixIcons.Favorites, contentDescription = Str.bookmark_public_label())
+        }
         FloatingButton(
             onClick = { onOpenComments(workId, "illust") },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
         ) {
             Icon(imageVector = MiuixIcons.Messages, contentDescription = Str.comments())
+        }
+
+        OverlayDialog(show = showBookmarkMenu, onDismissRequest = { showBookmarkMenu = false }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(Str.bookmark_public_label(), style = MiuixTheme.textStyles.title3)
+                val isBm = detail?.isBookmarked == true
+                if (!isBm) {
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(0)
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.bookmark_public()) }
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(1)
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.bookmark_private()) }
+                } else {
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(if (detail?.bookmarkPrivate == true) 0 else 1)
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (detail?.bookmarkPrivate == true) Str.bookmark_public() else Str.bookmark_private())
+                    }
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(-1)
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.unbookmark()) }
+                }
+                Button(onClick = { showBookmarkMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+            }
         }
     }
 }
@@ -1017,16 +1051,13 @@ private fun IllustInfo(
     onSearchTag: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     feedback: String?,
-    bookmarkBusy: Boolean,
     onLongPressTag: (String) -> Unit,
-    onBookmark: (Int) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text(d?.title ?: "", style = MiuixTheme.textStyles.title3)
         Spacer(Modifier.height(10.dp))
         AuthorHeader(name = d?.author.orEmpty(), userId = d?.authorId ?: 0, avatar = d?.avatar.orEmpty(), onOpenUser = onOpenUser)
         Spacer(Modifier.height(10.dp))
-        BookmarkButtons(isBookmarked = d?.isBookmarked == true, bookmarkPrivate = d?.bookmarkPrivate == true, busy = bookmarkBusy, onBookmark = onBookmark)
         feedback?.let {
             Spacer(Modifier.height(8.dp))
             Text(it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.primary)
@@ -1124,6 +1155,9 @@ fun CommentsScreen(
     var posting by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var feedbackError by remember { mutableStateOf(false) }
+    var copyMenu by remember { mutableStateOf<String?>(null) }
+    var copySelect by remember { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val sPosted = Str.comment_posted()
     val sFailPrefix = Str.comment_post_failed("")
@@ -1182,7 +1216,7 @@ fun CommentsScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        itemsIndexed(comments.orEmpty()) { _, c -> CommentCard(c, onOpenUser) }
+                        itemsIndexed(comments.orEmpty()) { _, c -> CommentCard(c, onOpenUser) { t -> copyMenu = t } }
                     }
                 }
             }
@@ -1211,13 +1245,40 @@ fun CommentsScreen(
                     Text(sSend)
                 }
             }
+            OverlayDialog(show = copyMenu != null, onDismissRequest = { copyMenu = null }) {
+                val menuText = copyMenu.orEmpty()
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Str.copy_title(), style = MiuixTheme.textStyles.title3)
+                    Button(onClick = {
+                        clipboard.setText(AnnotatedString(menuText))
+                        copyMenu = null
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_all()) }
+                    Button(onClick = {
+                        copySelect = menuText
+                        copyMenu = null
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_select()) }
+                }
+            }
+            OverlayDialog(show = copySelect != null, onDismissRequest = { copySelect = null }) {
+                val text = copySelect.orEmpty()
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Str.copy_title(), style = MiuixTheme.textStyles.title3)
+                    SelectionContainer {
+                        Text(text, style = MiuixTheme.textStyles.body2)
+                    }
+                    Button(onClick = {
+                        clipboard.setText(AnnotatedString(text))
+                        copySelect = null
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_all()) }
+                }
+            }
         }
     }
 }
 
 /** 单条评论卡片：头像（点击进作者主页）+ 昵称 + 日期 + 内容。 */
 @Composable
-private fun CommentCard(c: PixivComment, onOpenUser: (Long) -> Unit) {
+private fun CommentCard(c: PixivComment, onOpenUser: (Long) -> Unit, onCopy: (String) -> Unit = {}) {
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
             AuthorAvatar(c.avatar, 36.dp, c.userId, onOpenUser)
@@ -1237,8 +1298,10 @@ private fun CommentCard(c: PixivComment, onOpenUser: (Long) -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                SelectionContainer {
-                    Text(c.content, style = MiuixTheme.textStyles.body2)
+                Box(Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = { onCopy(c.content) })) {
+                    SelectionContainer {
+                        Text(c.content, style = MiuixTheme.textStyles.body2)
+                    }
                 }
             }
         }
@@ -1334,12 +1397,6 @@ private fun NovelDetail(
                             Spacer(Modifier.height(10.dp))
                             AuthorHeader(name = d.author, userId = d.authorId, avatar = d.avatar, onOpenUser = onOpenUser)
                             Spacer(Modifier.height(10.dp))
-                            BookmarkButtons(
-                                isBookmarked = d.isBookmarked,
-                                bookmarkPrivate = d.bookmarkPrivate,
-                                busy = bookmarkBusy,
-                                onBookmark = ::toggleBookmark,
-                            )
                             feedback?.let {
                                 Spacer(Modifier.height(8.dp))
                                 Text(it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.primary)
@@ -1377,11 +1434,47 @@ private fun NovelDetail(
             }
         }
 
+        var showBookmarkMenu by remember { mutableStateOf(false) }
+        FloatingButton(
+            onClick = { showBookmarkMenu = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).padding(bottom = 64.dp),
+        ) {
+            Icon(imageVector = MiuixIcons.Favorites, contentDescription = Str.bookmark_public_label())
+        }
         FloatingButton(
             onClick = { onOpenComments(workId, "novel") },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
         ) {
             Icon(imageVector = MiuixIcons.Messages, contentDescription = Str.comments())
+        }
+
+        OverlayDialog(show = showBookmarkMenu, onDismissRequest = { showBookmarkMenu = false }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(Str.bookmark_public_label(), style = MiuixTheme.textStyles.title3)
+                val isBm = detail?.isBookmarked == true
+                if (!isBm) {
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(0)
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.bookmark_public()) }
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(1)
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.bookmark_private()) }
+                } else {
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(if (detail?.bookmarkPrivate == true) 0 else 1)
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (detail?.bookmarkPrivate == true) Str.bookmark_public() else Str.bookmark_private())
+                    }
+                    Button(onClick = {
+                        showBookmarkMenu = false
+                        toggleBookmark(-1)
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.unbookmark()) }
+                }
+                Button(onClick = { showBookmarkMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+            }
         }
     }
 }
@@ -1615,7 +1708,7 @@ fun CrashLogPage(onBack: () -> Unit) {
     }
 }
 
-/** 发现板块：发现/推荐作品流（无限滚动，返回恢复原位）。 */
+/** 发现板块：发现作品流（无限滚动 + 下拉刷新，返回恢复原位）。 */
 @Composable
 fun DiscoverScreen(
     onBack: () -> Unit,
@@ -1627,6 +1720,7 @@ fun DiscoverScreen(
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
     var loading by remember { mutableStateOf(items == null) }
     var loadingMore by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
@@ -1646,6 +1740,23 @@ fun DiscoverScreen(
             logError("Pixo", "discover load failed", e)
         }
         loading = false
+    }
+
+    fun refresh() {
+        scope.launch {
+            refreshing = true
+            try {
+                val list = PixivApi.fetchTopFeed(0, 30)
+                FeedCache.illust[cacheKey] = list
+                items = list
+                hasMore = list.size >= 30
+                error = null
+            } catch (e: Exception) {
+                error = e.friendlyMessage()
+                logError("Pixo", "discover refresh failed", e)
+            }
+            refreshing = false
+        }
     }
 
     fun loadMore() {
@@ -1679,29 +1790,39 @@ fun DiscoverScreen(
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     PixoSubScreen(title = Str.discover(), onBack = onBack) { innerPadding ->
-        when {
-            loading && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                LoadingState()
-            }
-            error != null && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                ErrorState(error ?: "", onRetry = { retryKey++ })
-            }
-            else -> LazyColumn(
-                state = listState,
-                contentPadding = innerPadding,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(list, key = { it.id }) { w ->
-                    PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
+        PullToRefresh(
+            isRefreshing = refreshing,
+            onRefresh = { refresh() },
+            refreshTexts = refreshTexts(),
+            contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
+        ) {
+            when {
+                loading && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    LoadingState()
                 }
-                item { EndItem(loadingMore, hasMore, onRetry = {}) }
+                error != null && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    ErrorState(error ?: "", onRetry = { retryKey++ })
+                }
+                list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    EmptyHint()
+                }
+                else -> LazyColumn(
+                    state = listState,
+                    contentPadding = innerPadding,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(list, key = { it.id }) { w ->
+                        PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
+                    }
+                    item { EndItem(loadingMore, hasMore, onRetry = {}) }
+                }
             }
         }
     }
 }
 
-/** 推荐板块：热门/推荐作品（缓存 + 恢复滚动）。 */
+/** 推荐板块：Pixiv 推荐作品（下拉刷新，恢复滚动）。 */
 @Composable
 fun RecommendedScreen(
     onBack: () -> Unit,
@@ -1712,47 +1833,73 @@ fun RecommendedScreen(
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
     var loading by remember { mutableStateOf(items == null) }
+    var refreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
+
+    suspend fun load() {
+        val list = PixivApi.fetchTopArtworks()
+        FeedCache.illust[cacheKey] = list
+        items = list
+    }
 
     LaunchedEffect(cacheKey, retryKey) {
         if (items != null && retryKey == 0) return@LaunchedEffect
         loading = true
         error = null
         try {
-            val list = try {
-                PixivApi.fetchTopArtworks()
-            } catch (_: Exception) {
-                emptyList()
-            }
-            val final = if (list.isEmpty()) PixivApi.fetchTopFeed(0, 30) else list
-            FeedCache.illust[cacheKey] = final
-            items = final
+            load()
         } catch (e: Exception) {
             error = e.friendlyMessage()
             logError("Pixo", "recommend load failed", e)
         }
         loading = false
     }
+
+    fun refresh() {
+        scope.launch {
+            refreshing = true
+            try {
+                load()
+                error = null
+            } catch (e: Exception) {
+                error = e.friendlyMessage()
+                logError("Pixo", "recommend refresh failed", e)
+            }
+            refreshing = false
+        }
+    }
+
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     val list = items.orEmpty()
     PixoSubScreen(title = Str.recommended(), onBack = onBack) { innerPadding ->
-        when {
-            loading && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                LoadingState()
-            }
-            error != null && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                ErrorState(error ?: "", onRetry = { retryKey++ })
-            }
-            else -> LazyColumn(
-                state = listState,
-                contentPadding = innerPadding,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(list, key = { it.id }) { w ->
-                    PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
+        PullToRefresh(
+            isRefreshing = refreshing,
+            onRefresh = { refresh() },
+            refreshTexts = refreshTexts(),
+            contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
+        ) {
+            when {
+                loading && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    LoadingState()
+                }
+                error != null && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    ErrorState(error ?: "", onRetry = { retryKey++ })
+                }
+                list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    EmptyHint()
+                }
+                else -> LazyColumn(
+                    state = listState,
+                    contentPadding = innerPadding,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(list, key = { it.id }) { w ->
+                        PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
+                    }
                 }
             }
         }
@@ -1781,6 +1928,7 @@ fun UserScreen(
     var retryKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     var bioDialog by remember { mutableStateOf<String?>(null) }
+    var copyMenu by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
     val copyAllLabel = Str.copy_all()
     val cacheKey = if (kind == "novel") novelKey else illustKey
@@ -1880,7 +2028,7 @@ fun UserScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        item { UserHeader(user) { bio -> bioDialog = bio } }
+                        item { UserHeader(user) { bio -> copyMenu = bio } }
                         item {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ModeChip("illust", Str.illust(), kind) { kind = "illust" }
@@ -1904,10 +2052,28 @@ fun UserScreen(
                 }
             }
 
+                OverlayDialog(show = copyMenu != null, onDismissRequest = { copyMenu = null }) {
+                    val menuText = copyMenu.orEmpty()
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(Str.copy_title(), style = MiuixTheme.textStyles.title3)
+                        Button(onClick = {
+                            clipboard.setText(AnnotatedString(menuText))
+                            copyMenu = null
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Text(Str.copy_all())
+                        }
+                        Button(onClick = {
+                            bioDialog = menuText
+                            copyMenu = null
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Text(Str.copy_select())
+                        }
+                    }
+                }
                 OverlayDialog(show = bioDialog != null, onDismissRequest = { bioDialog = null }) {
                     val text = bioDialog.orEmpty()
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(Str.author_page(), style = MiuixTheme.textStyles.title3)
+                        Text(Str.copy_title(), style = MiuixTheme.textStyles.title3)
                         SelectionContainer {
                             Text(text, style = MiuixTheme.textStyles.body2)
                         }
