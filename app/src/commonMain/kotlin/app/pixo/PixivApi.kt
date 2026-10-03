@@ -88,4 +88,7 @@ object PixivApi {
     suspend fun fetchUserNovels(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivNovel> =
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserNovels(userId, offset, limit)
         else WebPixivApi.fetchUserNovels(userId, offset, limit)
+
+    suspend fun fetchTopArtworks(): List<PixivWork> =
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchTopArtworks() else WebPixivApi.fetchTopArtworks()
 }
