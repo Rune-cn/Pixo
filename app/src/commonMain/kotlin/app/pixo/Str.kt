@@ -100,4 +100,6 @@ internal expect object Str {
     @Composable fun clear_crash_log(): String
     @Composable fun crash_none(): String
     @Composable fun copy_all(): String
+    @Composable fun copy_select(): String
+    @Composable fun copy_title(): String
 }
