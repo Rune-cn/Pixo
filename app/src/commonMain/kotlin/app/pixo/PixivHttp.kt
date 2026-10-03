@@ -44,7 +44,10 @@ object PixivHttp {
                 val b = req.newBuilder()
                 if (req.header("Referer") == null) b.header("Referer", WEB_REFERER)
                 if (req.header("User-Agent") == null) b.header("User-Agent", USER_AGENT)
-                if (req.header("Cookie") == null) cookieHeader()?.let { b.header("Cookie", it) }
+                // Cookie 只在网页域下发，避免把旧会话捎带给 App API 导致 400
+                if (req.header("Cookie") == null && req.url.host == "www.pixiv.net") {
+                    cookieHeader()?.let { b.header("Cookie", it) }
+                }
                 if (req.header("Authorization") == null) {
                     PixivAuth.accessToken.takeIf { it.isNotBlank() }
                         ?.let { b.header("Authorization", "Bearer $it") }
