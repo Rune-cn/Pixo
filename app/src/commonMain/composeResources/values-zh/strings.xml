@@ -98,4 +98,6 @@
     <string name="clear_crash_log">清除崩溃日志</string>
     <string name="crash_none">无崩溃记录</string>
     <string name="copy_all">全选复制</string>
+    <string name="copy_select">选择复制</string>
+    <string name="copy_title">复制</string>
 </resources>
