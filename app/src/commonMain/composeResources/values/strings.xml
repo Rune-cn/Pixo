@@ -83,7 +83,7 @@
     <string name="unbookmark">Remove bookmark</string>
     <string name="bookmark_removed">Bookmark removed</string>
     <string name="works_title">Works</string>
-    <string name="author_page">Author</string>
+    <string name="author_page">Profile</string>
     <string name="user_stats">%1$d illustrations · %2$d novels</string>
     <string name="avatar_desc">Author avatar</string>
     <string name="web_login">Web Login</string>
