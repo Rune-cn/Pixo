@@ -110,15 +110,17 @@ object AppPixivApi {
     }
 
     suspend fun fetchIllustPages(id: Long): List<PixivPage> {
-        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url("$BASE/illust/pages?illust_id=$id&filter=for_android"))
-        val arr = root.arr("pages")
+        // detail 响应自带分页图（meta_pages / meta_single_page），绕开不稳定的 /illust/pages
+        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url("$BASE/illust/detail?illust_id=$id"))
+        val illust = root.obj("illust") ?: return emptyList()
+        val single = illust.obj("meta_single_page")?.str("original_image_url")
+        if (!single.isNullOrBlank()) return listOf(PixivPage(single))
+        val pages = illust.arr("meta_pages") ?: return emptyList()
         return buildList {
-            if (arr == null) return@buildList
-            for (el in arr) {
+            for (el in pages) {
                 val urls = (el as? JsonObject)?.obj("image_urls")
-                val url = urls?.str("large")?.takeIf { it.isNotBlank() }
-                    ?: urls?.str("original") ?: ""
-                add(PixivPage(url))
+                val url = urls?.str("original")?.takeIf { it.isNotBlank() }
+                if (url != null) add(PixivPage(url))
             }
         }
     }
