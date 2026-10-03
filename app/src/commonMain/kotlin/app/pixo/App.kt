@@ -113,7 +113,6 @@ private val themeModes = listOf(ColorSchemeMode.System, ColorSchemeMode.Dark, Co
 fun App() {
     var themeMode by rememberSaveable { mutableStateOf(ColorSchemeMode.System) }
     var language by rememberSaveable { mutableStateOf(AppPrefs.language) }
-    var predictiveBack by rememberSaveable { mutableStateOf(AppPrefs.predictiveBack) }
     val navController = rememberNavController()
     val controller = remember(themeMode) { ThemeController(themeMode) }
     LaunchedEffect(language) { applyAppLanguage(language) }
@@ -199,11 +198,6 @@ fun App() {
                             onLanguageChange = {
                                 language = it
                                 AppPrefs.language = it
-                            },
-                            predictiveBack = predictiveBack,
-                            onPredictiveBackChange = {
-                                predictiveBack = it
-                                AppPrefs.predictiveBack = it
                             },
                             onBack = { navController.popBackStack() },
                         )
@@ -360,13 +354,6 @@ fun App() {
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
                         )
-                    }
-                }
-                if (!predictiveBack) {
-                    // 关闭预见式返回：用普通 BackHandler 拦截（注册在 NavHost 之后，优先于 NavHost 的预测性返回），
-                    // 从而禁用预测性返回动画；开启时完全交给 NavHost 的原生预测性返回。
-                    SystemBackHandler(enabled = current?.route != "app.pixo.Home") {
-                        navController.popBackStack()
                     }
                 }
                 if (isTabPage) {
@@ -614,8 +601,6 @@ fun AppearancePage(
     onThemeModeChange: (ColorSchemeMode) -> Unit,
     language: String,
     onLanguageChange: (String) -> Unit,
-    predictiveBack: Boolean,
-    onPredictiveBackChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     val themeOptions = listOf(Str.theme_follow(), Str.theme_dark(), Str.theme_light())
@@ -642,12 +627,6 @@ fun AppearancePage(
                         title = Str.theme_mode(),
                         summary = themeOptions[themeModes.indexOf(themeMode).coerceAtLeast(0)],
                         onSelectedIndexChange = { onThemeModeChange(themeModes[it]) },
-                    )
-                    SwitchPreference(
-                        title = Str.predictive_back(),
-                        summary = Str.predictive_back_summary(),
-                        checked = predictiveBack,
-                        onCheckedChange = onPredictiveBackChange,
                     )
                 }
             }
