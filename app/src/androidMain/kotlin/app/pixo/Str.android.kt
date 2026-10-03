@@ -97,4 +97,6 @@ internal actual object Str {
     @Composable actual fun clear_crash_log(): String = stringResource(app.pixo.R.string.clear_crash_log)
     @Composable actual fun crash_none(): String = stringResource(app.pixo.R.string.crash_none)
     @Composable actual fun copy_all(): String = stringResource(app.pixo.R.string.copy_all)
+    @Composable actual fun copy_select(): String = stringResource(app.pixo.R.string.copy_select)
+    @Composable actual fun copy_title(): String = stringResource(app.pixo.R.string.copy_title)
 }
