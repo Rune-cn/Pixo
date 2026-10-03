@@ -464,6 +464,28 @@ object WebPixivApi {
         return parseNovels(root.obj("body")?.arr("works"))
     }
 
+    /** 推荐板块：/ajax/top/illust（thumbnails.illust 为 id→条目 映射）。 */
+    suspend fun fetchTopArtworks(): List<PixivWork> {
+        val root = PixivHttp.getJson(
+            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/top/illust?mode=all&lang=zh"),
+        )
+        val map = root.obj("body")?.obj("thumbnails")?.obj("illust") ?: return emptyList()
+        return map.values.mapNotNull { v ->
+            (v as? JsonObject)?.let { o ->
+                PixivWork(
+                    id = o.lng("id"),
+                    title = o.str("title"),
+                    author = o.str("userName"),
+                    authorId = o.lng("userId"),
+                    avatar = o.str("profileImageUrl"),
+                    thumb = o.str("url"),
+                    illustType = o.int("illustType"),
+                    pageCount = o.int("pageCount").coerceAtLeast(1),
+                )
+            }
+        }
+    }
+
     /** 只取名字与头像的轻量请求：详情页只需要头像时走它，省掉两次 profile 请求。 */
     private suspend fun fetchUserBasic(userId: Long): JsonObject {
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/user/$userId"))
