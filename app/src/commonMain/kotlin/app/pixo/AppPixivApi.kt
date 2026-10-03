@@ -296,6 +296,14 @@ object AppPixivApi {
         return parseNovels(root.arr("novels"))
     }
 
+    /** 推荐板块（App API）。 */
+    suspend fun fetchTopArtworks(): List<PixivWork> {
+        val root = PixivHttp.getJson(
+            PixivHttp.appApiHeaders().url("$BASE/illust/recommended?offset=0"),
+        )
+        return parseIllusts(root.arr("illusts"))
+    }
+
     // ---------- 解析 ----------
 
     private fun parseIllusts(arr: JsonArray?): List<PixivWork> = buildList {
