@@ -3,10 +3,12 @@ package app.pixo
 import okhttp3.OkHttpClient
 
 /**
- * Pixiv API 门面：根据登录方式自动选择传输通道。
- * - 已配置 Refresh Token / Access Token → App API（Bearer，无 CSRF）。
- * - 仅 Cookie → 网页 ajax API。
- * 上层（Screens）只依赖本对象的公开方法。
+ * Pixiv API 门面：读/写各司其职。
+ * - 读（排行/搜索/详情/分页/评论/收藏列表/用户资料/作品列表）一律走网页 ajax（Cookie），
+ *   这些网页接口稳定且不需要 CSRF。
+ * - 写（收藏/取消收藏/发评论）在已配置 Token 时走 App API（Bearer，无 CSRF、更可靠），
+ *   否则退回网页写接口。
+ * - 作者作品无限流：Token 模式用 App API 分页；否则用 works/latest 展示最新作品。
  */
 object PixivApi {
     val client: OkHttpClient
@@ -16,50 +18,49 @@ object PixivApi {
         PixivHttp.refreshClient()
     }
 
-    // ---------- 插画 / 漫画 ----------
+    // ---------- 插画 / 漫画（读 → 网页） ----------
 
     suspend fun fetchRanking(mode: String, page: Int = 1): List<PixivWork> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchRanking(mode, page) else WebPixivApi.fetchRanking(mode, page)
+        WebPixivApi.fetchRanking(mode, page)
 
     suspend fun fetchTopFeed(offset: Int = 0, limit: Int = 30): List<PixivWork> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchTopFeed(offset, limit) else WebPixivApi.fetchTopFeed(offset, limit)
+        WebPixivApi.fetchTopFeed(offset, limit)
 
     suspend fun searchArtworks(word: String, page: Int = 1): List<PixivWork> =
-        if (PixivAuth.isTokenMode) AppPixivApi.searchArtworks(word, page) else WebPixivApi.searchArtworks(word, page)
+        WebPixivApi.searchArtworks(word, page)
 
     suspend fun fetchIllustBookmarks(rest: String, offset: Int = 0, limit: Int = 24): List<PixivWork> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchIllustBookmarks(rest, offset, limit)
-        else WebPixivApi.fetchIllustBookmarks(rest, offset, limit)
+        WebPixivApi.fetchIllustBookmarks(rest, offset, limit)
 
-    // ---------- 小说 ----------
+    // ---------- 小说（读 → 网页） ----------
 
     suspend fun searchNovels(word: String, page: Int = 1): List<PixivNovel> =
-        if (PixivAuth.isTokenMode) AppPixivApi.searchNovels(word, page) else WebPixivApi.searchNovels(word, page)
+        WebPixivApi.searchNovels(word, page)
 
     suspend fun fetchNovelRanking(mode: String, page: Int = 1): List<PixivNovel> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchNovelRanking(mode, page) else WebPixivApi.fetchNovelRanking(mode, page)
+        WebPixivApi.fetchNovelRanking(mode, page)
 
-    // ---------- 详情 ----------
+    // ---------- 详情（读 → 网页） ----------
 
     suspend fun fetchIllustDetail(id: Long): PixivIllustDetail =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchIllustDetail(id) else WebPixivApi.fetchIllustDetail(id)
+        WebPixivApi.fetchIllustDetail(id)
 
     suspend fun fetchIllustPages(id: Long): List<PixivPage> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchIllustPages(id) else WebPixivApi.fetchIllustPages(id)
+        WebPixivApi.fetchIllustPages(id)
 
     suspend fun fetchNovelDetail(id: Long): PixivNovelDetail =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchNovelDetail(id) else WebPixivApi.fetchNovelDetail(id)
+        WebPixivApi.fetchNovelDetail(id)
 
-    // ---------- 评论 ----------
+    // ---------- 评论（读 → 网页；写 → Token/网页） ----------
 
     suspend fun fetchComments(kind: String, id: Long): List<PixivComment> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchComments(kind, id) else WebPixivApi.fetchComments(kind, id)
+        WebPixivApi.fetchComments(kind, id)
 
     suspend fun addComment(kind: String, id: Long, text: String) {
         if (PixivAuth.isTokenMode) AppPixivApi.addComment(kind, id, text) else WebPixivApi.addComment(kind, id, text)
     }
 
-    // ---------- 收藏 ----------
+    // ---------- 收藏（写 → Token/网页） ----------
 
     suspend fun addBookmark(workId: Long, restrict: Int): String =
         if (PixivAuth.isTokenMode) AppPixivApi.addBookmark(workId, restrict) else WebPixivApi.addBookmark(workId, restrict)
@@ -73,13 +74,13 @@ object PixivApi {
         else WebPixivApi.removeBookmark(kind, workId, bookmarkId)
     }
 
-    // ---------- 用户 ----------
+    // ---------- 用户（读 → 网页；作者无限流 → Token 分页） ----------
 
     suspend fun fetchUser(userId: Long): PixivUser =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchUser(userId) else WebPixivApi.fetchUser(userId)
+        WebPixivApi.fetchUser(userId)
 
     suspend fun fetchUserWorks(userId: Long): PixivUserWorks =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserWorks(userId) else WebPixivApi.fetchUserWorks(userId)
+        WebPixivApi.fetchUserWorks(userId)
 
     suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivWork> =
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserIllusts(userId, offset, limit)
@@ -89,6 +90,8 @@ object PixivApi {
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserNovels(userId, offset, limit)
         else WebPixivApi.fetchUserNovels(userId, offset, limit)
 
+    // ---------- 推荐（读 → 网页） ----------
+
     suspend fun fetchTopArtworks(): List<PixivWork> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchTopArtworks() else WebPixivApi.fetchTopArtworks()
+        WebPixivApi.fetchTopArtworks()
 }
