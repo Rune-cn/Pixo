@@ -649,16 +649,7 @@ fun BookmarksScreen(
                 when {
                     loading && list.isEmpty() -> item { LoadingState() }
                     error != null && list.isEmpty() -> item {
-                        Column(
-                            Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            ErrorState(error ?: "", onRetry = { retryKey++ })
-                            Spacer(Modifier.height(4.dp))
-                            Button(onClick = { openUrlInBrowser("https://www.pixiv.net/bookmark.php") }) {
-                                Text(Str.open_in_browser())
-                            }
-                        }
+                        ErrorState(error ?: "", onRetry = { retryKey++ })
                     }
                 }
                 if (list.isNotEmpty()) {
