@@ -33,14 +33,14 @@ object AppPixivApi {
     suspend fun fetchRanking(mode: String, page: Int = 1): List<PixivWork> {
         val offset = (page - 1) * 50
         val root = PixivHttp.getJson(
-            PixivHttp.appApiHeaders().url("$BASE/illust/ranking?mode=$mode&offset=$offset&limit=50"),
+            PixivHttp.appApiHeaders().url("$BASE/illust/ranking?mode=$mode&offset=$offset&limit=50&filter=for_android"),
         )
         return parseIllusts(root.arr("illusts"))
     }
 
     suspend fun fetchTopFeed(offset: Int = 0, limit: Int = 30): List<PixivWork> {
         val root = PixivHttp.getJson(
-            PixivHttp.appApiHeaders().url("$BASE/illust/recommended?offset=$offset&limit=$limit"),
+            PixivHttp.appApiHeaders().url("$BASE/illust/recommended?offset=$offset&limit=$limit&filter=for_android"),
         )
         return parseIllusts(root.arr("illusts"))
     }
@@ -56,7 +56,7 @@ object AppPixivApi {
     suspend fun fetchIllustBookmarks(rest: String, offset: Int = 0, limit: Int = 24): List<PixivWork> {
         val restrict = if (rest == "hide") "private" else "public"
         val root = PixivHttp.getJson(
-            PixivHttp.appApiHeaders().url("$BASE/user/bookmarks/illust?user_id=${AppPrefs.selfUserId}&restrict=$restrict&offset=$offset&limit=$limit"),
+            PixivHttp.appApiHeaders().url("$BASE/user/bookmarks/illust?user_id=${AppPrefs.selfUserId}&restrict=$restrict&offset=$offset&limit=$limit&filter=for_android"),
         )
         return parseIllusts(root.arr("illusts"))
     }
@@ -74,7 +74,7 @@ object AppPixivApi {
     suspend fun fetchNovelRanking(mode: String, page: Int = 1): List<PixivNovel> {
         val offset = (page - 1) * 50
         val root = PixivHttp.getJson(
-            PixivHttp.appApiHeaders().url("$BASE/novel/ranking?mode=$mode&offset=$offset&limit=50"),
+            PixivHttp.appApiHeaders().url("$BASE/novel/ranking?mode=$mode&offset=$offset&limit=50&filter=for_android"),
         )
         return parseNovels(root.arr("novels"))
     }
