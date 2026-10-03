@@ -1,0 +1,178 @@
+package app.pixo
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ProvidedValue
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import java.io.File
+import java.time.LocalDateTime
+import java.util.Locale
+import java.util.prefs.Preferences
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+
+actual val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+
+val LocalPixoWindow = staticCompositionLocalOf<java.awt.Window?> { null }
+
+private val defaultLocale: Locale = Locale.getDefault()
+
+actual object AppPrefs {
+    private val prefs = Preferences.userRoot().node("app/pixo")
+
+    actual fun init() {}
+
+    actual var cookie: String
+        get() = prefs.get("cookie", "")
+        set(value) {
+            prefs.put("cookie", value)
+        }
+
+    actual var refreshToken: String
+        get() = prefs.get("refresh_token", "")
+        set(value) {
+            prefs.put("refresh_token", value)
+        }
+
+    actual var accessToken: String
+        get() = prefs.get("access_token", "")
+        set(value) {
+            prefs.put("access_token", value)
+        }
+
+    actual var lastLoginUser: String
+        get() = prefs.get("last_login_user", "")
+        set(value) {
+            prefs.put("last_login_user", value)
+        }
+
+    actual var selfUserId: Long
+        get() = prefs.getLong("self_user_id", 0L)
+        set(value) {
+            prefs.putLong("self_user_id", value)
+        }
+
+    actual var debugLog: Boolean
+        get() = prefs.getBoolean("debug_log", false)
+        set(value) {
+            prefs.putBoolean("debug_log", value)
+        }
+
+    actual var language: String
+        get() = prefs.get("language", "system")
+        set(value) {
+            prefs.put("language", value)
+        }
+
+    actual var predictiveBack: Boolean
+        get() = prefs.getBoolean("predictive_back", true)
+        set(value) {
+            prefs.putBoolean("predictive_back", value)
+        }
+}
+
+actual object LocalAppLocale {
+    private var default: Locale? = null
+    private val LocalAppLocale = staticCompositionLocalOf { Locale.getDefault().toString() }
+
+    actual val current: String
+        @Composable get() = LocalAppLocale.current
+
+    @Composable
+    actual infix fun provides(value: String?): ProvidedValue<*> {
+        if (default == null) {
+            default = Locale.getDefault()
+        }
+        val new = when (value) {
+            null -> default!!
+            else -> Locale(value)
+        }
+        Locale.setDefault(new)
+        return LocalAppLocale.provides(new.toString())
+    }
+}
+
+actual fun log(tag: String, message: String) {
+    if (!AppPrefs.debugLog) return
+    LogBuffer.add("[$tag] $message")
+    println("[$tag] $message")
+    try {
+        val dir = File(System.getProperty("user.home"), ".pixo")
+        dir.mkdirs()
+        File(dir, "pixo.log").appendText("${LocalDateTime.now()} [$tag] $message\n")
+    } catch (_: Exception) {
+        // 忽略写入失败
+    }
+}
+
+actual fun logError(tag: String, message: String, throwable: Throwable?) {
+    println("[$tag] ERROR: $message")
+    throwable?.printStackTrace()
+}
+
+private fun crashFile(): File {
+    val dir = File(System.getProperty("user.home"), ".pixo")
+    dir.mkdirs()
+    return File(dir, "crash.log")
+}
+
+actual fun initCrashLogging() {
+    val previous = Thread.getDefaultUncaughtExceptionHandler()
+    Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+        try {
+            crashFile().appendText(
+                "${LocalDateTime.now()} | ${thread.name}\n${throwable.stackTraceToString()}\n\n",
+            )
+        } catch (_: Exception) {
+            // 忽略写入失败
+        }
+        println("[Pixo] CRASH in ${thread.name}")
+        throwable.printStackTrace()
+        previous?.uncaughtException(thread, throwable)
+    }
+}
+
+actual fun readCrashLog(): String = try {
+    crashFile().readText()
+} catch (_: Exception) {
+    ""
+}
+
+actual fun clearCrashLog() {
+    try {
+        crashFile().delete()
+    } catch (_: Exception) {
+    }
+}
+
+actual fun openUrlInBrowser(url: String) {
+    try {
+        if (java.awt.Desktop.isDesktopSupported()) {
+            java.awt.Desktop.getDesktop().browse(java.net.URI(url))
+        }
+    } catch (_: Exception) {
+    }
+}
+
+actual fun applyAppLanguage(language: String) {
+    val new = when (language) {
+        "zh" -> Locale.SIMPLIFIED_CHINESE
+        "en" -> Locale.ENGLISH
+        else -> defaultLocale
+    }
+    Locale.setDefault(new)
+}
+
+@Composable
+actual fun SystemBackHandler(enabled: Boolean, onBack: () -> Unit) {
+    // Desktop 无系统返回手势
+}
+
+@Composable
+actual fun applyWindowBackground(background: Color) {
+    val window = LocalPixoWindow.current
+    SideEffect {
+        window?.background = java.awt.Color(background.red, background.green, background.blue, background.alpha)
+    }
+}
