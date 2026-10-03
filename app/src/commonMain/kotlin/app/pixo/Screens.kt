@@ -1266,10 +1266,6 @@ fun CommentsScreen(
                     SelectionContainer {
                         Text(text, style = MiuixTheme.textStyles.body2)
                     }
-                    Button(onClick = {
-                        clipboard.setText(AnnotatedString(text))
-                        copySelect = null
-                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_all()) }
                 }
             }
         }
@@ -2076,12 +2072,6 @@ fun UserScreen(
                         Text(Str.copy_title(), style = MiuixTheme.textStyles.title3)
                         SelectionContainer {
                             Text(text, style = MiuixTheme.textStyles.body2)
-                        }
-                        Button(onClick = {
-                            clipboard.setText(AnnotatedString(text))
-                            bioDialog = null
-                        }, modifier = Modifier.fillMaxWidth()) {
-                            Text(copyAllLabel)
                         }
                     }
                 }
