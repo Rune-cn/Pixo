@@ -136,7 +136,7 @@ object PixivHttp {
         client.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
             log("PixoApi", "HTTP ${response.code} len=${text.length}")
-            if (!response.isSuccessful) throw java.io.IOException(httpError(response.code))
+            if (!response.isSuccessful) throw java.io.IOException(httpError(response.code) + " " + text.take(300))
             val element = json.parseToJsonElement(text)
             (element as? JsonObject) ?: throw java.io.IOException("响应不是 JSON 对象")
         }
@@ -155,7 +155,7 @@ object PixivHttp {
         client.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
             log("PixoApi", "POST $url HTTP ${response.code} len=${text.length}")
-            if (!response.isSuccessful) throw java.io.IOException(httpError(response.code))
+            if (!response.isSuccessful) throw java.io.IOException(httpError(response.code) + " " + text.take(300))
             val element = json.parseToJsonElement(text)
             (element as? JsonObject) ?: throw java.io.IOException("响应不是 JSON 对象")
         }
