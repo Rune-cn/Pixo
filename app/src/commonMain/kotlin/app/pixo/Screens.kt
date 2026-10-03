@@ -1592,6 +1592,7 @@ fun AuthorAvatar(url: String, size: Dp, userId: Long, onOpenUser: (Long) -> Unit
 @Composable
 fun LogViewerScreen(onBack: () -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
+    val clipboard = LocalClipboardManager.current
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
@@ -1614,10 +1615,15 @@ fun LogViewerScreen(onBack: () -> Unit) {
                             style = MiuixTheme.textStyles.title3,
                             color = MiuixTheme.colorScheme.error,
                         )
-                        Button(onClick = {
-                            clearCrashLog()
-                            tick++
-                        }) { Text(Str.clear_crash_log()) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                clipboard.setText(AnnotatedString(crashText))
+                            }, enabled = crashText.isNotBlank()) { Text(Str.copy_title()) }
+                            Button(onClick = {
+                                clearCrashLog()
+                                tick++
+                            }) { Text(Str.clear_crash_log()) }
+                        }
                     }
                 }
                 item {
@@ -1635,6 +1641,9 @@ fun LogViewerScreen(onBack: () -> Unit) {
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.End,
                 ) {
+                    Button(onClick = {
+                        clipboard.setText(AnnotatedString(logs.joinToString("\n")))
+                    }, enabled = logs.isNotEmpty()) { Text(Str.copy_title()) }
                     Button(onClick = { LogBuffer.clear() }) { Text(Str.clear_logs()) }
                 }
             }
@@ -1662,6 +1671,7 @@ fun LogViewerScreen(onBack: () -> Unit) {
 @Composable
 fun CrashLogPage(onBack: () -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
+    val clipboard = LocalClipboardManager.current
     val text = remember(tick) { readCrashLog().trim() }
     PixoSubScreen(title = Str.crash_log(), onBack = onBack) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
@@ -1669,6 +1679,9 @@ fun CrashLogPage(onBack: () -> Unit) {
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
+                Button(onClick = {
+                    clipboard.setText(AnnotatedString(text))
+                }, enabled = text.isNotBlank()) { Text(Str.copy_title()) }
                 Button(onClick = {
                     clearCrashLog()
                     tick++
