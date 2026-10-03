@@ -1,0 +1,1 @@
+-keep class top.yukonga.miuix.** { *; }
