@@ -66,9 +66,11 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.icon.extended.All
 import top.yukonga.miuix.kmp.icon.extended.Image
 import top.yukonga.miuix.kmp.icon.extended.Messages
+import top.yukonga.miuix.kmp.icon.extended.Promotions
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Months
@@ -131,6 +133,7 @@ fun HomePage(
     onOpenRanking: (String) -> Unit,
     onOpenNovelRanking: (String) -> Unit,
     onOpenDiscover: () -> Unit,
+    onOpenRecommended: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenBookmarks: (String) -> Unit,
@@ -230,7 +233,7 @@ fun HomePage(
                 contentPadding = PaddingValues(top = frame.calculateTopPadding(), bottom = bottomPadding),
             ) {
             item {
-                HomeEntries(onOpenRanking, onOpenNovelRanking, onOpenDiscover, onOpenSearch, onOpenBookmarks)
+                HomeEntries(onOpenRanking, onOpenNovelRanking, onOpenDiscover, onOpenRecommended, onOpenSearch, onOpenBookmarks)
             }
             item { SmallTitle(text = Str.home_title()) }
             when {
@@ -273,6 +276,7 @@ private fun HomeEntries(
     onOpenRanking: (String) -> Unit,
     onOpenNovelRanking: (String) -> Unit,
     onOpenDiscover: () -> Unit,
+    onOpenRecommended: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenBookmarks: (String) -> Unit,
 ) {
@@ -281,9 +285,10 @@ private fun HomeEntries(
             EntryCard(MiuixIcons.All, Str.illust_ranking()) { onOpenRanking("daily") }
             EntryCard(MiuixIcons.Notes, Str.novel_ranking()) { onOpenNovelRanking("daily") }
             EntryCard(MiuixIcons.Image, Str.discover()) { onOpenDiscover() }
-            EntryCard(MiuixIcons.Search, Str.search()) { onOpenSearch() }
+            EntryCard(MiuixIcons.Promotions, Str.recommended()) { onOpenRecommended() }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EntryCard(MiuixIcons.Search, Str.search()) { onOpenSearch() }
             EntryCard(MiuixIcons.Favorites, Str.bookmark_public_label()) { onOpenBookmarks("show") }
             EntryCard(MiuixIcons.Lock, Str.bookmark_private_label()) { onOpenBookmarks("hide") }
         }
@@ -1693,6 +1698,59 @@ fun DiscoverScreen(
     }
 }
 
+/** 推荐板块：热门/推荐作品（缓存 + 恢复滚动）。 */
+@Composable
+fun RecommendedScreen(
+    onBack: () -> Unit,
+    onOpenDetail: (Long, String) -> Unit,
+    onOpenUser: (Long) -> Unit = {},
+) {
+    val cacheKey = "recommend:feed"
+    var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
+    val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
+    var loading by remember { mutableStateOf(items == null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var retryKey by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(cacheKey, retryKey) {
+        if (items != null && retryKey == 0) return@LaunchedEffect
+        loading = true
+        error = null
+        try {
+            val list = PixivApi.fetchTopArtworks()
+            FeedCache.illust[cacheKey] = list
+            items = list
+        } catch (e: Exception) {
+            error = e.friendlyMessage()
+            logError("Pixo", "recommend load failed", e)
+        }
+        loading = false
+    }
+    SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
+
+    val list = items.orEmpty()
+    PixoSubScreen(title = Str.recommended(), onBack = onBack) { innerPadding ->
+        when {
+            loading && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                LoadingState()
+            }
+            error != null && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                ErrorState(error ?: "", onRetry = { retryKey++ })
+            }
+            else -> LazyColumn(
+                state = listState,
+                contentPadding = innerPadding,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(list, key = { it.id }) { w ->
+                    PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
+                }
+            }
+        }
+    }
+}
+
 /** 作者主页：资料头 + 插画/小说作品列表。 */
 @Composable
 fun UserScreen(
@@ -1714,6 +1772,9 @@ fun UserScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    var bioDialog by remember { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
+    val copyAllLabel = Str.copy_all()
     val cacheKey = if (kind == "novel") novelKey else illustKey
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
 
@@ -1727,14 +1788,27 @@ fun UserScreen(
         try {
             if (user == null) user = PixivApi.fetchUser(userId)
             if (illustItems == null) {
-                val list = PixivApi.fetchUserIllusts(userId, 0, 30)
-                FeedCache.illust[illustKey] = list
-                illustItems = list
+                illustItems = try {
+                    val list = PixivApi.fetchUserIllusts(userId, 0, 30)
+                    FeedCache.illust[illustKey] = list
+                    list
+                } catch (_: Exception) {
+                    // 分页接口不可用时回退到最新作品
+                    val w = PixivApi.fetchUserWorks(userId)
+                    FeedCache.illust[illustKey] = w.illusts
+                    w.illusts
+                }
             }
             if (novelItems == null) {
-                val list = PixivApi.fetchUserNovels(userId, 0, 30)
-                FeedCache.novels[novelKey] = list
-                novelItems = list
+                novelItems = try {
+                    val list = PixivApi.fetchUserNovels(userId, 0, 30)
+                    FeedCache.novels[novelKey] = list
+                    list
+                } catch (_: Exception) {
+                    val w = PixivApi.fetchUserWorks(userId)
+                    FeedCache.novels[novelKey] = w.novels
+                    w.novels
+                }
             }
         } catch (e: Exception) {
             error = e.friendlyMessage()
@@ -1796,7 +1870,7 @@ fun UserScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        item { UserHeader(user) }
+                        item { UserHeader(user) { bio -> bioDialog = bio } }
                         item {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ModeChip("illust", Str.illust(), kind) { kind = "illust" }
@@ -1819,32 +1893,63 @@ fun UserScreen(
                     }
                 }
             }
+
+            OverlayDialog(show = bioDialog != null, onDismissRequest = { bioDialog = null }) {
+                val text = bioDialog.orEmpty()
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Str.author_page(), style = MiuixTheme.textStyles.title3)
+                    TextField(
+                        value = text,
+                        onValueChange = {},
+                        label = Str.copy_all(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Button(onClick = {
+                        clipboard.setText(AnnotatedString(text))
+                        bioDialog = null
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text(copyAllLabel)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun UserHeader(user: PixivUser?) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AuthorAvatar(user?.avatar.orEmpty(), 72.dp, user?.id ?: 0)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(user?.name.orEmpty(), style = MiuixTheme.textStyles.title3, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                user?.account?.takeIf { it.isNotBlank() }?.let {
-                    Text("@" + it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+private fun UserHeader(user: PixivUser?, onCopyBio: (String) -> Unit = {}) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // 基本信息卡
+        Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                AuthorAvatar(user?.avatar.orEmpty(), 68.dp, user?.id ?: 0)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(user?.name.orEmpty(), style = MiuixTheme.textStyles.title3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    user?.account?.takeIf { it.isNotBlank() }?.let {
+                        Text("@" + it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        Str.user_stats(user?.totalIllusts ?: 0, user?.totalNovels ?: 0),
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    Str.user_stats(user?.totalIllusts ?: 0, user?.totalNovels ?: 0),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
             }
         }
-        user?.comment?.takeIf { it.isNotBlank() }?.let {
-            Spacer(Modifier.height(8.dp))
-            Text(it, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+        // 简介卡：长按可复制（全部或部分）
+        user?.comment?.takeIf { it.isNotBlank() }?.let { bio ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .combinedClickable(onClick = {}, onLongClick = { onCopyBio(bio) }),
+            ) {
+                Box(Modifier.fillMaxWidth().padding(14.dp)) {
+                    Text(bio, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                }
+            }
         }
     }
 }
