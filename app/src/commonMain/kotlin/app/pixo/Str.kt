@@ -53,6 +53,7 @@ internal expect object Str {
     @Composable fun novel(): String
     @Composable fun search_pixiv(): String
     @Composable fun discover(): String
+    @Composable fun recommended(): String
     @Composable fun search_hint(): String
     @Composable fun comments(): String
     @Composable fun author_prefix(): String
@@ -98,4 +99,5 @@ internal expect object Str {
     @Composable fun crash_log(): String
     @Composable fun clear_crash_log(): String
     @Composable fun crash_none(): String
+    @Composable fun copy_all(): String
 }
