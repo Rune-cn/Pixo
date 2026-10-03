@@ -110,7 +110,7 @@ object AppPixivApi {
     }
 
     suspend fun fetchIllustPages(id: Long): List<PixivPage> {
-        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url("$BASE/illust/pages?illust_id=$id"))
+        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url("$BASE/illust/pages?illust_id=$id&filter=for_android"))
         val arr = root.arr("pages")
         return buildList {
             if (arr == null) return@buildList
@@ -161,9 +161,9 @@ object AppPixivApi {
     // ---------- 评论 ----------
 
     suspend fun fetchComments(kind: String, id: Long): List<PixivComment> {
-        // App API 评论端点是单数 comment
-        val url = if (kind == "novel") "$BASE/novel/comment?novel_id=$id&offset=0"
-        else "$BASE/illust/comment?illust_id=$id&offset=0"
+        // App API 评论端点是单数 comment，且需要 filter
+        val url = if (kind == "novel") "$BASE/novel/comment?novel_id=$id&offset=0&filter=for_android"
+        else "$BASE/illust/comment?illust_id=$id&offset=0&filter=for_android"
         val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
         val arr = root.arr("comments")
         return buildList {
