@@ -36,6 +36,7 @@
     <string name="ranking">排行榜</string>
     <string name="search_pixiv">搜索 Pixiv</string>
     <string name="discover">发现</string>
+    <string name="recommended">推荐</string>
     <string name="search_hint">输入关键词，搜索插画与漫画</string>
     <string name="author_prefix">作者：</string>
     <string name="comments">评论</string>
@@ -96,4 +97,5 @@
     <string name="crash_log">崩溃日志</string>
     <string name="clear_crash_log">清除崩溃日志</string>
     <string name="crash_none">无崩溃记录</string>
+    <string name="copy_all">全选复制</string>
 </resources>
