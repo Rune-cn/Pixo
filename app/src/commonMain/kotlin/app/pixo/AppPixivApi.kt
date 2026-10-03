@@ -56,7 +56,7 @@ object AppPixivApi {
     suspend fun fetchIllustBookmarks(rest: String, offset: Int = 0, limit: Int = 24): List<PixivWork> {
         val restrict = if (rest == "hide") "private" else "public"
         val root = PixivHttp.getJson(
-            PixivHttp.appApiHeaders().url("$BASE/user/bookmarks/illust?restrict=$restrict&offset=$offset&limit=$limit"),
+            PixivHttp.appApiHeaders().url("$BASE/user/bookmarks/illust?user_id=${AppPrefs.selfUserId}&restrict=$restrict&offset=$offset&limit=$limit"),
         )
         return parseIllusts(root.arr("illusts"))
     }
@@ -161,7 +161,9 @@ object AppPixivApi {
     // ---------- 评论 ----------
 
     suspend fun fetchComments(kind: String, id: Long): List<PixivComment> {
-        val url = if (kind == "novel") "$BASE/novel/comments?novel_id=$id&offset=0" else "$BASE/illust/comments?illust_id=$id&offset=0"
+        // App API 评论端点是单数 comment
+        val url = if (kind == "novel") "$BASE/novel/comment?novel_id=$id&offset=0"
+        else "$BASE/illust/comment?illust_id=$id&offset=0"
         val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
         val arr = root.arr("comments")
         return buildList {
