@@ -50,6 +50,7 @@ internal actual object Str {
     @Composable actual fun novel(): String = stringResource(Res.string.novel)
     @Composable actual fun search_pixiv(): String = stringResource(Res.string.search_pixiv)
     @Composable actual fun discover(): String = stringResource(Res.string.discover)
+    @Composable actual fun recommended(): String = stringResource(Res.string.recommended)
     @Composable actual fun search_hint(): String = stringResource(Res.string.search_hint)
     @Composable actual fun comments(): String = stringResource(Res.string.comments)
     @Composable actual fun author_prefix(): String = stringResource(Res.string.author_prefix)
@@ -95,4 +96,5 @@ internal actual object Str {
     @Composable actual fun crash_log(): String = stringResource(Res.string.crash_log)
     @Composable actual fun clear_crash_log(): String = stringResource(Res.string.clear_crash_log)
     @Composable actual fun crash_none(): String = stringResource(Res.string.crash_none)
+    @Composable actual fun copy_all(): String = stringResource(Res.string.copy_all)
 }
