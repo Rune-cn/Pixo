@@ -1,0 +1,15 @@
+.gradle/
+build/
+*/build/
+.idea/
+*.iml
+local.properties
+keystore.properties
+release.keystore
+*.jks
+.keystore-pass.txt
+Pixo-*.apk
+*.apk
+.kotlin/
+captures/
+.DS_Store
