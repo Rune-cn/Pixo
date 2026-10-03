@@ -104,6 +104,9 @@ internal data class Comments(val workId: Long, val kind: String)
 @Serializable
 internal object Discover
 
+@Serializable
+internal object Recommended
+
 private val themeModes = listOf(ColorSchemeMode.System, ColorSchemeMode.Dark, ColorSchemeMode.Light)
 
 @Composable
@@ -143,6 +146,7 @@ fun App() {
                             onOpenRanking = { mode -> navController.navigate(Ranking(mode)) },
                             onOpenNovelRanking = { mode -> navController.navigate(NovelRanking(mode)) },
                             onOpenDiscover = { navController.navigate(Discover) },
+                            onOpenRecommended = { navController.navigate(Recommended) },
                             onOpenSearch = { navController.navigate(Search()) },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenBookmarks = { restrict -> navController.navigate(Bookmarks(restrict)) },
@@ -247,6 +251,18 @@ fun App() {
                         popExitTransition = { miuixPopExit() },
                     ) {
                         DiscoverScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
+                            onOpenUser = { navController.navigate(User(it)) },
+                        )
+                    }
+                    composable<Recommended>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        RecommendedScreen(
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
