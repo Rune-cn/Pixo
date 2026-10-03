@@ -50,6 +50,7 @@ internal actual object Str {
     @Composable actual fun novel(): String = stringResource(app.pixo.R.string.novel)
     @Composable actual fun search_pixiv(): String = stringResource(app.pixo.R.string.search_pixiv)
     @Composable actual fun discover(): String = stringResource(app.pixo.R.string.discover)
+    @Composable actual fun recommended(): String = stringResource(app.pixo.R.string.recommended)
     @Composable actual fun search_hint(): String = stringResource(app.pixo.R.string.search_hint)
     @Composable actual fun comments(): String = stringResource(app.pixo.R.string.comments)
     @Composable actual fun author_prefix(): String = stringResource(app.pixo.R.string.author_prefix)
@@ -95,4 +96,5 @@ internal actual object Str {
     @Composable actual fun crash_log(): String = stringResource(app.pixo.R.string.crash_log)
     @Composable actual fun clear_crash_log(): String = stringResource(app.pixo.R.string.clear_crash_log)
     @Composable actual fun crash_none(): String = stringResource(app.pixo.R.string.crash_none)
+    @Composable actual fun copy_all(): String = stringResource(app.pixo.R.string.copy_all)
 }
