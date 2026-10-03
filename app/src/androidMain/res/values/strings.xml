@@ -99,4 +99,6 @@
     <string name="clear_crash_log">Clear crash log</string>
     <string name="crash_none">No crash log</string>
     <string name="copy_all">Copy all</string>
+    <string name="copy_select">Select to copy</string>
+    <string name="copy_title">Copy</string>
 </resources>
