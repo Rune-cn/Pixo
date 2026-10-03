@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -1236,7 +1237,9 @@ private fun CommentCard(c: PixivComment, onOpenUser: (Long) -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(c.content, style = MiuixTheme.textStyles.body2)
+                SelectionContainer {
+                    Text(c.content, style = MiuixTheme.textStyles.body2)
+                }
             }
         }
     }
@@ -1717,9 +1720,14 @@ fun RecommendedScreen(
         loading = true
         error = null
         try {
-            val list = PixivApi.fetchTopArtworks()
-            FeedCache.illust[cacheKey] = list
-            items = list
+            val list = try {
+                PixivApi.fetchTopArtworks()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val final = if (list.isEmpty()) PixivApi.fetchTopFeed(0, 30) else list
+            FeedCache.illust[cacheKey] = final
+            items = final
         } catch (e: Exception) {
             error = e.friendlyMessage()
             logError("Pixo", "recommend load failed", e)
@@ -1787,29 +1795,31 @@ fun UserScreen(
         error = null
         try {
             if (user == null) user = PixivApi.fetchUser(userId)
-            if (illustItems == null) {
-                illustItems = try {
+            val tokenMode = PixivAuth.isTokenMode
+            if (tokenMode) {
+                if (illustItems == null) {
                     val list = PixivApi.fetchUserIllusts(userId, 0, 30)
                     FeedCache.illust[illustKey] = list
-                    list
-                } catch (_: Exception) {
-                    // 分页接口不可用时回退到最新作品
-                    val w = PixivApi.fetchUserWorks(userId)
-                    FeedCache.illust[illustKey] = w.illusts
-                    w.illusts
+                    illustItems = list
                 }
-            }
-            if (novelItems == null) {
-                novelItems = try {
+                if (novelItems == null) {
                     val list = PixivApi.fetchUserNovels(userId, 0, 30)
                     FeedCache.novels[novelKey] = list
-                    list
-                } catch (_: Exception) {
-                    val w = PixivApi.fetchUserWorks(userId)
+                    novelItems = list
+                }
+            } else {
+                // 网页端没有稳定的作者作品分页接口，用 works/latest 展示最新作品
+                val w = PixivApi.fetchUserWorks(userId)
+                if (illustItems == null) {
+                    FeedCache.illust[illustKey] = w.illusts
+                    illustItems = w.illusts
+                }
+                if (novelItems == null) {
                     FeedCache.novels[novelKey] = w.novels
-                    w.novels
+                    novelItems = w.novels
                 }
             }
+            hasMore = tokenMode
         } catch (e: Exception) {
             error = e.friendlyMessage()
             logError("Pixo", "user works load failed", e)
@@ -1894,24 +1904,21 @@ fun UserScreen(
                 }
             }
 
-            OverlayDialog(show = bioDialog != null, onDismissRequest = { bioDialog = null }) {
-                val text = bioDialog.orEmpty()
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(Str.author_page(), style = MiuixTheme.textStyles.title3)
-                    TextField(
-                        value = text,
-                        onValueChange = {},
-                        label = Str.copy_all(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Button(onClick = {
-                        clipboard.setText(AnnotatedString(text))
-                        bioDialog = null
-                    }, modifier = Modifier.fillMaxWidth()) {
-                        Text(copyAllLabel)
+                OverlayDialog(show = bioDialog != null, onDismissRequest = { bioDialog = null }) {
+                    val text = bioDialog.orEmpty()
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(Str.author_page(), style = MiuixTheme.textStyles.title3)
+                        SelectionContainer {
+                            Text(text, style = MiuixTheme.textStyles.body2)
+                        }
+                        Button(onClick = {
+                            clipboard.setText(AnnotatedString(text))
+                            bioDialog = null
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Text(copyAllLabel)
+                        }
                     }
                 }
-            }
         }
     }
 }
