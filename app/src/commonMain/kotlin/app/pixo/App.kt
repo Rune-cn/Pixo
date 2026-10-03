@@ -29,6 +29,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -356,6 +359,12 @@ fun App() {
                         )
                     }
                 }
+                val navEventState = rememberNavigationEventState(NavigationEventInfo.None)
+                NavigationBackHandler(
+                    state = navEventState,
+                    isBackEnabled = current?.route != "app.pixo.Home",
+                    onBackCompleted = { navController.popBackStack() },
+                )
                 if (isTabPage) {
                     NavigationBar(
                         modifier = Modifier
@@ -403,13 +412,8 @@ fun SettingsPage(
     onOpenSettings: () -> Unit,
     bottomPadding: Dp = 0.dp,
 ) {
-    var tokenInput by remember { mutableStateOf("") }
-    var loginBusy by remember { mutableStateOf(false) }
-    var loginStatus by remember { mutableStateOf<String?>(null) }
     var selfId by remember { mutableStateOf(AppPrefs.selfUserId) }
     var selfInfo by remember { mutableStateOf<PixivUser?>(null) }
-    var showLoginDialog by remember { mutableStateOf(false) }
-    var showTokenDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(selfId) {
@@ -424,28 +428,10 @@ fun SettingsPage(
         }
     }
 
-    fun doLogin() {
-        scope.launch {
-            loginBusy = true
-            val err = PixivAuth.login(tokenInput)
-            loginBusy = false
-            if (err == null) {
-                tokenInput = ""
-                selfId = AppPrefs.selfUserId
-                loginStatus = PixivAuth.lastLoginUser
-                showTokenDialog = false
-            } else {
-                loginStatus = err
-            }
-        }
-    }
-
     fun doLogout() {
         PixivAuth.logout()
-        tokenInput = ""
         selfId = 0
         selfInfo = null
-        loginStatus = null
     }
 
     PixoTabFrame(title = Str.nav_settings()) { framePadding ->
@@ -461,7 +447,7 @@ fun SettingsPage(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Button(onClick = { showLoginDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                            Button(onClick = onOpenWebLogin, modifier = Modifier.fillMaxWidth()) {
                                 Text(Str.login_button())
                             }
                         }
@@ -495,60 +481,6 @@ fun SettingsPage(
                     ) {
                         Text(Str.settings_title(), style = MiuixTheme.textStyles.body1, modifier = Modifier.weight(1f))
                         Text("›", style = MiuixTheme.textStyles.title3, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                    }
-                }
-            }
-        }
-
-        OverlayDialog(show = showLoginDialog, onDismissRequest = { showLoginDialog = false }) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(Str.settings_login(), style = MiuixTheme.textStyles.title3)
-                Button(onClick = {
-                    showLoginDialog = false
-                    onOpenWebLogin()
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text(Str.web_login())
-                }
-                Button(onClick = {
-                    showLoginDialog = false
-                    showTokenDialog = true
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text(Str.token_login())
-                }
-            }
-        }
-        OverlayDialog(show = showTokenDialog, onDismissRequest = { showTokenDialog = false }) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(Str.token_login(), style = MiuixTheme.textStyles.title3)
-                Text(
-                    Str.token_login_hint(),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-                TextField(
-                    value = tokenInput,
-                    onValueChange = { tokenInput = it; loginStatus = null },
-                    label = Str.refresh_token_label(),
-                    singleLine = false,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                loginStatus?.let {
-                    Text(
-                        it,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = if (selfId > 0L) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error,
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { showTokenDialog = false }, modifier = Modifier.weight(1f)) {
-                        Text(Str.cancel())
-                    }
-                    Button(
-                        onClick = { doLogin() },
-                        enabled = !loginBusy && tokenInput.isNotBlank(),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(Str.login_button())
                     }
                 }
             }
