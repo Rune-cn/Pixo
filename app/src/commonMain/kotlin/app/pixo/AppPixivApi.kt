@@ -163,9 +163,9 @@ object AppPixivApi {
     // ---------- 评论 ----------
 
     suspend fun fetchComments(kind: String, id: Long): List<PixivComment> {
-        // App API 评论端点是单数 comment，且需要 filter
-        val url = if (kind == "novel") "$BASE/novel/comment?novel_id=$id&offset=0&filter=for_android"
-        else "$BASE/illust/comment?illust_id=$id&offset=0&filter=for_android"
+        // App API 评论端点（新版为 /roots）
+        val url = if (kind == "novel") "$BASE/novel/comment/roots?novel_id=$id&offset=0"
+        else "$BASE/illust/comment/roots?illust_id=$id&offset=0"
         val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
         val arr = root.arr("comments")
         return buildList {
