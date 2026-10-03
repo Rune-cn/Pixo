@@ -97,4 +97,6 @@ internal actual object Str {
     @Composable actual fun clear_crash_log(): String = stringResource(Res.string.clear_crash_log)
     @Composable actual fun crash_none(): String = stringResource(Res.string.crash_none)
     @Composable actual fun copy_all(): String = stringResource(Res.string.copy_all)
+    @Composable actual fun copy_select(): String = stringResource(Res.string.copy_select)
+    @Composable actual fun copy_title(): String = stringResource(Res.string.copy_title)
 }
