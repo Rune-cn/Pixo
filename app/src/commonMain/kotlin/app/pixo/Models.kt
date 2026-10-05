@@ -93,6 +93,18 @@ data class PixivNovelDetail(
 /** 插画分页图。[url] 为列表用图（regular），[original] 为原图（灯箱/全屏用）。 */
 data class PixivPage(val url: String, val original: String = "")
 
+/** Pixiv ugoira（动图）元数据：zip 下载地址与帧序列。 */
+data class PixivUgoira(
+    val zipUrl: String,
+    val frames: List<PixivUgoiraFrame>,
+)
+
+/** ugoira 单帧：[file] 为 zip 内的文件名，[delayMs] 为该帧停留毫秒数。 */
+data class PixivUgoiraFrame(
+    val file: String,
+    val delayMs: Int,
+)
+
 /** 评论。 */
 data class PixivComment(
     val id: Long,

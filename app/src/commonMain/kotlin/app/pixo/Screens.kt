@@ -5,9 +5,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,17 +47,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -69,12 +60,16 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import me.saket.telephoto.zoomable.ZoomSpec
+import me.saket.telephoto.zoomable.rememberZoomableState
+import me.saket.telephoto.zoomable.zoomable
 import coil3.request.crossfade
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -90,6 +85,7 @@ import top.yukonga.miuix.kmp.icon.extended.Promotions
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Months
+import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Recent
 import top.yukonga.miuix.kmp.icon.extended.Search
@@ -882,7 +878,30 @@ fun DetailScreen(
     onOpenUser: (Long) -> Unit,
     onOpenComments: (Long, String) -> Unit,
 ) {
-    PixoSubScreen(title = "", onBack = onBack) { innerPadding ->
+    PixoSubScreen(title = "", onBack = onBack, actions = {
+        var showMenu by remember { mutableStateOf(false) }
+        IconButton(onClick = { showMenu = true }) {
+            Icon(imageVector = MiuixIcons.More, contentDescription = Str.more_actions())
+        }
+        if (showMenu) {
+            OverlayDialog(show = true, onDismissRequest = { showMenu = false }) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Str.more_actions(), style = MiuixTheme.textStyles.title3)
+                    Button(
+                        onClick = {
+                            showMenu = false
+                            openUrlInBrowser(
+                                if (kind == "novel") "https://www.pixiv.net/novel/show.php?id=$workId"
+                                else "https://www.pixiv.net/artworks/$workId",
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(Str.open_in_browser()) }
+                    Button(onClick = { showMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+                }
+            }
+        }
+    }) { innerPadding ->
         if (kind == "novel") {
             NovelDetail(workId, innerPadding, onSearchTag, onOpenUser, onOpenComments)
         } else {
@@ -910,6 +929,7 @@ private fun IllustDetail(
     var feedback by remember { mutableStateOf<String?>(null) }
     var bookmarkBusy by remember { mutableStateOf(false) }
     var lightboxIndex by remember { mutableIntStateOf(-1) }
+    var ugoira by remember(workId) { mutableStateOf<PixivUgoira?>(null) }
     val scope = rememberCoroutineScope()
 
     // 预取文案（协程内不能用 @Composable 资源访问）
@@ -919,7 +939,15 @@ private fun IllustDetail(
 
     LaunchedEffect(workId, retryKey) {
         // 已缓存则直接使用，避免重复加载
-        if (FeedCache.illustDetail[workId] != null && FeedCache.illustPages[workId] != null && retryKey == 0) {
+        val cachedDetail = FeedCache.illustDetail[workId]
+        if (cachedDetail != null && FeedCache.illustPages[workId] != null && retryKey == 0) {
+            if (cachedDetail.illustType == 2 && ugoira == null) {
+                try {
+                    ugoira = PixivApi.fetchUgoiraMeta(workId)
+                } catch (e: Exception) {
+                    logError("Pixo", "ugoira meta fail", e)
+                }
+            }
             return@LaunchedEffect
         }
         loading = true
@@ -931,6 +959,14 @@ private fun IllustDetail(
             FeedCache.illustPages[workId] = p
             detail = d
             pages = p
+            // ugoira 动图：详情命中 illustType=2 时取帧元数据，失败不影响正文
+            if (d.illustType == 2) {
+                try {
+                    ugoira = PixivApi.fetchUgoiraMeta(workId)
+                } catch (e: Exception) {
+                    logError("Pixo", "ugoira meta fail", e)
+                }
+            }
         } catch (e: Exception) {
             error = e.friendlyMessage()
             logError("Pixo", "load failed", e)
@@ -983,13 +1019,38 @@ private fun IllustDetail(
                 val d = detail
                 LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
                     itemsIndexed(pages) { index, page ->
-                        val ctx = LocalPlatformContext.current
-                        AsyncImage(
-                            model = ImageRequest.Builder(ctx).data(page.url).crossfade(true).build(),
-                            contentDescription = d?.title ?: "",
-                            contentScale = ContentScale.FillWidth,
-                            modifier = Modifier.fillMaxWidth().clickable { lightboxIndex = index },
-                        )
+                        val isUgoira = ugoira != null && index == 0
+                        Box(Modifier.fillMaxWidth().clickable { lightboxIndex = index }) {
+                            if (isUgoira) {
+                                UgoiraAsyncImage(
+                                    workId = workId,
+                                    fallbackUrl = page.url,
+                                    contentDescription = d?.title ?: "",
+                                    contentScale = ContentScale.FillWidth,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            } else {
+                                val ctx = LocalPlatformContext.current
+                                AsyncImage(
+                                    model = ImageRequest.Builder(ctx).data(page.url).crossfade(true).build(),
+                                    contentDescription = d?.title ?: "",
+                                    contentScale = ContentScale.FillWidth,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            if (isUgoira) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(6.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color.Black.copy(alpha = 0.45f))
+                                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                                ) {
+                                    Text(Str.animated_badge(), style = MiuixTheme.textStyles.footnote2, color = Color.White)
+                                }
+                            }
+                        }
                     }
                     item {
                         IllustInfo(
@@ -1058,120 +1119,70 @@ private fun IllustDetail(
         }
 
         if (lightboxIndex >= 0) {
-            ImageLightbox(pages = pages, initialIndex = lightboxIndex, onClose = { lightboxIndex = -1 })
+            ImageLightbox(
+                pages = pages,
+                ugoira = ugoira,
+                workId = workId,
+                initialIndex = lightboxIndex,
+                onClose = { lightboxIndex = -1 },
+            )
         }
     }
 }
 
-/** 图片灯箱：点击图片全屏查看，横向滑动翻页，支持双指捏合缩放、缩放后拖动平移、双击放大/还原。
- *  未放大时单指滑动交给 Pager 翻页；放大后 Pager 锁定、单指拖动平移画面。 */
+/** 图片灯箱：点击图片全屏查看，横向滑动翻页。
+ *  缩放交给成熟的 telephoto zoomable（双指捏合、缩放后拖动、双击放大/还原）；
+ *  未放大时单指滑动交给 Pager 翻页，放大后 Pager 自动锁定。 */
 @Composable
-private fun ImageLightbox(pages: List<PixivPage>, initialIndex: Int, onClose: () -> Unit) {
+private fun ImageLightbox(
+    pages: List<PixivPage>,
+    ugoira: PixivUgoira?,
+    workId: Long,
+    initialIndex: Int,
+    onClose: () -> Unit,
+) {
     val ctx = LocalPlatformContext.current
     val safeIndex = initialIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     val pagerState = rememberPagerState(initialPage = safeIndex) { pages.size.coerceAtLeast(1) }
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
-    var viewport by remember { mutableStateOf(IntSize.Zero) }
-
-    fun clampOffsets() {
-        val maxX = viewport.width / 2f * (scale - 1f)
-        val maxY = viewport.height / 2f * (scale - 1f)
-        offsetX = offsetX.coerceIn(-maxX, maxX)
-        offsetY = offsetY.coerceIn(-maxY, maxY)
-    }
-
-    fun resetZoom() {
-        scale = 1f
-        offsetX = 0f
-        offsetY = 0f
-    }
+    val zoomableState = rememberZoomableState(zoomSpec = ZoomSpec(maxZoomFactor = 6f))
+    val isZoomed = (zoomableState.zoomFraction ?: 0f) > 0.001f
 
     // 切页时回到未缩放状态
-    LaunchedEffect(pagerState.currentPage) { resetZoom() }
-    val zoomed = scale > 1.001f
+    LaunchedEffect(pagerState.currentPage) { zoomableState.resetZoom() }
     SystemBackHandler(enabled = true) { onClose() }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = !zoomed,
+            userScrollEnabled = !isZoomed,
             modifier = Modifier.fillMaxSize(),
             overscrollEffect = null,
         ) { index ->
             val page = pages.getOrNull(index) ?: return@HorizontalPager
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .onSizeChanged { viewport = it }
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offsetX
-                        translationY = offsetY
-                    }
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
-                            var pinchStartDist = 0f
-                            var pinchStartScale = scale
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val pressed = event.changes.filter { it.pressed }
-                                if (pressed.isEmpty()) break
-                                if (pressed.size >= 2) {
-                                    val p0 = pressed[0]
-                                    val p1 = pressed[1]
-                                    val dist = (p0.position - p1.position).getDistance()
-                                    val cx = (p0.position.x + p1.position.x) / 2f
-                                    val cy = (p0.position.y + p1.position.y) / 2f
-                                    if (pinchStartDist == 0f) {
-                                        pinchStartDist = dist
-                                        pinchStartScale = scale
-                                    } else {
-                                        val next = (pinchStartScale * dist / pinchStartDist).coerceIn(1f, 6f)
-                                        val factor = next / scale
-                                        offsetX = cx - (cx - offsetX) * factor
-                                        offsetY = cy - (cy - offsetY) * factor
-                                        scale = next
-                                        clampOffsets()
-                                    }
-                                    event.changes.forEach { if (it.positionChanged()) it.consume() }
-                                } else {
-                                    val change = event.changes.first()
-                                    if (scale > 1.001f) {
-                                        if (change.positionChanged()) {
-                                            offsetX += change.positionChange().x
-                                            offsetY += change.positionChange().y
-                                            clampOffsets()
-                                        }
-                                        change.consume()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = {
-                                if (scale > 1.001f) resetZoom() else onClose()
-                            },
-                            onDoubleTap = {
-                                if (scale > 1.001f) resetZoom() else {
-                                    scale = 2f
-                                    clampOffsets()
-                                }
-                            },
-                        )
+            val zoomModifier = Modifier
+                .fillMaxSize()
+                .zoomable(
+                    state = zoomableState,
+                    onClick = {
+                        if ((zoomableState.zoomFraction ?: 0f) <= 0.001f) onClose()
                     },
-                contentAlignment = Alignment.Center,
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(ctx).data(page.original.ifBlank { page.url }).crossfade(true).build(),
-                    contentDescription = "illust",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
                 )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (ugoira != null && index == 0) {
+                    UgoiraAsyncImage(
+                        workId = workId,
+                        fallbackUrl = page.original.ifBlank { page.url },
+                        contentDescription = "illust",
+                        contentScale = ContentScale.Fit,
+                        modifier = zoomModifier,
+                    )
+                } else {
+                    AsyncImage(
+                        model = ImageRequest.Builder(ctx).data(page.original.ifBlank { page.url }).crossfade(true).build(),
+                        contentDescription = "illust",
+                        contentScale = ContentScale.Fit,
+                        modifier = zoomModifier,
+                    )
+                }
             }
         }
         // 页码指示
@@ -1199,6 +1210,57 @@ private fun ImageLightbox(pages: List<PixivPage>, initialIndex: Int, onClose: ()
         ) {
             Icon(imageVector = MiuixIcons.Back, contentDescription = "关闭", tint = Color.White)
         }
+    }
+}
+
+/** ugoira 动图播放：下载 zip → 解压帧 → 按帧延时轮播；失败时回退到静态图。 */
+@Composable
+private fun UgoiraAsyncImage(
+    workId: Long,
+    fallbackUrl: String,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Fit,
+) {
+    val ctx = LocalPlatformContext.current
+    var frameBytes by remember(workId) { mutableStateOf<List<ByteArray>>(emptyList()) }
+    var delays by remember(workId) { mutableStateOf<List<Int>>(emptyList()) }
+    var index by remember(workId) { mutableIntStateOf(0) }
+
+    LaunchedEffect(workId) {
+        try {
+            val meta = PixivApi.fetchUgoiraMeta(workId)
+            val bytes = loadUgoiraFrames(meta.zipUrl, meta.frames.map { it.file })
+            if (bytes != null && bytes.isNotEmpty()) {
+                frameBytes = bytes
+                delays = meta.frames.map { it.delayMs }
+            }
+        } catch (e: Exception) {
+            logError("Pixo", "ugoira load fail", e)
+        }
+    }
+    LaunchedEffect(frameBytes) {
+        if (frameBytes.isEmpty()) return@LaunchedEffect
+        while (true) {
+            delay(delays.getOrElse(index % frameBytes.size) { 125 }.toLong())
+            index = (index + 1) % frameBytes.size
+        }
+    }
+    val frame = frameBytes.getOrNull(if (frameBytes.isEmpty()) 0 else index % frameBytes.size)
+    if (frame != null) {
+        AsyncImage(
+            model = ImageRequest.Builder(ctx).data(frame).build(),
+            contentDescription = contentDescription,
+            contentScale = contentScale,
+            modifier = modifier,
+        )
+    } else {
+        AsyncImage(
+            model = ImageRequest.Builder(ctx).data(fallbackUrl).crossfade(true).build(),
+            contentDescription = contentDescription,
+            contentScale = contentScale,
+            modifier = modifier,
+        )
     }
 }
 
@@ -1562,7 +1624,19 @@ private fun RootCommentCard(
                     Text(c.content, style = MiuixTheme.textStyles.body2)
                 }
             }
-            // 深色追评区：追评直接嵌在一级评论卡片里面
+            // 操作行：回复（对一级评论也能回复），追评卡片紧随其下
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text(
+                    text = Str.reply_action(),
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onReply(c) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
+            // 深色追评区：追评卡片嵌在一级评论卡片里面（回复按钮下方），用更深颜色区分
             if (c.hasReplies || c.replies.isNotEmpty() || expanded) {
                 if (!expanded) {
                     // 收起态：深色条，点击展开
@@ -1570,7 +1644,7 @@ private fun RootCommentCard(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                            .background(MiuixTheme.colorScheme.surfaceContainerHighest)
                             .clickable { expanded = true }
                             .padding(vertical = 10.dp),
                         horizontalArrangement = Arrangement.Center,
@@ -1586,7 +1660,7 @@ private fun RootCommentCard(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                            .background(MiuixTheme.colorScheme.surfaceContainerHighest)
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
@@ -1668,18 +1742,6 @@ private fun RootCommentCard(
                         }
                     }
                 }
-            }
-            // 操作行：回复（对一级评论也能回复）
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Text(
-                    text = Str.reply_action(),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onReply(c) }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
             }
         }
     }
@@ -1923,13 +1985,27 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            val ctx = LocalPlatformContext.current
-            AsyncImage(
-                model = ImageRequest.Builder(ctx).data(work.thumb).crossfade(true).build(),
-                contentDescription = work.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
-            )
+            Box {
+                val ctx = LocalPlatformContext.current
+                AsyncImage(
+                    model = ImageRequest.Builder(ctx).data(work.thumb).crossfade(true).build(),
+                    contentDescription = work.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
+                )
+                if (work.illustType == 2) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(2.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                    ) {
+                        Text(Str.animated_badge(), style = MiuixTheme.textStyles.footnote1, color = Color.White)
+                    }
+                }
+            }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(work.title, style = MiuixTheme.textStyles.body1, maxLines = 2, overflow = TextOverflow.Ellipsis)

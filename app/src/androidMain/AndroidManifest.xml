@@ -14,11 +14,34 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:enableOnBackInvokedCallback="true"
             android:configChanges="locale|layoutDirection">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 深链：pixiv://artworks/{id} / pixiv://novel/{id} -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pixiv" android:host="artworks" />
+                <data android:scheme="pixiv" android:host="novel" />
+            </intent-filter>
+            <!-- 网页链接：https://www.pixiv.net/artworks/{id} -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.pixiv.net" android:pathPrefix="/artworks/" />
+            </intent-filter>
+            <!-- 网页链接：https://www.pixiv.net/novel/show.php?id={id} -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.pixiv.net" android:pathPrefix="/novel/show.php" />
             </intent-filter>
         </activity>
     </application>

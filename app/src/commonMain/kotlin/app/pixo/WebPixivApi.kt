@@ -181,6 +181,25 @@ object WebPixivApi {
         }
     }
 
+    /** ugoira（动图）元数据：返回 zip 下载地址与帧序列（帧需自行解压 zip 获得）。 */
+    suspend fun fetchUgoiraMeta(id: Long): PixivUgoira {
+        val root = PixivHttp.getJson(
+            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/illust/$id/ugoira_meta"),
+        )
+        val body = root.obj("body") ?: throw IOException("响应缺少 body")
+        val frames = buildList {
+            val arr = body.arr("frames")
+            if (arr != null) {
+                for (el in arr) {
+                    val o = el as? JsonObject
+                    val file = o?.str("file").orEmpty()
+                    if (file.isNotBlank()) add(PixivUgoiraFrame(file, o?.int("delay") ?: 125))
+                }
+            }
+        }
+        return PixivUgoira(zipUrl = body.str("src"), frames = frames)
+    }
+
     suspend fun fetchNovelDetail(id: Long): PixivNovelDetail {
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/novel/$id?lang=zh"))
         val body = root.obj("body") ?: throw IOException("响应缺少 body")

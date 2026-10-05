@@ -212,6 +212,7 @@ fun PixoSubScreen(
     onBack: () -> Unit,
     scrollBehavior: ScrollBehavior? = null,
     blur: Boolean = true,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     // 内嵌 WebView 等平台视图页面关掉 blur：毛玻璃层反复采样会把 WebView 拉进图形层导致界面抖动
@@ -230,6 +231,7 @@ fun PixoSubScreen(
                             Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
                         }
                     },
+                    actions = actions,
                 )
             } else {
                 SmallTopAppBar(
@@ -241,6 +243,7 @@ fun PixoSubScreen(
                             Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
                         }
                     },
+                    actions = actions,
                 )
             }
         },

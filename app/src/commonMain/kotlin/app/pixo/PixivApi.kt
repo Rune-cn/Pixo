@@ -61,6 +61,10 @@ object PixivApi {
     suspend fun fetchIllustPages(id: Long): List<PixivPage> =
         WebPixivApi.fetchIllustPages(id)
 
+    /** ugoira（动图）元数据：zip 下载地址 + 帧序列。 */
+    suspend fun fetchUgoiraMeta(id: Long): PixivUgoira =
+        WebPixivApi.fetchUgoiraMeta(id)
+
     suspend fun fetchNovelDetail(id: Long): PixivNovelDetail =
         WebPixivApi.fetchNovelDetail(id)
 

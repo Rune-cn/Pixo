@@ -72,6 +72,12 @@ expect fun clearCrashLog()
 /** 在系统浏览器中打开链接（用于登录与核实网页端功能）。 */
 expect fun openUrlInBrowser(url: String)
 
+/**
+ * 下载 ugoira zip 并解压出帧图片字节（顺序与 [frameFiles] 一致）。
+ * 任一帧缺失或下载失败返回 null，由调用方回退到静态图。
+ */
+expect suspend fun loadUgoiraFrames(zipUrl: String, frameFiles: List<String>): List<ByteArray>?
+
 @Composable
 expect fun applyWindowBackground(background: Color)
 

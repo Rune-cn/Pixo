@@ -107,6 +107,8 @@ internal expect object Str {
     @Composable fun web_login_success(): String
     @Composable fun web_login_open_browser(): String
     @Composable fun open_in_browser(): String
+    @Composable fun more_actions(): String
+    @Composable fun animated_badge(): String
     @Composable fun web_login_browser_hint(): String
     @Composable fun web_login_detected(): String
     @Composable fun web_login_confirm(): String

@@ -27,6 +27,8 @@ kotlin {
             implementation("top.yukonga.miuix.kmp:miuix-icons:0.9.4")
             implementation("io.coil-kt.coil3:coil-compose:3.6.3")
             implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
+            // 灯箱图片缩放（双指捏合/拖动/双击）：成熟的 telephoto zoomable（KMP，纯手势，不依赖具体图片加载器）
+            implementation("me.saket.telephoto:zoomable:0.19.0")
             implementation("com.squareup.okhttp3:okhttp:5.5.0")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")

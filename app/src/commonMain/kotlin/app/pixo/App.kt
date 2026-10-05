@@ -17,6 +17,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -117,6 +118,9 @@ internal data class Detail(val workId: Long, val kind: String)
 @Serializable
 internal data class Comments(val workId: Long, val kind: String)
 
+/** 深链目标：由 `pixiv://artworks/{id}` 或 `https://www.pixiv.net/artworks/{id}` 解析而来。 */
+data class PixivDeepLink(val workId: Long, val kind: String)
+
 @Serializable
 internal object Discover
 
@@ -129,7 +133,7 @@ private val themeModes = listOf(ColorSchemeMode.System, ColorSchemeMode.Dark, Co
 private val dynamicThemeModes = listOf(ColorSchemeMode.MonetSystem, ColorSchemeMode.MonetDark, ColorSchemeMode.MonetLight)
 
 @Composable
-fun App() {
+fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var themeMode by rememberSaveable { mutableStateOf(ColorSchemeMode.System) }
     var dynamicColor by rememberSaveable { mutableStateOf(AppPrefs.dynamicColor) }
     var language by rememberSaveable { mutableStateOf(AppPrefs.language) }
@@ -137,6 +141,13 @@ fun App() {
     var floatingBar by rememberSaveable { mutableStateOf(AppPrefs.floatingBar) }
     var liquidGlass by rememberSaveable { mutableStateOf(AppPrefs.liquidGlass) }
     val navController = rememberNavController()
+    // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情
+    val deepLink = deepLinkSignal?.value
+    LaunchedEffect(deepLink?.workId, deepLink?.kind) {
+        deepLink?.let {
+            navController.navigate(Detail(it.workId, it.kind)) { launchSingleTop = true }
+        }
+    }
 
     // 主标签页：单个 Pager 承载首页/设置页（对齐示例应用），路由只代表「是否在标签根页」。
     // 选中态立即更新 + EaseInOut tween 快速切换，见 MainPagerState。

@@ -132,6 +132,20 @@ object PixivHttp {
         }
     }
 
+    /** 抓取原始字节（ugoira zip 等二进制资源）。 */
+    suspend fun fetchBytes(builder: Request.Builder): ByteArray = withContext(ioDispatcher) {
+        val url = builder.build().url.toString()
+        log("PixoApi", "BIN $url")
+        val request = builder.build()
+        client.newCall(request).execute().use { response ->
+            val body = response.body
+            val bytes = if (body != null) body.bytes() else ByteArray(0)
+            log("PixoApi", "HTTP ${response.code} len=${bytes.size}")
+            if (!response.isSuccessful) throw java.io.IOException(httpError(response.code))
+            bytes
+        }
+    }
+
     suspend fun getJson(builder: Request.Builder): JsonObject = withContext(ioDispatcher) {
         val url = builder.build().url.toString()
         log("PixoApi", "GET $url | auth=${if (PixivAuth.isTokenMode) "token" else if (AppPrefs.cookie.isBlank()) "none" else "cookie"}")

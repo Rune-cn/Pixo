@@ -4,15 +4,18 @@ Pixo 是一个面向 Android 的 Pixiv 客户端，采用 Compose Multiplatform 
 
 - 语言：Kotlin / Compose Multiplatform（commonMain 一套 UI 代码，Android + Desktop 双端）
 - UI 库：`top.yukonga.miuix.kmp:miuix-*:0.9.4`（锁定版本）
-- 网络：OkHttp 5.5 + Coil 3（图片加载）
+- 网络：OkHttp 5.5 + Coil 3（图片加载）+ `me.saket.telephoto:zoomable`（灯箱缩放）
 - 参考实现：InstallerX-Revived、legado-with-MD3（本地 `../InstallerX-Revived`、`../legado-with-MD3`）
 
 ## 功能
 
 - 首页推荐 / 排行榜（插画、漫画、小说）/ 发现 / 搜索
-- 作品详情：插画分页与原图灯箱（**支持双指捏合缩放、缩放后拖动、双击放大/还原**）
+- 作品详情：插画分页与原图灯箱（**双指捏合缩放、缩放后拖动、双击放大/还原**，由 telephoto zoomable 提供）
+- ugoira 动图（Pixiv 的 “GIF”）：详情页与灯箱自动播放，列表缩略图带「动图」角标（下载 zip → 解压帧 → 按帧延时轮播）
+- 详情页顶栏「⋮」菜单：在浏览器中打开原作品页（插画 / 小说）
+- 深链：`pixiv://artworks/{id}`、`pixiv://novel/{id}` 与 `https://www.pixiv.net/artworks/{id}` 直达作品详情
 - 收藏：公开 / 私密收藏、收藏列表分页（`max_bookmark_id` 游标）
-- 评论：一级评论列表、**追评查看与回复**、长按卡片复制文字
+- 评论：一级评论列表、**追评查看与回复**（追评卡片嵌在一级卡片内、回复按钮下方，深色区分）、长按卡片复制文字
 - 作者主页：资料卡、关注 / 粉丝列表、作品按【插画 / 漫画 / 小说】分类统计、作品列表分页
 - 用户 ID 长按复制：主页 `@账号` 长按 → 复制 @账号 / 复制数字用户 ID / 选择复制
 - 液态玻璃悬浮底栏、动态取色（壁纸）、深色 / 浅色 / 跟随系统、预见式返回、中英双语

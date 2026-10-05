@@ -104,6 +104,8 @@ internal actual object Str {
     @Composable actual fun web_login_success(): String = stringResource(Res.string.web_login_success)
     @Composable actual fun web_login_open_browser(): String = stringResource(Res.string.web_login_open_browser)
     @Composable actual fun open_in_browser(): String = stringResource(Res.string.open_in_browser)
+    @Composable actual fun more_actions(): String = stringResource(Res.string.more_actions)
+    @Composable actual fun animated_badge(): String = stringResource(Res.string.animated_badge)
     @Composable actual fun web_login_browser_hint(): String = stringResource(Res.string.web_login_browser_hint)
     @Composable actual fun web_login_detected(): String = stringResource(Res.string.web_login_detected)
     @Composable actual fun web_login_confirm(): String = stringResource(Res.string.web_login_confirm)

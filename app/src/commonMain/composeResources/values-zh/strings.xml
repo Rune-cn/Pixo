@@ -95,6 +95,8 @@
     <string name="web_login_success">登录成功，会话已保存</string>
     <string name="web_login_open_browser">在浏览器中打开登录页</string>
     <string name="open_in_browser">在浏览器中打开</string>
+    <string name="more_actions">更多操作</string>
+    <string name="animated_badge">动图</string>
     <string name="web_login_browser_hint">当前平台不支持内嵌页面，请在浏览器完成登录后把 Cookie 粘贴到下方。</string>
     <string name="web_login_detected">检测到已登录的会话，点「使用此会话」确认</string>
     <string name="web_login_confirm">使用此会话</string>

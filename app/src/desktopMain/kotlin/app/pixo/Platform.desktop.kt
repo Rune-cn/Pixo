@@ -197,3 +197,24 @@ actual fun applyWindowBackground(background: Color) {
         window?.background = java.awt.Color(background.red, background.green, background.blue, background.alpha)
     }
 }
+
+actual suspend fun loadUgoiraFrames(zipUrl: String, frameFiles: List<String>): List<ByteArray>? =
+    kotlinx.coroutines.withContext(ioDispatcher) {
+        try {
+            val bytes = PixivHttp.fetchBytes(PixivHttp.webJsonHeaders().url(zipUrl))
+            val wanted = frameFiles.toHashSet()
+            val out = LinkedHashMap<String, ByteArray>()
+            java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    if (entry.name in wanted) out[entry.name] = zip.readBytes()
+                    zip.closeEntry()
+                    entry = zip.nextEntry
+                }
+            }
+            frameFiles.mapNotNull { out[it] }.takeIf { it.size == frameFiles.size }
+        } catch (e: Exception) {
+            logError("Pixo", "ugoira zip fail", e)
+            null
+        }
+    }
