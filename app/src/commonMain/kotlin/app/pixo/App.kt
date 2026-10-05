@@ -506,6 +506,8 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         if (atRootOnSecondTab) mainPagerState.animateToPage(0) else navController.popBackStack()
                     },
                 )
+                } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
+                  // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出
                 // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出（参考 InstallerX 主题切换动画）
                 if (isTabPage) {
                     AnimatedVisibility(
@@ -549,7 +551,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onSizeChanged = { barHeight = it },
                         )
                     }
-                }
                 }
             }
         }
