@@ -119,4 +119,14 @@ internal expect object Str {
     @Composable fun copy_all(): String
     @Composable fun copy_select(): String
     @Composable fun copy_title(): String
+    @Composable fun manga(): String
+    @Composable fun replies(): String
+    @Composable fun view_replies(): String
+    @Composable fun view_all_replies(): String
+    @Composable fun load_more_replies(): String
+    @Composable fun no_replies(): String
+    @Composable fun reply_action(): String
+    @Composable fun copy_account(): String
+    @Composable fun copy_user_id(): String
+    @Composable fun user_id_label(): String
 }

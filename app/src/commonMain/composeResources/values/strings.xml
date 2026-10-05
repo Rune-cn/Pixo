@@ -104,6 +104,16 @@
     <string name="copy_all">Copy all</string>
     <string name="copy_select">Select to copy</string>
     <string name="copy_title">Copy</string>
+    <string name="manga">Manga</string>
+    <string name="replies">Replies</string>
+    <string name="view_replies">View replies</string>
+    <string name="view_all_replies">View all replies</string>
+    <string name="load_more_replies">Load more replies</string>
+    <string name="no_replies">No replies</string>
+    <string name="reply_action">Reply</string>
+    <string name="copy_account">Copy account</string>
+    <string name="copy_user_id">Copy user ID</string>
+    <string name="user_id_label">User ID</string>
     <string name="dynamic_color">Dynamic color (wallpaper)</string>
     <string name="dynamic_color_summary">Generate theme colors from your wallpaper (Android 12+)</string>
     <string name="cookie_paste_hint">Or paste your web-session Cookie (PHPSESSID=...) to load comments, bookmarks and recommendations</string>

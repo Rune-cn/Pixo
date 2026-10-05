@@ -34,6 +34,8 @@ data class PixivUser(
     val comment: String,
     val isFollowed: Boolean,
     val totalIllusts: Int,
+    /** 漫画数（illustType=1）；部分通道拿不到时按 0 处理。 */
+    val totalManga: Int = 0,
     val totalNovels: Int,
     /** 关注数；未知时为 null。 */
     val followingCount: Int? = null,
@@ -99,6 +101,17 @@ data class PixivComment(
     val avatar: String,
     val content: String,
     val date: String,
+    /** 追评（一级评论卡片内已嵌入的前几条）。 */
+    val replies: List<PixivComment> = emptyList(),
+    /** 是否还有更多追评（需要单独拉取）。 */
+    val hasReplies: Boolean = false,
+)
+
+/** 追评分页结果：replies + 分页游标（Token 通道用 [nextUrl]，网页通道用 [page]）。 */
+data class PixivReplyPage(
+    val replies: List<PixivComment>,
+    val hasMore: Boolean = false,
+    val nextUrl: String? = null,
 )
 
 /** 收藏状态。 */

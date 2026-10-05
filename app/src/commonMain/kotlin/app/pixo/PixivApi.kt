@@ -69,10 +69,22 @@ object PixivApi {
     suspend fun fetchComments(kind: String, id: Long): List<PixivComment> =
         WebPixivApi.fetchComments(kind, id)
 
-    suspend fun addComment(kind: String, id: Long, text: String) =
+    /** 追评列表：Token 模式走 App API `/v1/{kind}/comment/replies`（[appNextUrl] 游标），否则网页 ajax（[webPage] 从 1 开始）。 */
+    suspend fun fetchCommentReplies(
+        kind: String,
+        id: Long,
+        commentId: Long,
+        appNextUrl: String? = null,
+        webPage: Int = 1,
+    ): PixivReplyPage =
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchCommentReplies(kind, id, commentId, appNextUrl)
+        else WebPixivApi.fetchCommentReplies(kind, id, commentId, webPage)
+
+    /** 发表评论/追评：[parentCommentId] > 0 时为回复某个评论。 */
+    suspend fun addComment(kind: String, id: Long, text: String, parentCommentId: Long = 0) =
         // 写评论：Token 模式走 App API（POST /v1/*/comment/add），否则网页 CSRF
-        if (PixivAuth.isTokenMode) AppPixivApi.addComment(kind, id, text)
-        else WebPixivApi.addComment(kind, id, text)
+        if (PixivAuth.isTokenMode) AppPixivApi.addComment(kind, id, text, parentCommentId)
+        else WebPixivApi.addComment(kind, id, text, parentCommentId)
 
     // ---------- 收藏 ----------
 

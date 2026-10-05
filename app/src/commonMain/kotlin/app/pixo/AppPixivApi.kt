@@ -180,10 +180,11 @@ object AppPixivApi {
 
     // 注意：评论列表只有网页端（/ajax/../comments/roots，需会话 Cookie），App API 无列表端点，
     // 列表统一走 WebPixivApi.fetchComments。
-    suspend fun addComment(kind: String, id: Long, text: String) {
+    suspend fun addComment(kind: String, id: Long, text: String, parentCommentId: Long = 0) {
         val url = if (kind == "novel") "$BASE/novel/comment/add" else "$BASE/illust/comment/add"
         val idField = if (kind == "novel") "novel_id" else "illust_id"
-        val payload = "$idField=$id&comment=${URLEncoder.encode(text, "UTF-8")}"
+        val parent = if (parentCommentId > 0) "&parent_comment_id=$parentCommentId" else ""
+        val payload = "$idField=$id&comment=${URLEncoder.encode(text, "UTF-8")}$parent"
         val root = PixivHttp.postJson(
             url = url,
             payload = payload,
@@ -191,6 +192,42 @@ object AppPixivApi {
             form = true,
         )
         root.throwIfApiError("评论失败：")
+    }
+
+    /** 追评（App API `/v1/{kind}/comment/replies`，按 next_url 游标分页）。 */
+    suspend fun fetchCommentReplies(
+        kind: String,
+        id: Long,
+        commentId: Long,
+        nextUrl: String? = null,
+    ): PixivReplyPage {
+        val url = nextUrl ?: "$BASE/$kind/comment/replies?${kind}_id=$id&comment_id=$commentId"
+        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
+        val arr = root.arr("comments")
+        val next = root.str("next_url").ifBlank { null }
+        return PixivReplyPage(
+            replies = buildList {
+                if (arr != null) for (el in arr) {
+                    val o = el as? JsonObject ?: continue
+                    val content = o.str("comment")
+                    if (content.isBlank()) continue
+                    val u = o.obj("user")
+                    add(
+                        PixivComment(
+                            id = o.lng("id"),
+                            user = u?.str("name").orEmpty().ifBlank { o.str("user_name") },
+                            userId = u?.lng("id")?.takeIf { it > 0 } ?: o.lng("user_id"),
+                            avatar = u?.obj("profile_image_urls")?.str("medium").orEmpty(),
+                            content = content,
+                            date = o.str("date"),
+                            hasReplies = o.str("has_replies") == "true",
+                        ),
+                    )
+                }
+            },
+            hasMore = next != null,
+            nextUrl = next,
+        )
     }
 
     // ---------- 收藏 ----------
@@ -247,6 +284,7 @@ object AppPixivApi {
             comment = user.str("comment"),
             isFollowed = user.str("is_followed") == "true",
             totalIllusts = profile?.int("total_illusts") ?: 0,
+            totalManga = profile?.int("total_manga") ?: 0,
             totalNovels = profile?.int("total_novels") ?: 0,
             // 关注数：detail 自带；粉丝数：detail 没有，尝试网页接口（无 Cookie 时返回 null）
             followingCount = profile?.int("total_follow_users"),

@@ -104,6 +104,16 @@
     <string name="copy_all">全部复制</string>
     <string name="copy_select">选择复制</string>
     <string name="copy_title">复制</string>
+    <string name="manga">漫画</string>
+    <string name="replies">追评</string>
+    <string name="view_replies">查看追评</string>
+    <string name="view_all_replies">查看全部追评</string>
+    <string name="load_more_replies">加载更多追评</string>
+    <string name="no_replies">暂无追评</string>
+    <string name="reply_action">回复</string>
+    <string name="copy_account">复制 @账号</string>
+    <string name="copy_user_id">复制用户ID</string>
+    <string name="user_id_label">用户ID</string>
     <string name="dynamic_color">动态取色（跟随壁纸）</string>
     <string name="dynamic_color_summary">Android 12 以上根据系统壁纸自动生成主题色</string>
     <string name="cookie_paste_hint">也可粘贴网页登录后的 Cookie（PHPSESSID=...），用于加载评论、收藏与推荐</string>

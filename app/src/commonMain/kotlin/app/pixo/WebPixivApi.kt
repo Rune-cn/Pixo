@@ -244,18 +244,7 @@ object WebPixivApi {
             for (el in arr) {
                 try {
                     val o = el as JsonObject
-                    val content = o.str("comment").ifBlank { o.str("userComment") }
-                    if (content.isBlank()) continue
-                    add(
-                        PixivComment(
-                            id = o.lng("id"),
-                            user = o.str("userName").ifBlank { o.str("user_name") },
-                            userId = o.lng("userId"),
-                            avatar = o.str("img").ifBlank { o.str("profileImageUrl") },
-                            content = content,
-                            date = o.str("commentDate"),
-                        ),
-                    )
+                    parseComment(o)?.let { add(it) }
                 } catch (_: Exception) {
                     // 跳过异常条目
                 }
@@ -263,7 +252,58 @@ object WebPixivApi {
         }
     }
 
-    suspend fun addComment(kind: String, id: Long, text: String) {
+    /** 网页追评分页（roots 只内嵌前几条；`page` 从 1 开始）。 */
+    suspend fun fetchCommentReplies(kind: String, id: Long, commentId: Long, page: Int = 1): PixivReplyPage {
+        val url = if (kind == "novel") {
+            "https://www.pixiv.net/ajax/novels/comments/replies?comment_id=$commentId&page=$page"
+        } else {
+            "https://www.pixiv.net/ajax/illusts/comments/replies?comment_id=$commentId&page=$page"
+        }
+        val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
+        throwIfWebError(root, "追评获取失败")
+        val body = root.obj("body")
+        val arr = body?.arr("comments")
+        return PixivReplyPage(
+            replies = buildList {
+                if (arr != null) for (el in arr) {
+                    try {
+                        parseComment(el as? JsonObject ?: continue)?.let { add(it) }
+                    } catch (_: Exception) {
+                        // 跳过异常条目
+                    }
+                }
+            },
+            hasMore = body?.str("hasNext") == "true",
+        )
+    }
+
+    /** 解析单条评论（网页端 roots/replies 同构：一级评论内嵌前几条 replies + hasReplies 标记）。 */
+    private fun parseComment(o: JsonObject): PixivComment? {
+        val content = o.str("comment").ifBlank { o.str("userComment") }
+        if (content.isBlank()) return null
+        val replies = buildList {
+            val arr = o.arr("replies")
+            if (arr != null) for (el in arr) {
+                try {
+                    parseComment(el as? JsonObject ?: continue)?.let { add(it) }
+                } catch (_: Exception) {
+                    // 跳过异常条目
+                }
+            }
+        }
+        return PixivComment(
+            id = o.lng("id"),
+            user = o.str("userName").ifBlank { o.str("user_name") },
+            userId = o.lng("userId"),
+            avatar = o.str("img").ifBlank { o.str("profileImageUrl") },
+            content = content,
+            date = o.str("commentDate"),
+            replies = replies,
+            hasReplies = o.str("hasReplies") == "true",
+        )
+    }
+
+    suspend fun addComment(kind: String, id: Long, text: String, parentCommentId: Long = 0) {
         val csrf = fetchCsrfToken(id)
         // 评论接口需要作品作者的 user_id，缺失会返回 400/422
         val authorId = if (kind == "novel") fetchNovelDetail(id).authorId else fetchIllustDetail(id).authorId
@@ -278,6 +318,9 @@ object WebPixivApi {
             form.append("&novel_id=$id")
         } else {
             form.append("&illust_id=$id")
+        }
+        if (parentCommentId > 0) {
+            form.append("&parent_comment_id=$parentCommentId")
         }
         form.append("&author_user_id=$authorId&comment=${URLEncoder.encode(text, "UTF-8")}")
         PixivHttp.postJson(
@@ -370,7 +413,8 @@ object WebPixivApi {
             comment = fetchUserBio(userId),
             isFollowed = body.str("isFollowed") == "true",
             totalIllusts = counts.first,
-            totalNovels = counts.second,
+            totalManga = counts.second,
+            totalNovels = counts.third,
             followingCount = following,
             followerCount = follower,
         )
@@ -386,10 +430,10 @@ object WebPixivApi {
         null
     }
 
-    /** 粉丝数：/ajax/user/{id}/follower 自带 total 字段（空列表时接口可能不返回，按 0 处理）。 */
+    /** 粉丝数：/ajax/user/{id}/followers 自带 total 字段（注意是复数，单数路径恒 404）。 */
     suspend fun fetchFollowerCount(userId: Long): Int? = try {
         val root = PixivHttp.getJson(
-            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/user/$userId/follower?offset=0&limit=1&rest=show"),
+            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/user/$userId/followers?offset=0&limit=1&rest=show"),
         )
         val body = root.obj("body")
         body?.int("total") ?: if (body?.arr("users")?.isEmpty() == true) 0 else null
@@ -431,10 +475,10 @@ object WebPixivApi {
         )
     }
 
-    /** 粉丝列表（网页 ajax，offset 分页）。 */
+    /** 粉丝列表（网页 ajax，offset 分页；注意路径是复数 `/followers`）。 */
     suspend fun fetchUserFollowers(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage {
         val url = nextUrl
-            ?: "https://www.pixiv.net/ajax/user/$userId/follower?offset=$offset&limit=24&rest=show"
+            ?: "https://www.pixiv.net/ajax/user/$userId/followers?offset=$offset&limit=24&rest=show"
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
         val body = root.obj("body")
         val users = parseRelationUsers(body)
@@ -446,16 +490,19 @@ object WebPixivApi {
         )
     }
 
-    /** 作品数：illusts 可能是 id 数组，也可能是 {id: ""} 映射，两种都要能数。 */
-    private suspend fun fetchUserCounts(userId: Long): Pair<Int, Int> = try {
+    /** 作品数：(插画, 漫画, 小说)。illusts/manga/novels 可能是 id 数组，也可能是 {id: ""} 映射，两种都要能数；
+     * 网页端 illusts 含漫画，漫画数单独在 manga 键里，插画数 = illusts - manga。 */
+    private suspend fun fetchUserCounts(userId: Long): Triple<Int, Int, Int> = try {
         val root = PixivHttp.getJson(
             PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/user/$userId/profile/all"),
         )
         val b = root.obj("body")
         fun countOf(key: String): Int = b?.arr(key)?.size ?: b?.obj(key)?.size ?: 0
-        countOf("illusts") to countOf("novels")
+        val illusts = countOf("illusts")
+        val manga = countOf("manga")
+        Triple((illusts - manga).coerceAtLeast(0), manga, countOf("novels"))
     } catch (_: Exception) {
-        0 to 0
+        Triple(0, 0, 0)
     }
 
     /** 个人简介。 */
