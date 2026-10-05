@@ -141,4 +141,13 @@
     <string name="download_failed">Download failed</string>
     <string name="download_selected_hint">Select images to download</string>
     <string name="user">Users</string>
+    <string name="follow">Follow</string>
+    <string name="followed">Following</string>
+    <string name="unfollow">Unfollow</string>
+    <string name="follow_public">Follow publicly</string>
+    <string name="follow_private">Follow privately</string>
+    <string name="follow_success">Followed</string>
+    <string name="unfollow_success">Unfollowed</string>
+    <string name="follow_failed">Follow failed</string>
+    <string name="r18">R-18</string>
 </resources>

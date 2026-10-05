@@ -402,6 +402,8 @@ object AppPixivApi {
                             ?.takeIf { it.isNotBlank() } ?: o.obj("image_urls")?.str("medium").orEmpty(),
                         illustType = o.int("illust_type"),
                         pageCount = o.int("page_count").coerceAtLeast(1),
+                        xRestrict = o.int("x_restrict"),
+                        tags = stringTags(o),
                     ),
                 )
             } catch (_: Exception) {
@@ -439,11 +441,49 @@ object AppPixivApi {
                         tags = tags,
                         bookmarkCount = o.int("total_bookmarks").coerceAtLeast(o.int("bookmark_count")),
                         textCount = o.int("text_length").coerceAtLeast(o.int("word_count")),
+                        xRestrict = o.int("x_restrict"),
                     ),
                 )
             } catch (_: Exception) {
                 // 跳过异常条目
             }
         }
+    }
+
+    /** 兼容 App API 标签对象数组形态（{name}）。 */
+    private fun stringTags(o: JsonObject): List<String> = buildList {
+        val arr = o.arr("tags")
+        if (arr != null) for (t in arr) {
+            when (t) {
+                is JsonPrimitive -> if (t.content.isNotBlank()) add(t.content)
+                is JsonObject -> t.str("name").takeIf { it.isNotBlank() }?.let { add(it) }
+                else -> {}
+            }
+        }
+    }
+
+    // ---------- 关注用户 ----------
+
+    /** 关注用户：[restrict] 0=公开, 1=私密。App API `/v1/user/follow/add`。 */
+    suspend fun followUser(userId: Long, restrict: Int = 0) {
+        val restrictName = if (restrict == 0) "public" else "private"
+        val root = PixivHttp.postJson(
+            url = "$BASE/user/follow/add",
+            payload = "user_id=$userId&restrict=$restrictName",
+            headers = PixivHttp.appApiHeaders(),
+            form = true,
+        )
+        root.throwIfApiError("关注失败：")
+    }
+
+    /** 取消关注（App API `/v1/user/follow/delete`）。 */
+    suspend fun unfollowUser(userId: Long) {
+        val root = PixivHttp.postJson(
+            url = "$BASE/user/follow/delete",
+            payload = "user_id=$userId",
+            headers = PixivHttp.appApiHeaders(),
+            form = true,
+        )
+        root.throwIfApiError("取消关注失败：")
     }
 }

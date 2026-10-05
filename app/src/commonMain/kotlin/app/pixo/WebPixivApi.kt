@@ -32,6 +32,8 @@ object WebPixivApi {
                 thumb = item.str("url"),
                 illustType = item.int("illust_type"),
                 pageCount = item.int("illust_page_count").coerceAtLeast(item.int("page_count")).coerceAtLeast(1),
+                xRestrict = item.int("x_restrict"),
+                tags = stringTags(item),
             )
         }
     }
@@ -59,6 +61,8 @@ object WebPixivApi {
                 thumb = item.str("url"),
                 illustType = item.int("illustType"),
                 pageCount = item.int("pageCount").coerceAtLeast(1),
+                xRestrict = item.int("xRestrict"),
+                tags = stringTags(item),
             )
         }
     }
@@ -80,6 +84,8 @@ object WebPixivApi {
                 thumb = item.str("url"),
                 illustType = item.int("illustType"),
                 pageCount = item.int("pageCount").coerceAtLeast(1),
+                xRestrict = item.int("xRestrict"),
+                tags = stringTags(item),
             )
         }
     }
@@ -105,6 +111,8 @@ object WebPixivApi {
                 thumb = item.str("url"),
                 illustType = item.int("illustType"),
                 pageCount = item.int("pageCount").coerceAtLeast(1),
+                xRestrict = item.int("xRestrict"),
+                tags = stringTags(item),
             )
         }
     }
@@ -433,6 +441,41 @@ object WebPixivApi {
         }
     }
 
+    // ---------- 关注用户 ----------
+
+    /** 关注用户：[restrict] 0=公开, 1=私密。网页通道 `/bookmark_add.php`（form + CSRF）。 */
+    suspend fun followUser(userId: Long, restrict: Int = 0) {
+        val csrf = fetchCsrfToken(null)
+        val builder = PixivHttp.webJsonHeaders()
+            .header("x-csrf-token", csrf)
+            .header("Referer", "https://www.pixiv.net/users/$userId")
+        val payload = "mode=add&type=user&user_id=$userId&tag=&restrict=$restrict&format=json"
+        val root = PixivHttp.postJson(
+            url = "https://www.pixiv.net/bookmark_add.php",
+            payload = payload,
+            headers = builder,
+            form = true,
+        )
+        if (root.str("error") == "true") {
+            throw IOException("关注失败：${root.str("message")}")
+        }
+    }
+
+    /** 取消关注（网页 `/rpc_group_setting.php`）。 */
+    suspend fun unfollowUser(userId: Long) {
+        val csrf = fetchCsrfToken(null)
+        val builder = PixivHttp.webJsonHeaders()
+            .header("x-csrf-token", csrf)
+            .header("Referer", "https://www.pixiv.net/users/$userId")
+        val payload = "mode=del&type=bookuser&id=$userId&format=json"
+        PixivHttp.postJson(
+            url = "https://www.pixiv.net/rpc_group_setting.php",
+            payload = payload,
+            headers = builder,
+            form = true,
+        )
+    }
+
     // ---------- 用户 ----------
 
     /**
@@ -578,6 +621,8 @@ object WebPixivApi {
                                 thumb = o.str("url"),
                                 illustType = o.int("illustType"),
                                 pageCount = o.int("pageCount").coerceAtLeast(1),
+                                xRestrict = o.int("xRestrict"),
+                                tags = stringTags(o),
                             ),
                         )
                     } catch (_: Exception) {
@@ -632,6 +677,8 @@ object WebPixivApi {
                             thumb = o.str("url"),
                             illustType = o.int("illustType").coerceAtLeast(o.int("illust_type")),
                             pageCount = o.int("pageCount").coerceAtLeast(o.int("illust_page_count")).coerceAtLeast(1),
+                            xRestrict = o.int("xRestrict").coerceAtLeast(o.int("x_restrict")),
+                            tags = stringTags(o),
                         ),
                     )
                 } catch (_: Exception) {
@@ -738,6 +785,8 @@ object WebPixivApi {
                     thumb = o.str("url"),
                     illustType = o.int("illustType").coerceAtLeast(o.int("illust_type")),
                     pageCount = o.int("pageCount").coerceAtLeast(o.int("illust_page_count")).coerceAtLeast(1),
+                    xRestrict = o.int("xRestrict").coerceAtLeast(o.int("x_restrict")),
+                    tags = stringTags(o),
                 )
             } catch (_: Exception) {
                 null
@@ -919,7 +968,20 @@ object WebPixivApi {
             bookmarkCount = o.int("bookmarkCount").coerceAtLeast(o.int("bookmark_count")),
             textCount = o.int("textLength").coerceAtLeast(o.int("textCount"))
                 .coerceAtLeast(o.int("character_count")).coerceAtLeast(o.int("word_count")),
+            xRestrict = o.int("xRestrict"),
         )
+    }
+
+    /** 兼容网页/App API 两种标签形态（字符串数组 / {name} 对象数组）。 */
+    private fun stringTags(o: JsonObject): List<String> = buildList {
+        val arr = o.arr("tags")
+        if (arr != null) for (t in arr) {
+            when (t) {
+                is JsonPrimitive -> if (t.content.isNotBlank()) add(t.content)
+                is JsonObject -> t.str("name").takeIf { it.isNotBlank() }?.let { add(it) }
+                else -> {}
+            }
+        }
     }
 
     private fun coverUrl(o: JsonObject): String {

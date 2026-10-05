@@ -133,6 +133,18 @@ object PixivApi {
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserNovels(userId, offset, limit)
         else WebPixivApi.fetchUserNovels(userId, offset, limit)
 
+    /** 关注用户：[restrict] 0=公开, 1=私密。 */
+    suspend fun followUser(userId: Long, restrict: Int = 0) {
+        if (PixivAuth.isTokenMode) AppPixivApi.followUser(userId, restrict)
+        else WebPixivApi.followUser(userId, restrict)
+    }
+
+    /** 取消关注。 */
+    suspend fun unfollowUser(userId: Long) {
+        if (PixivAuth.isTokenMode) AppPixivApi.unfollowUser(userId)
+        else WebPixivApi.unfollowUser(userId)
+    }
+
     /** 关注列表：[nextUrl] 为 App API 游标；网页通道忽略游标、用 [offset] 分页。 */
     suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage =
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserFollowing(userId, offset, nextUrl)

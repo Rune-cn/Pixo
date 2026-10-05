@@ -251,16 +251,31 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
                         put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Pixo")
                         put(MediaStore.MediaColumns.IS_PENDING, 1)
                     }
-                    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                        ?: return@withContext null
+                    var uri: Uri? = null
                     try {
-                        resolver.openOutputStream(uri)?.use { it.write(bytes) }
-                    } finally {
+                        uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                            ?: throw IllegalStateException("MediaStore insert returned null")
+                        val out = resolver.openOutputStream(uri)
+                            ?: throw IllegalStateException("openOutputStream returned null")
+                        out.use { it.write(bytes) }
                         values.clear()
                         values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                         resolver.update(uri, values, null, null)
+                        return@withContext "Pictures/Pixo/$fileName"
+                    } catch (e: Exception) {
+                        try { uri?.let { resolver.delete(it, null, null) } } catch (_: Exception) {}
+                        logError("Pixo", "MediaStore save failed, fallback to app dir", e)
                     }
-                    return@withContext "Pictures/Pixo/$fileName"
+                    // 回退：应用专属外部目录（无需任何权限，一定能写）
+                    val dirFile = File(
+                        androidAppContext.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+                            ?: androidAppContext.filesDir,
+                        "Pixo",
+                    )
+                    dirFile.mkdirs()
+                    val f = File(dirFile, fileName)
+                    f.writeBytes(bytes)
+                    return@withContext f.absolutePath
                 } else {
                     val dirFile = File(
                         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
@@ -272,13 +287,50 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
                     return@withContext f.absolutePath
                 }
             } else {
-                // 用户通过 SAF 选择的目录（持久化 URI 权限）
-                val uri = Uri.parse(dir)
-                val resolver = androidAppContext.contentResolver
-                val doc = DocumentsContract.createDocument(resolver, uri, mimeTypeFor(fileName), fileName)
-                    ?: return@withContext null
-                resolver.openOutputStream(doc)?.use { it.write(bytes) }
-                return@withContext doc.toString()
+                // 用户通过 SAF 选择的目录（持久化 URI 权限）；权限丢失时回退 MediaStore/应用目录
+                try {
+                    val uri = Uri.parse(dir)
+                    val resolver = androidAppContext.contentResolver
+                    val doc = DocumentsContract.createDocument(resolver, uri, mimeTypeFor(fileName), fileName)
+                        ?: throw IllegalStateException("SAF createDocument returned null")
+                    val out = resolver.openOutputStream(doc)
+                        ?: throw IllegalStateException("SAF openOutputStream returned null")
+                    out.use { it.write(bytes) }
+                    return@withContext doc.toString()
+                } catch (e: Exception) {
+                    logError("Pixo", "SAF save failed, fallback to MediaStore", e)
+                    val resolver = androidAppContext.contentResolver
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(fileName))
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Pixo")
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                    var uri: Uri? = null
+                    try {
+                        uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                            ?: throw IllegalStateException("MediaStore insert returned null")
+                        val out = resolver.openOutputStream(uri)
+                            ?: throw IllegalStateException("openOutputStream returned null")
+                        out.use { it.write(bytes) }
+                        values.clear()
+                        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                        resolver.update(uri, values, null, null)
+                        return@withContext "Pictures/Pixo/$fileName"
+                    } catch (e2: Exception) {
+                        try { uri?.let { resolver.delete(it, null, null) } } catch (_: Exception) {}
+                        logError("Pixo", "MediaStore fallback failed", e2)
+                        val dirFile = File(
+                            androidAppContext.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+                                ?: androidAppContext.filesDir,
+                            "Pixo",
+                        )
+                        dirFile.mkdirs()
+                        val f = File(dirFile, fileName)
+                        f.writeBytes(bytes)
+                        return@withContext f.absolutePath
+                    }
+                }
             }
         } catch (e: Exception) {
             logError("Pixo", "write download fail", e)
@@ -296,7 +348,8 @@ actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit 
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logError("Pixo", "persist download dir permission failed", e)
             }
             AppPrefs.downloadDir = uri.toString()
             onPicked(uri.toString())

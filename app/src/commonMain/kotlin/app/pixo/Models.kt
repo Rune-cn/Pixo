@@ -10,7 +10,13 @@ data class PixivWork(
     val thumb: String,
     val illustType: Int,
     val pageCount: Int,
-)
+    /** 年龄分级：0=全年龄, 1=R-18, 2=R-18G；部分通道（如网页排行）缺失时由标签兜底。 */
+    val xRestrict: Int = 0,
+    val tags: List<String> = emptyList(),
+) {
+    val isR18: Boolean
+        get() = xRestrict > 0 || tags.any { it == "R-18" || it == "R18G" }
+}
 
 /** 小说列表条目。 */
 data class PixivNovel(
@@ -23,7 +29,12 @@ data class PixivNovel(
     val tags: List<String>,
     val bookmarkCount: Int,
     val textCount: Int,
-)
+    /** 年龄分级：0=全年龄, 1=R-18。 */
+    val xRestrict: Int = 0,
+) {
+    val isR18: Boolean
+        get() = xRestrict > 0 || tags.any { it == "R-18" || it == "R18G" }
+}
 
 /** 用户主页资料。 */
 data class PixivUser(

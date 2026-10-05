@@ -317,8 +317,7 @@ private fun HomeEntries(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EntryCard(MiuixIcons.Search, Str.search()) { onOpenSearch() }
-            EntryCard(MiuixIcons.Favorites, Str.bookmark_public_label()) { onOpenBookmarks("show") }
-            EntryCard(MiuixIcons.Lock, Str.bookmark_private_label()) { onOpenBookmarks("hide") }
+            EntryCard(MiuixIcons.Favorites, Str.bookmarks()) { onOpenBookmarks("show") }
         }
     }
 }
@@ -589,17 +588,18 @@ fun BookmarksScreen(
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
 ) {
-    val cacheKey = "bookmarks:$restrict"
+    var currentRestrict by rememberSaveable { mutableStateOf(restrict) }
+    val cacheKey = "bookmarks:$currentRestrict"
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
-    var offset by remember { mutableIntStateOf(items?.size ?: 0) }
-    var maxBookmarkId by remember { mutableLongStateOf(0L) }
-    var hasMore by remember { mutableStateOf(true) }
-    var loading by remember { mutableStateOf(items == null) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var refreshing by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
+    var offset by remember(currentRestrict) { mutableIntStateOf(items?.size ?: 0) }
+    var maxBookmarkId by remember(currentRestrict) { mutableLongStateOf(0L) }
+    var hasMore by remember(currentRestrict) { mutableStateOf(true) }
+    var loading by remember(currentRestrict) { mutableStateOf(items == null) }
+    var loadingMore by remember(currentRestrict) { mutableStateOf(false) }
+    var refreshing by remember(currentRestrict) { mutableStateOf(false) }
+    var error by remember(currentRestrict) { mutableStateOf<String?>(null) }
+    var retryKey by remember(currentRestrict) { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
     val initial = items
@@ -608,7 +608,7 @@ fun BookmarksScreen(
         loading = true
         error = null
         try {
-            val page = PixivApi.fetchIllustBookmarks(restrict, 0, null, 24)
+            val page = PixivApi.fetchIllustBookmarks(currentRestrict, 0, null, 24)
             FeedCache.illust[cacheKey] = page.works
             items = page.works
             offset = page.works.size
@@ -625,7 +625,7 @@ fun BookmarksScreen(
         scope.launch {
             refreshing = true
             try {
-                val page = PixivApi.fetchIllustBookmarks(restrict, 0, null, 24)
+                val page = PixivApi.fetchIllustBookmarks(currentRestrict, 0, null, 24)
                 FeedCache.illust[cacheKey] = page.works
                 items = page.works
                 offset = page.works.size
@@ -645,7 +645,7 @@ fun BookmarksScreen(
         scope.launch {
             loadingMore = true
             try {
-                val page = PixivApi.fetchIllustBookmarks(restrict, offset, maxBookmarkId.takeIf { it > 0L }, 24)
+                val page = PixivApi.fetchIllustBookmarks(currentRestrict, offset, maxBookmarkId.takeIf { it > 0L }, 24)
                 val cur = (items ?: emptyList()).toMutableList()
                 val seen = HashSet(cur.map { it.id })
                 cur.addAll(page.works.filter { it.id !in seen })
@@ -671,9 +671,8 @@ fun BookmarksScreen(
     }
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
-    val title = if (restrict == "show") Str.bookmark_public_label() else Str.bookmark_private_label()
     val scrollBehavior = MiuixScrollBehavior()
-    PixoSubScreen(title = title, onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+    PixoSubScreen(title = Str.bookmarks(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -687,6 +686,12 @@ fun BookmarksScreen(
                 modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
                 overscrollEffect = null,
             ) {
+                item {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ModeChip("show", Str.bookmark_public_label(), currentRestrict) { currentRestrict = "show" }
+                        ModeChip("hide", Str.bookmark_private_label(), currentRestrict) { currentRestrict = "hide" }
+                    }
+                }
                 when {
                     loading && list.isEmpty() -> item { LoadingState() }
                     error != null && list.isEmpty() -> item {
@@ -698,6 +703,8 @@ fun BookmarksScreen(
                         PixivWorkRow(work, onClick = { onOpenDetail(work.id, "illust") }, onOpenUser = onOpenUser)
                     }
                     item { EndItem(loadingMore, hasMore, onRetry = {}) }
+                } else if (!loading && error == null) {
+                    item { EmptyHint() }
                 }
             }
         }
@@ -1168,21 +1175,12 @@ private fun IllustDetail(
                             d = d,
                             onSearchTag = onSearchTag,
                             onOpenUser = onOpenUser,
-                            feedback = feedback,
                             onLongPressTag = { tag -> copiedTag = tag },
                         )
                     }
                 }
-                copiedTag?.let { tag ->
-                    Box(Modifier.fillMaxSize().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
-                        Box(
-                            Modifier.clip(RoundedCornerShape(50)).background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                        ) {
-                            Text(Str.copied(tag), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceContainer)
-                        }
-                    }
-                }
+                BottomToast(copiedTag?.let { Str.copied(it) })
+                BottomToast(feedback)
             }
         }
 
@@ -1273,16 +1271,7 @@ private fun IllustDetail(
             }
         }
 
-        downloadToast?.let { toast ->
-            Box(Modifier.fillMaxSize().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
-                Box(
-                    Modifier.clip(RoundedCornerShape(50)).background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                ) {
-                    Text(toast, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceContainer)
-                }
-            }
-        }
+        BottomToast(downloadToast)
 
         if (lightboxIndex >= 0) {
             ImageLightbox(
@@ -1379,6 +1368,44 @@ private fun ImageLightbox(
     }
 }
 
+/** 头像全屏放大预览：黑底 + 双指缩放，未放大时点击或返回键关闭。 */
+@Composable
+private fun AvatarPreview(url: String, onClose: () -> Unit) {
+    val ctx = LocalPlatformContext.current
+    val zoomableState = rememberZoomableState(zoomSpec = ZoomSpec(maxZoomFactor = 6f))
+    val isZoomed = (zoomableState.zoomFraction ?: 0f) > 0.001f
+    SystemBackHandler(enabled = true) { onClose() }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        if (url.isNotBlank()) {
+            AsyncImage(
+                model = ImageRequest.Builder(ctx).data(url).crossfade(true).build(),
+                contentDescription = Str.avatar_desc(),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zoomable(
+                        state = zoomableState,
+                        onClick = {
+                            if ((zoomableState.zoomFraction ?: 0f) <= 0.001f) onClose()
+                        },
+                    ),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.4f))
+                .clickable { onClose() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(imageVector = MiuixIcons.Back, contentDescription = "关闭", tint = Color.White)
+        }
+    }
+}
+
 /** ugoira 动图播放：下载 zip → 解压帧 → 按帧延时轮播；失败时回退到静态图。 */
 @Composable
 private fun UgoiraAsyncImage(
@@ -1444,12 +1471,25 @@ private fun FloatingButton(onClick: () -> Unit, modifier: Modifier, content: @Co
     }
 }
 
+/** 底部居中的提示条（下载失败/收藏结果等反馈统一样式）。 */
+@Composable
+private fun BottomToast(text: String?) {
+    if (text == null) return
+    Box(Modifier.fillMaxSize().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
+        Box(
+            Modifier.clip(RoundedCornerShape(50)).background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Text(text, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceContainer)
+        }
+    }
+}
+
 @Composable
 private fun IllustInfo(
     d: PixivIllustDetail?,
     onSearchTag: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
-    feedback: String?,
     onLongPressTag: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -1457,10 +1497,6 @@ private fun IllustInfo(
         Spacer(Modifier.height(10.dp))
         AuthorHeader(name = d?.author.orEmpty(), userId = d?.authorId ?: 0, avatar = d?.avatar.orEmpty(), onOpenUser = onOpenUser)
         Spacer(Modifier.height(10.dp))
-        feedback?.let {
-            Spacer(Modifier.height(8.dp))
-            Text(it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.primary)
-        }
         if (d?.tags?.isNotEmpty() == true) {
             Spacer(Modifier.height(10.dp))
             val clipboard = LocalClipboardManager.current
@@ -1479,21 +1515,21 @@ private fun IllustInfo(
 /** 作者信息行：头像 + 名字，点击进入作者主页。 */
 @Composable
 private fun AuthorHeader(name: String, userId: Long, avatar: String, onOpenUser: (Long) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onOpenUser(userId) }
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AuthorAvatar(avatar, 40.dp, userId, onOpenUser)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(name, style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(Str.author_page(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+    Card(Modifier.fillMaxWidth().clickable { onOpenUser(userId) }) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp, horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AuthorAvatar(avatar, 40.dp, userId, onOpenUser)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(name, style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(Str.author_page(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            }
+            Text("›", style = MiuixTheme.textStyles.title3, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
         }
-        Text("›", style = MiuixTheme.textStyles.title3, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
     }
 }
 
@@ -1548,6 +1584,7 @@ fun CommentsScreen(
     val cacheKey = "$kind:$workId"
     var comments by remember(cacheKey) { mutableStateOf(FeedCache.comments[cacheKey]) }
     var loading by remember { mutableStateOf(comments == null) }
+    var refreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
     var draft by remember { mutableStateOf("") }
@@ -1606,6 +1643,23 @@ fun CommentsScreen(
         }
     }
 
+    fun refresh() {
+        if (refreshing) return
+        scope.launch {
+            refreshing = true
+            try {
+                val list = PixivApi.fetchComments(kind, workId)
+                FeedCache.comments[cacheKey] = list
+                comments = list
+                error = null
+            } catch (e: Exception) {
+                error = e.friendlyMessage()
+                logError("Pixo", "refresh comments failed", e)
+            }
+            refreshing = false
+        }
+    }
+
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.comments(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
@@ -1616,25 +1670,35 @@ fun CommentsScreen(
                             LoadingState()
                         }
                         error != null && comments == null -> ErrorState(error ?: "", onRetry = { retryKey++ })
-                        comments.orEmpty().isEmpty() -> Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                            Text(Str.no_comments(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                        }
-                        else -> LazyColumn(
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
-                            overscrollEffect = null,
+                        else -> PullToRefresh(
+                            isRefreshing = refreshing,
+                            onRefresh = { refresh() },
+                            refreshTexts = refreshTexts(),
                         ) {
-                            itemsIndexed(comments.orEmpty()) { _, c ->
-                                RootCommentCard(
-                                    c = c,
-                                    kind = kind,
-                                    workId = workId,
-                                    onOpenUser = onOpenUser,
-                                    onCopy = { t -> copyMenu = t },
-                                    onReply = { t -> replyTarget = t.id to t.user },
-                                    refreshTick = refreshTick,
-                                )
+                            LazyColumn(
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                                overscrollEffect = null,
+                            ) {
+                                if (comments.orEmpty().isEmpty()) {
+                                    item {
+                                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                                            Text(Str.no_comments(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                        }
+                                    }
+                                }
+                                itemsIndexed(comments.orEmpty()) { _, c ->
+                                    RootCommentCard(
+                                        c = c,
+                                        kind = kind,
+                                        workId = workId,
+                                        onOpenUser = onOpenUser,
+                                        onCopy = { t -> copyMenu = t },
+                                        onReply = { t -> replyTarget = t.id to t.user },
+                                        refreshTick = refreshTick,
+                                    )
+                                }
                             }
                         }
                     }
@@ -2050,10 +2114,6 @@ private fun NovelDetail(
                             Spacer(Modifier.height(10.dp))
                             AuthorHeader(name = d.author, userId = d.authorId, avatar = d.avatar, onOpenUser = onOpenUser)
                             Spacer(Modifier.height(10.dp))
-                            feedback?.let {
-                                Spacer(Modifier.height(8.dp))
-                                Text(it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.primary)
-                            }
                             if (d.tags.isNotEmpty()) {
                                 Spacer(Modifier.height(10.dp))
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2074,16 +2134,8 @@ private fun NovelDetail(
                         }
                     }
                 }
-                copiedTag?.let { tag ->
-                    Box(Modifier.fillMaxSize().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
-                        Box(
-                            Modifier.clip(RoundedCornerShape(50)).background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                        ) {
-                            Text(Str.copied(tag), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceContainer)
-                        }
-                    }
-                }
+                BottomToast(copiedTag?.let { Str.copied(it) })
+                BottomToast(feedback)
             }
         }
 
@@ -2159,6 +2211,18 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
                 )
+                if (work.isR18) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(2.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFFE53935))
+                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                    ) {
+                        Text(Str.r18(), style = MiuixTheme.textStyles.footnote1, color = Color.White)
+                    }
+                }
                 if (work.illustType == 2) {
                     Box(
                         modifier = Modifier
@@ -2169,6 +2233,18 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
                             .padding(horizontal = 4.dp, vertical = 1.dp),
                     ) {
                         Text(Str.animated_badge(), style = MiuixTheme.textStyles.footnote1, color = Color.White)
+                    }
+                }
+                if (work.pageCount > 1) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(2.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                    ) {
+                        Text("×${work.pageCount}", style = MiuixTheme.textStyles.footnote1, color = Color.White)
                     }
                 }
             }
@@ -2200,19 +2276,33 @@ fun NovelRow(novel: PixivNovel, onClick: () -> Unit, onOpenUser: (Long) -> Unit 
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             val ctx = LocalPlatformContext.current
-            if (novel.cover.isNotBlank()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(ctx).data(novel.cover).crossfade(true).build(),
-                    contentDescription = novel.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
-                )
-            } else {
-                Box(
-                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)).background(MiuixTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(imageVector = MiuixIcons.Tasks, contentDescription = Str.novel(), tint = MiuixTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+            Box {
+                if (novel.cover.isNotBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(ctx).data(novel.cover).crossfade(true).build(),
+                        contentDescription = novel.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)).background(MiuixTheme.colorScheme.surfaceContainerHigh),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(imageVector = MiuixIcons.Tasks, contentDescription = Str.novel(), tint = MiuixTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                    }
+                }
+                if (novel.isR18) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(2.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFFE53935))
+                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                    ) {
+                        Text(Str.r18(), style = MiuixTheme.textStyles.footnote1, color = Color.White)
+                    }
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -2645,16 +2735,24 @@ fun UserScreen(
     var novelItems by remember(userId) { mutableStateOf<List<PixivNovel>?>(FeedCache.novels[novelKey] as? List<PixivNovel>) }
     var loading by remember { mutableStateOf(illustItems == null || novelItems == null) }
     var loadingMore by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    var followBusy by remember { mutableStateOf(false) }
+    var followMenu by remember { mutableStateOf(false) }
+    var followToast by remember { mutableStateOf<String?>(null) }
+    var avatarPreview by remember { mutableStateOf(false) }
     var bioDialog by remember { mutableStateOf<String?>(null) }
     var copyMenu by remember { mutableStateOf<String?>(null) }
     var idCopyMenu by remember { mutableStateOf<Pair<String, Long>?>(null) }
     var idSelect by remember { mutableStateOf<Pair<String, Long>?>(null) }
     val clipboard = LocalClipboardManager.current
     val copyAllLabel = Str.copy_all()
+    val sFollowSuccess = Str.follow_success()
+    val sUnfollowSuccess = Str.unfollow_success()
+    val sFollowFailed = Str.follow_failed()
     val cacheKey = if (kind == "novel") novelKey else illustKey
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
 
@@ -2697,6 +2795,80 @@ fun UserScreen(
             logError("Pixo", "user works load failed", e)
         }
         loading = false
+    }
+
+    fun refresh() {
+        if (refreshing) return
+        scope.launch {
+            refreshing = true
+            try {
+                val u = PixivApi.fetchUser(userId)
+                FeedCache.userProfiles[userId] = u
+                user = u
+                val tokenMode = PixivAuth.isTokenMode
+                if (tokenMode) {
+                    val il = PixivApi.fetchUserIllusts(userId, 0, 30)
+                    FeedCache.illust[illustKey] = il
+                    illustItems = il
+                    val nl = PixivApi.fetchUserNovels(userId, 0, 30)
+                    FeedCache.novels[novelKey] = nl
+                    novelItems = nl
+                    hasMore = true
+                } else {
+                    val w = PixivApi.fetchUserWorks(userId)
+                    FeedCache.illust[illustKey] = w.illusts
+                    illustItems = w.illusts
+                    FeedCache.novels[novelKey] = w.novels
+                    novelItems = w.novels
+                    hasMore = false
+                }
+                error = null
+            } catch (e: Exception) {
+                error = e.friendlyMessage()
+                logError("Pixo", "refresh user failed", e)
+            }
+            refreshing = false
+        }
+    }
+
+    fun doFollow(restrict: Int) {
+        if (followBusy) return
+        scope.launch {
+            followBusy = true
+            try {
+                // 已关注时切换公开/私密：先取消再按新分级关注
+                if (user?.isFollowed == true) {
+                    runCatching { PixivApi.unfollowUser(userId) }
+                }
+                PixivApi.followUser(userId, restrict)
+                val u = user?.copy(isFollowed = true)
+                user = u
+                u?.let { FeedCache.userProfiles[userId] = it }
+                followToast = sFollowSuccess
+            } catch (e: Exception) {
+                logError("Pixo", "follow failed", e)
+                followToast = sFollowFailed + "：" + (e.message ?: "")
+            }
+            followBusy = false
+        }
+    }
+
+    fun doUnfollow() {
+        if (followBusy) return
+        scope.launch {
+            followBusy = true
+            try {
+                PixivApi.unfollowUser(userId)
+                val u = user?.copy(isFollowed = false)
+                user = u
+                u?.let { FeedCache.userProfiles[userId] = it }
+                followToast = sUnfollowSuccess
+            } catch (e: Exception) {
+                logError("Pixo", "unfollow failed", e)
+                followToast = sFollowFailed + "：" + (e.message ?: "")
+            }
+            followBusy = false
+        }
     }
 
     val currentList: List<Any> = if (kind == "novel") novelItems.orEmpty() else illustItems.orEmpty()
@@ -2767,17 +2939,25 @@ fun UserScreen(
                 error != null && user == null && currentList.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     ErrorState(error ?: "", onRetry = { retryKey++ })
                 }
-                else -> {
+                else -> PullToRefresh(
+                    isRefreshing = refreshing,
+                    onRefresh = { refresh() },
+                    refreshTexts = refreshTexts(),
+                    contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
+                ) {
                     LazyColumn(
                         state = listState,
                         contentPadding = innerPadding,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
-                overscrollEffect = null,
+                        overscrollEffect = null,
                     ) {
                         item {
                             UserHeader(
                                 user = user,
+                                followBusy = followBusy,
+                                onFollowClick = { followMenu = true },
+                                onPreviewAvatar = { avatarPreview = true },
                                 onCopyBio = { bio -> copyMenu = bio },
                                 onCopyId = { account, id -> idCopyMenu = account to id },
                                 onOpenFollowing = { onOpenFollows(userId, "following") },
@@ -2871,6 +3051,32 @@ fun UserScreen(
                         }
                     }
                 }
+                // 关注操作：未关注选公开/私密；已关注可切换分级或取消
+                OverlayDialog(show = followMenu, onDismissRequest = { followMenu = false }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(Str.follow(), style = MiuixTheme.textStyles.title3)
+                        Button(onClick = {
+                            followMenu = false
+                            doFollow(0)
+                        }, modifier = Modifier.fillMaxWidth()) { Text(Str.follow_public()) }
+                        Button(onClick = {
+                            followMenu = false
+                            doFollow(1)
+                        }, modifier = Modifier.fillMaxWidth()) { Text(Str.follow_private()) }
+                        if (user?.isFollowed == true) {
+                            Button(onClick = {
+                                followMenu = false
+                                doUnfollow()
+                            }, modifier = Modifier.fillMaxWidth()) { Text(Str.unfollow()) }
+                        }
+                        Button(onClick = { followMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+                    }
+                }
+                BottomToast(followToast)
+                val previewUser = user
+                if (avatarPreview && previewUser != null) {
+                    AvatarPreview(url = previewUser.avatar, onClose = { avatarPreview = false })
+                }
         }
     }
 }
@@ -2878,6 +3084,9 @@ fun UserScreen(
 @Composable
 private fun UserHeader(
     user: PixivUser?,
+    followBusy: Boolean = false,
+    onFollowClick: () -> Unit = {},
+    onPreviewAvatar: () -> Unit = {},
     onCopyBio: (String) -> Unit = {},
     onCopyId: (account: String, id: Long) -> Unit = { _, _ -> },
     onOpenFollowing: () -> Unit = {},
@@ -2888,7 +3097,7 @@ private fun UserHeader(
         // 基本信息卡
         Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                AuthorAvatar(user?.avatar.orEmpty(), 68.dp, user?.id ?: 0)
+                AuthorAvatar(user?.avatar.orEmpty(), 68.dp, user?.id ?: 0, onOpenUser = { onPreviewAvatar() })
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(user?.name.orEmpty(), style = MiuixTheme.textStyles.title3, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -2906,6 +3115,17 @@ private fun UserHeader(
                                 .padding(vertical = 2.dp),
                         )
                     }
+                }
+                Spacer(Modifier.width(10.dp))
+                Button(
+                    onClick = onFollowClick,
+                    enabled = !followBusy,
+                    modifier = Modifier.height(34.dp),
+                ) {
+                    Text(
+                        if (user?.isFollowed == true) Str.followed() else Str.follow(),
+                        style = MiuixTheme.textStyles.footnote2,
+                    )
                 }
             }
         }

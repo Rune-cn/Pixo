@@ -143,4 +143,14 @@ internal expect object Str {
     @Composable fun download_failed(): String
     @Composable fun download_selected_hint(): String
     @Composable fun user(): String
+    @Composable fun follow(): String
+    @Composable fun followed(): String
+    @Composable fun unfollow(): String
+    @Composable fun follow_public(): String
+    @Composable fun follow_private(): String
+    @Composable fun follow_success(): String
+    @Composable fun unfollow_success(): String
+    @Composable fun follow_failed(): String
+    @Composable fun bookmarks(): String
+    @Composable fun r18(): String
 }

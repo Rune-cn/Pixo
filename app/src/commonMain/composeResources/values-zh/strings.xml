@@ -141,4 +141,13 @@
     <string name="download_failed">下载失败</string>
     <string name="download_selected_hint">选择要下载的图片</string>
     <string name="user">用户</string>
+    <string name="follow">关注</string>
+    <string name="followed">已关注</string>
+    <string name="unfollow">取消关注</string>
+    <string name="follow_public">公开关注</string>
+    <string name="follow_private">私密关注</string>
+    <string name="follow_success">已关注</string>
+    <string name="unfollow_success">已取消关注</string>
+    <string name="follow_failed">关注失败</string>
+    <string name="r18">R-18</string>
 </resources>
