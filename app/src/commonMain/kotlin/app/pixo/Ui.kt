@@ -387,6 +387,9 @@ fun PixoFloatingBar(
     var tabWidthPx by remember { mutableFloatStateOf(0f) }
     val pillIndex = remember { Animatable(selectedIndex.toFloat().coerceIn(0f, 1f)) }
     val pressProgress = remember { Animatable(0f) }
+    // 幽灵层取样：layerBackdrop 记录“全部标签内容”的副本，供胶囊玻璃采样（InstallerX tabsBackdrop）
+    val tabsBackdrop = rememberLayerBackdrop()
+    val combinedBackdrop = if (glassOn) rememberCombinedBackdrop(backdrop!!, tabsBackdrop) else null
 
     // 外部选中变化（路由/落定变化）→ 胶囊弹簧滑到对应槽位
     LaunchedEffect(selectedIndex) {
@@ -405,6 +408,7 @@ fun PixoFloatingBar(
         return ((x - indicatorPadding) / tabWidthPx).toInt().coerceIn(0, 1)
     }
 
+    fun pressedScale(): Float = lerpFloat(1f, TAB_PRESSED_SCALE, pressProgress.value)
 
     val containerBackground = when {
         // 液态玻璃（InstallerX base 配方）：vibrancy 提饱和 + 4dp 模糊 + 24dp 折射透镜 + iOS 高光 + 40% 容器色罩
@@ -433,13 +437,12 @@ fun PixoFloatingBar(
         else -> Modifier.background(scheme.surfaceContainer, containerShape)
     }
 
-    val indicatorBackground = if (glassOn) {
+    val indicatorBackground = if (glassOn && combinedBackdrop != null) {
+        // 胶囊玻璃 = 应用背景 + 幽灵标签内容 合并取样：按压时内容像在玻璃里“撑出来”
         Modifier.drawBackdrop(
-            backdrop = backdrop,
+            backdrop = combinedBackdrop,
             shape = { pillShape },
             effects = {
-                vibrancy()
-                blur(radiusX = 4.dp.toPx(), radiusY = 4.dp.toPx())
                 // 按压进度驱动透镜：深度折射 + 0.5 色散，像手指把玻璃压凹
                 lens(
                     refractionHeight = 10.dp.toPx() * pressProgress.value,
@@ -468,65 +471,139 @@ fun PixoFloatingBar(
             )
     }
 
+    // 长按高光（InstallerX InteractiveHighlight 的 KMP 简化版）：白晕跟随激活标签，随按压淡入
+    val glowModifier = Modifier.pressGlow(
+        progress = { pressProgress.value },
+        glowCenter = {
+            Offset(
+                pillIndex.value * tabWidthPx + tabWidthPx / 2f + indicatorPadding,
+                size.height / 2f,
+            )
+        },
+    )
+
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Box(
             modifier = Modifier
                 .padding(start = 16.dp, top = 10.dp, end = 16.dp, bottom = barMargin)
                 .onSizeChanged { size ->
                     onSizeChanged(with(density) { size.height.toDp() } + barMargin)
-                }
-                .shadow(
-                    10.dp,
-                    containerShape,
-                    ambientColor = Color.Black.copy(alpha = if (isDark) 0.24f else 0.1f),
-                    spotColor = Color.Black.copy(alpha = if (isDark) 0.24f else 0.1f),
-                )
-                .then(containerBackground)
-                .pointerInput(Unit) {
-                    // 统一手势：按下放大胶囊（长按保持放大）→ 横向拖拽跟手 → 抬起吸附/点击切换
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        scope.launch { pressProgress.animateTo(1f, pressIn) }
-                        var dragTotal = 0f
-                        var dragging = false
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id }
-                            if (change == null || !change.pressed) {
-                                val tapped = !dragging
-                                // 抬起立即切换：先切标签再并行播按压回弹，避免切换被回弹动画拖慢半拍
-                                val target = if (tapped) indexAt(down.position.x) else pillIndex.value.roundToInt().coerceIn(0, 1)
-                                onPageSelect(target)
-                                if (!tapped && pillIndex.value != target.toFloat()) {
-                                    // 拖拽抬起需要胶囊自己吸附回槽位（选中态没变时外部不会触发回位动画）
-                                    scope.launch {
-                                        pillIndex.animateTo(target.toFloat(), sliderSpring)
+                },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            // 1) 基础内容层：容器玻璃/纯色背景 + 手势 + 全部标签（先画，被胶囊玻璃盖住）
+            Box(
+                modifier = Modifier
+                    .shadow(
+                        10.dp,
+                        containerShape,
+                        ambientColor = Color.Black.copy(alpha = if (isDark) 0.24f else 0.1f),
+                        spotColor = Color.Black.copy(alpha = if (isDark) 0.24f else 0.1f),
+                    )
+                    .then(containerBackground)
+                    .then(glowModifier)
+                    .pointerInput(Unit) {
+                        // 统一手势：按下放大胶囊（长按保持放大）→ 横向拖拽跟手 → 抬起吸附/点击切换
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            scope.launch { pressProgress.animateTo(1f, pressIn) }
+                            var dragTotal = 0f
+                            var dragging = false
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                if (change == null || !change.pressed) {
+                                    val tapped = !dragging
+                                    // 抬起立即切换：先切标签再并行播按压回弹，避免切换被回弹动画拖慢半拍
+                                    val target = if (tapped) indexAt(down.position.x) else pillIndex.value.roundToInt().coerceIn(0, 1)
+                                    onPageSelect(target)
+                                    if (!tapped && pillIndex.value != target.toFloat()) {
+                                        // 拖拽抬起需要胶囊自己吸附回槽位（选中态没变时外部不会触发回位动画）
+                                        scope.launch {
+                                            pillIndex.animateTo(target.toFloat(), sliderSpring)
+                                        }
                                     }
-                                }
-                                scope.launch {
-                                    pressProgress.animateTo(0f, pressOut)
-                                }
-                                break
-                            }
-                            val delta = change.positionChange()
-                            if (delta.x != 0f || delta.y != 0f) {
-                                change.consume()
-                                dragTotal += delta.x
-                                if (!dragging && abs(dragTotal) > viewConfiguration.touchSlop) {
-                                    dragging = true
-                                }
-                                if (dragging && tabWidthPx > 0f) {
                                     scope.launch {
-                                        pillIndex.snapTo((pillIndex.value + delta.x / tabWidthPx).coerceIn(0f, 1f))
+                                        pressProgress.animateTo(0f, pressOut)
+                                    }
+                                    break
+                                }
+                                val delta = change.positionChange()
+                                if (delta.x != 0f || delta.y != 0f) {
+                                    change.consume()
+                                    dragTotal += delta.x
+                                    if (!dragging && abs(dragTotal) > viewConfiguration.touchSlop) {
+                                        dragging = true
+                                    }
+                                    if (dragging && tabWidthPx > 0f) {
+                                        scope.launch {
+                                            pillIndex.snapTo((pillIndex.value + delta.x / tabWidthPx).coerceIn(0f, 1f))
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            // 滑动胶囊指示器：宽度 = 单个标签槽宽，切换时弹簧滑动，按下时放大
+                    .widthIn(min = 200.dp)
+                    .onSizeChanged { size ->
+                        tabWidthPx = ((size.width - indicatorPadding * 2f) / 2f).coerceAtLeast(0f)
+                    }
+                    .height(64.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PixoFloatingBarItem(
+                        selected = selectedIndex == 0,
+                        icon = MiuixIcons.Home,
+                        label = Str.nav_home(),
+                        scale = pressedScale(),
+                    )
+                    PixoFloatingBarItem(
+                        selected = selectedIndex == 1,
+                        icon = MiuixIcons.Settings,
+                        label = Str.nav_settings(),
+                        scale = pressedScale(),
+                    )
+                }
+            }
+
+            // 2) 液态玻璃幽灵层：屏幕上不可见，但 layerBackdrop 记录标签内容副本；
+            //    胶囊取样 = 应用背景 + 幽灵内容，按压时激活标签像在玻璃里撑出来
+            if (glassOn) {
+                Row(
+                    modifier = Modifier
+                        .clearAndSetSemantics {}
+                        .alpha(0f)
+                        .layerBackdrop(tabsBackdrop)
+                        .then(glowModifier)
+                        .widthIn(min = 200.dp)
+                        .height(64.dp)
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PixoFloatingBarItem(
+                        selected = true,
+                        icon = MiuixIcons.Home,
+                        label = Str.nav_home(),
+                        scale = pressedScale(),
+                    )
+                    PixoFloatingBarItem(
+                        selected = true,
+                        icon = MiuixIcons.Settings,
+                        label = Str.nav_settings(),
+                        scale = pressedScale(),
+                    )
+                }
+            }
+
+            // 3) 滑动胶囊指示器（最上层，玻璃盖住内容；与容器平级，可自由溢出，
+            //    不再受容器“显示大小”限制——这是 InstallerX 胶囊能撑出来的关键）
             Box(
                 modifier = Modifier
                     .graphicsLayer {
@@ -546,32 +623,33 @@ fun PixoFloatingBar(
                     .height(56.dp)
                     .width(with(density) { (tabWidthPx - indicatorPadding * 2f).toDp() }),
             )
-            Row(
-                modifier = Modifier
-                    .widthIn(min = 200.dp)
-                    .onSizeChanged { size ->
-                        tabWidthPx = ((size.width - indicatorPadding * 2f) / 2f).coerceAtLeast(0f)
-                    }
-                    .height(64.dp)
-                    .padding(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                PixoFloatingBarItem(
-                    selected = selectedIndex == 0,
-                    icon = MiuixIcons.Home,
-                    label = Str.nav_home(),
-                    scale = lerpFloat(1f, TAB_PRESSED_SCALE, pressProgress.value),
-                )
-                PixoFloatingBarItem(
-                    selected = selectedIndex == 1,
-                    icon = MiuixIcons.Settings,
-                    label = Str.nav_settings(),
-                    scale = lerpFloat(1f, TAB_PRESSED_SCALE, pressProgress.value),
-                )
-            }
         }
     }
 }
+
+/** 长按高光：InstallerX InteractiveHighlight 的 KMP 简化版（白晕 + 径向渐变）。 */
+private fun Modifier.pressGlow(
+    progress: () -> Float,
+    glowCenter: DrawScope.() -> Offset,
+): Modifier = drawWithContent {
+    val p = progress()
+    if (p > 0f) {
+        drawRect(Color.White.copy(alpha = 0.06f * p), blendMode = BlendMode.Plus)
+        drawRect(
+            Brush.radialGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.12f * p),
+                    Color.White.copy(alpha = 0f),
+                ),
+                center = glowCenter(),
+                radius = size.minDimension * 1.2f,
+            ),
+            blendMode = BlendMode.Plus,
+        )
+    }
+    drawContent()
+}
+
 /**
  * 悬浮底栏单项：图标 + 文字，选中项由滑动胶囊指示器高亮。
  * [scale] 按压时 >1（对齐 InstallerX LocalFloatingBottomBarTabScale 1→1.2），
