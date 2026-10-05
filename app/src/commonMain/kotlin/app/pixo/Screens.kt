@@ -117,6 +117,19 @@ object FeedCache {
     /** 用户资料与主页作品：按用户 id 缓存。 */
     val userProfiles = HashMap<Long, PixivUser>()
     val userWorksCache = HashMap<Long, PixivUserWorks>()
+
+    fun clear() {
+        illust.clear()
+        novels.clear()
+        users.clear()
+        indexes.clear()
+        illustDetail.clear()
+        novelDetail.clear()
+        illustPages.clear()
+        comments.clear()
+        userProfiles.clear()
+        userWorksCache.clear()
+    }
 }
 
 /** 搜索结果/列表里任意条目的稳定 id（插画、小说、用户混排时去重用）。 */
@@ -156,7 +169,7 @@ private fun EndItem(loadingMore: Boolean, hasMore: Boolean, onRetry: () -> Unit)
 
 @Composable
 fun HomePage(
-    onOpenRanking: (String) -> Unit,
+    onOpenRanking: (String, String) -> Unit,
     onOpenNovelRanking: (String) -> Unit,
     onOpenDiscover: () -> Unit,
     onOpenRecommended: () -> Unit,
@@ -301,7 +314,7 @@ fun HomePage(
 
 @Composable
 private fun HomeEntries(
-    onOpenRanking: (String) -> Unit,
+    onOpenRanking: (String, String) -> Unit,
     onOpenNovelRanking: (String) -> Unit,
     onOpenDiscover: () -> Unit,
     onOpenRecommended: () -> Unit,
@@ -310,13 +323,14 @@ private fun HomeEntries(
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            EntryCard(MiuixIcons.All, Str.illust_ranking()) { onOpenRanking("daily") }
+            EntryCard(MiuixIcons.All, Str.illust_ranking()) { onOpenRanking("daily", "illust") }
             EntryCard(MiuixIcons.Notes, Str.novel_ranking()) { onOpenNovelRanking("daily") }
             EntryCard(MiuixIcons.Image, Str.discover()) { onOpenDiscover() }
             EntryCard(MiuixIcons.Promotions, Str.recommended()) { onOpenRecommended() }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EntryCard(MiuixIcons.Search, Str.search()) { onOpenSearch() }
+            EntryCard(MiuixIcons.All, Str.manga_ranking()) { onOpenRanking("daily", "manga") }
             EntryCard(MiuixIcons.Favorites, Str.bookmarks()) { onOpenBookmarks("show") }
         }
     }
@@ -344,12 +358,13 @@ fun RowScope.EntryCard(icon: ImageVector, label: String, onClick: () -> Unit) {
 @Composable
 fun RankingScreen(
     mode: String,
+    content: String = "illust",
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
 ) {
     var currentMode by rememberSaveable { mutableStateOf(mode) }
-    val cacheKey = "rank:$currentMode"
+    val cacheKey = "rank:$content:$currentMode"
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
     var loading by remember { mutableStateOf(items == null) }
@@ -366,7 +381,8 @@ fun RankingScreen(
         loading = true
         error = null
         try {
-            val list = PixivApi.fetchRanking(currentMode, 1)
+            val list = if (content == "manga") PixivApi.fetchMangaRanking(currentMode, 1)
+            else PixivApi.fetchRanking(currentMode, 1)
             FeedCache.illust[cacheKey] = list
             items = list
             hasMore = list.size >= 50
@@ -381,7 +397,8 @@ fun RankingScreen(
         scope.launch {
             refreshing = true
             try {
-                val list = PixivApi.fetchRanking(currentMode, 1)
+                val list = if (content == "manga") PixivApi.fetchMangaRanking(currentMode, 1)
+                else PixivApi.fetchRanking(currentMode, 1)
                 FeedCache.illust[cacheKey] = list
                 items = list
                 hasMore = list.size >= 50
@@ -400,7 +417,8 @@ fun RankingScreen(
             loadingMore = true
             val page = ((items?.size ?: 0) / 50) + 1
             try {
-                val more = PixivApi.fetchRanking(currentMode, page)
+                val more = if (content == "manga") PixivApi.fetchMangaRanking(currentMode, page)
+                else PixivApi.fetchRanking(currentMode, page)
                 val cur = (items ?: emptyList()).toMutableList()
                 val seen = HashSet(cur.map { it.id })
                 cur.addAll(more.filter { it.id !in seen })
@@ -425,7 +443,7 @@ fun RankingScreen(
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     val scrollBehavior = MiuixScrollBehavior()
-    PixoSubScreen(title = Str.ranking(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+    PixoSubScreen(title = if (content == "manga") Str.manga_ranking() else Str.ranking(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -984,6 +1002,7 @@ private fun IllustDetail(
     var bookmarkBusy by remember { mutableStateOf(false) }
     var lightboxIndex by remember { mutableIntStateOf(-1) }
     var ugoira by remember(workId) { mutableStateOf<PixivUgoira?>(null) }
+    var ugoiraPlaying by remember(workId) { mutableStateOf(!AppPrefs.ugoiraConfirm) }
     var downloadBusy by remember { mutableStateOf(false) }
     var downloadDialog by remember { mutableStateOf(false) }
     var downloadToast by remember { mutableStateOf<String?>(null) }
@@ -1140,13 +1159,40 @@ private fun IllustDetail(
                         val isUgoira = ugoira != null && index == 0
                         Box(Modifier.fillMaxWidth().clickable { lightboxIndex = index }) {
                             if (isUgoira) {
-                                UgoiraAsyncImage(
-                                    workId = workId,
-                                    fallbackUrl = page.url,
-                                    contentDescription = d?.title ?: "",
-                                    contentScale = ContentScale.FillWidth,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                                if (ugoiraPlaying) {
+                                    UgoiraAsyncImage(
+                                        workId = workId,
+                                        fallbackUrl = page.url,
+                                        contentDescription = d?.title ?: "",
+                                        contentScale = ContentScale.FillWidth,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        playing = true,
+                                    )
+                                } else {
+                                    val ctx = LocalPlatformContext.current
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(ctx).data(page.url).crossfade(true).build(),
+                                        contentDescription = d?.title ?: "",
+                                        contentScale = ContentScale.FillWidth,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    // 手动确认播放：点击覆盖层开始动图
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clickable { ugoiraPlaying = true },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(50))
+                                                .background(Color.Black.copy(alpha = 0.55f))
+                                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        ) {
+                                            Text(Str.play_animation(), style = MiuixTheme.textStyles.body2, color = Color.White)
+                                        }
+                                    }
+                                }
                             } else {
                                 val ctx = LocalPlatformContext.current
                                 AsyncImage(
@@ -1235,7 +1281,7 @@ private fun IllustDetail(
                         selectedPages = if (selectedPages.size == pages.size) emptySet() else pages.indices.toSet()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(Str.select_all()) }
+                ) { Text(if (selectedPages.size == pages.size) Str.deselect_all() else Str.select_all()) }
                 LazyColumn(Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(pages.size) { index ->
                         val checked = index in selectedPages
@@ -1301,6 +1347,7 @@ private fun ImageLightbox(
     val pagerState = rememberPagerState(initialPage = safeIndex) { pages.size.coerceAtLeast(1) }
     val zoomableState = rememberZoomableState(zoomSpec = ZoomSpec(maxZoomFactor = 6f))
     val isZoomed = (zoomableState.zoomFraction ?: 0f) > 0.001f
+    var ugoiraPlaying by remember(workId) { mutableStateOf(!AppPrefs.ugoiraConfirm) }
 
     // 切页时回到未缩放状态
     LaunchedEffect(pagerState.currentPage) { zoomableState.resetZoom() }
@@ -1322,13 +1369,14 @@ private fun ImageLightbox(
                     },
                 )
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (ugoira != null && index == 0) {
+                if (ugoira != null && index == 0 && ugoiraPlaying) {
                     UgoiraAsyncImage(
                         workId = workId,
                         fallbackUrl = page.original.ifBlank { page.url },
                         contentDescription = "illust",
                         contentScale = ContentScale.Fit,
                         modifier = zoomModifier,
+                        playing = true,
                     )
                 } else {
                     AsyncImage(
@@ -1337,6 +1385,23 @@ private fun ImageLightbox(
                         contentScale = ContentScale.Fit,
                         modifier = zoomModifier,
                     )
+                    if (ugoira != null && index == 0 && !ugoiraPlaying) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { ugoiraPlaying = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color.Black.copy(alpha = 0.55f))
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                            ) {
+                                Text(Str.play_animation(), style = MiuixTheme.textStyles.body2, color = Color.White)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1414,13 +1479,15 @@ private fun UgoiraAsyncImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Fit,
+    playing: Boolean = true,
 ) {
     val ctx = LocalPlatformContext.current
     var frameBytes by remember(workId) { mutableStateOf<List<ByteArray>>(emptyList()) }
     var delays by remember(workId) { mutableStateOf<List<Int>>(emptyList()) }
     var index by remember(workId) { mutableIntStateOf(0) }
 
-    LaunchedEffect(workId) {
+    LaunchedEffect(workId, playing) {
+        if (!playing) return@LaunchedEffect
         try {
             val meta = PixivApi.fetchUgoiraMeta(workId)
             val bytes = loadUgoiraFrames(meta.zipUrl, meta.frames.map { it.file })
@@ -1432,14 +1499,14 @@ private fun UgoiraAsyncImage(
             logError("Pixo", "ugoira load fail", e)
         }
     }
-    LaunchedEffect(frameBytes) {
-        if (frameBytes.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(frameBytes, playing) {
+        if (frameBytes.isEmpty() || !playing) return@LaunchedEffect
         while (true) {
             delay(delays.getOrElse(index % frameBytes.size) { 125 }.toLong())
             index = (index + 1) % frameBytes.size
         }
     }
-    val frame = frameBytes.getOrNull(if (frameBytes.isEmpty()) 0 else index % frameBytes.size)
+    val frame = if (playing) frameBytes.getOrNull(if (frameBytes.isEmpty()) 0 else index % frameBytes.size) else null
     if (frame != null) {
         AsyncImage(
             model = ImageRequest.Builder(ctx).data(frame).build(),
@@ -1473,7 +1540,7 @@ private fun FloatingButton(onClick: () -> Unit, modifier: Modifier, content: @Co
 
 /** 底部居中的提示条（下载失败/收藏结果等反馈统一样式）。 */
 @Composable
-private fun BottomToast(text: String?) {
+internal fun BottomToast(text: String?) {
     if (text == null) return
     Box(Modifier.fillMaxSize().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
         Box(
@@ -2727,11 +2794,13 @@ fun UserScreen(
     onOpenFollows: (Long, String) -> Unit,
 ) {
     val illustKey = "userIllusts:$userId"
+    val mangaKey = "userManga:$userId"
     val novelKey = "userNovels:$userId"
     val cachedUser = remember(userId) { FeedCache.userProfiles[userId] }
     var user by remember { mutableStateOf(cachedUser) }
     var kind by rememberSaveable { mutableStateOf("illust") }
     var illustItems by remember(userId) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[illustKey] as? List<PixivWork>) }
+    var mangaItems by remember(userId) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[mangaKey] as? List<PixivWork>) }
     var novelItems by remember(userId) { mutableStateOf<List<PixivNovel>?>(FeedCache.novels[novelKey] as? List<PixivNovel>) }
     var loading by remember { mutableStateOf(illustItems == null || novelItems == null) }
     var loadingMore by remember { mutableStateOf(false) }
@@ -2753,12 +2822,19 @@ fun UserScreen(
     val sFollowSuccess = Str.follow_success()
     val sUnfollowSuccess = Str.unfollow_success()
     val sFollowFailed = Str.follow_failed()
-    val cacheKey = if (kind == "novel") novelKey else illustKey
+    val cacheKey = when (kind) {
+        "novel" -> novelKey
+        "manga" -> mangaKey
+        else -> illustKey
+    }
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
 
     suspend fun fetchMore(kind: String, offset: Int): List<Any> =
-        if (kind == "novel") PixivApi.fetchUserNovels(userId, offset, 30)
-        else PixivApi.fetchUserIllusts(userId, offset, 30)
+        when (kind) {
+            "novel" -> PixivApi.fetchUserNovels(userId, offset, 30)
+            "manga" -> PixivApi.fetchUserIllusts(userId, offset, 30, "manga")
+            else -> PixivApi.fetchUserIllusts(userId, offset, 30, "illust")
+        }
 
     LaunchedEffect(userId, retryKey) {
         loading = true
@@ -2777,6 +2853,11 @@ fun UserScreen(
                     FeedCache.novels[novelKey] = list
                     novelItems = list
                 }
+                if (mangaItems == null) {
+                    val list = PixivApi.fetchUserIllusts(userId, 0, 30, "manga")
+                    FeedCache.illust[mangaKey] = list
+                    mangaItems = list
+                }
             } else {
                 // 网页端没有稳定的作者作品分页接口，用 works/latest 展示最新作品
                 val w = PixivApi.fetchUserWorks(userId)
@@ -2787,6 +2868,11 @@ fun UserScreen(
                 if (novelItems == null) {
                     FeedCache.novels[novelKey] = w.novels
                     novelItems = w.novels
+                }
+                if (mangaItems == null) {
+                    val manga = w.illusts.filter { it.illustType == 1 }
+                    FeedCache.illust[mangaKey] = manga
+                    mangaItems = manga
                 }
             }
             hasMore = tokenMode
@@ -2810,6 +2896,9 @@ fun UserScreen(
                     val il = PixivApi.fetchUserIllusts(userId, 0, 30)
                     FeedCache.illust[illustKey] = il
                     illustItems = il
+                    val ma = PixivApi.fetchUserIllusts(userId, 0, 30, "manga")
+                    FeedCache.illust[mangaKey] = ma
+                    mangaItems = ma
                     val nl = PixivApi.fetchUserNovels(userId, 0, 30)
                     FeedCache.novels[novelKey] = nl
                     novelItems = nl
@@ -2818,6 +2907,9 @@ fun UserScreen(
                     val w = PixivApi.fetchUserWorks(userId)
                     FeedCache.illust[illustKey] = w.illusts
                     illustItems = w.illusts
+                    val manga = w.illusts.filter { it.illustType == 1 }
+                    FeedCache.illust[mangaKey] = manga
+                    mangaItems = manga
                     FeedCache.novels[novelKey] = w.novels
                     novelItems = w.novels
                     hasMore = false
@@ -2871,7 +2963,11 @@ fun UserScreen(
         }
     }
 
-    val currentList: List<Any> = if (kind == "novel") novelItems.orEmpty() else illustItems.orEmpty()
+    val currentList: List<Any> = when (kind) {
+        "novel" -> novelItems.orEmpty()
+        "manga" -> mangaItems.orEmpty()
+        else -> illustItems.orEmpty()
+    }
 
     fun loadMore() {
         if (loadingMore || !hasMore || loading) return
@@ -2887,6 +2983,9 @@ fun UserScreen(
                 if (kind == "novel") {
                     FeedCache.novels[novelKey] = merged.filterIsInstance<PixivNovel>()
                     novelItems = merged.filterIsInstance<PixivNovel>()
+                } else if (kind == "manga") {
+                    FeedCache.illust[mangaKey] = merged.filterIsInstance<PixivWork>()
+                    mangaItems = merged.filterIsInstance<PixivWork>()
                 } else {
                     FeedCache.illust[illustKey] = merged.filterIsInstance<PixivWork>()
                     illustItems = merged.filterIsInstance<PixivWork>()
@@ -2961,13 +3060,13 @@ fun UserScreen(
                                 onCopyBio = { bio -> copyMenu = bio },
                                 onCopyId = { account, id -> idCopyMenu = account to id },
                                 onOpenFollowing = { onOpenFollows(userId, "following") },
-                                onOpenFollowers = { onOpenFollows(userId, "followers") },
                                 onOpenWorks = { kind = "illust" },
                             )
                         }
                         item {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ModeChip("illust", Str.illust(), kind) { kind = "illust" }
+                                ModeChip("manga", Str.manga(), kind) { kind = "manga" }
                                 ModeChip("novel", Str.novel(), kind) { kind = "novel" }
                             }
                         }
@@ -2976,6 +3075,11 @@ fun UserScreen(
                         } else if (kind == "novel") {
                             items(novelItems.orEmpty(), key = { it.id }) { n ->
                                 NovelRow(n, onClick = { onOpenDetail(n.id, "novel") }, onOpenUser = onOpenUser)
+                            }
+                            item { EndItem(loadingMore, hasMore, onRetry = {}) }
+                        } else if (kind == "manga") {
+                            items(mangaItems.orEmpty(), key = { it.id }) { w ->
+                                PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
                             }
                             item { EndItem(loadingMore, hasMore, onRetry = {}) }
                         } else {
@@ -3090,7 +3194,6 @@ private fun UserHeader(
     onCopyBio: (String) -> Unit = {},
     onCopyId: (account: String, id: Long) -> Unit = { _, _ -> },
     onOpenFollowing: () -> Unit = {},
-    onOpenFollowers: () -> Unit = {},
     onOpenWorks: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -3120,7 +3223,7 @@ private fun UserHeader(
                 Button(
                     onClick = onFollowClick,
                     enabled = !followBusy,
-                    modifier = Modifier.height(34.dp),
+                    modifier = Modifier.heightIn(min = 36.dp),
                 ) {
                     Text(
                         if (user?.isFollowed == true) Str.followed() else Str.follow(),
@@ -3129,13 +3232,12 @@ private fun UserHeader(
                 }
             }
         }
-        // 数据卡片第一行：关注 / 粉丝；第二行：作品按类型拆分（插画 / 漫画 / 小说）
+        // 关注统计（官方 App API 没有粉丝数字段，粉丝项已移除）
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             UserStatCard(Str.following(), user?.followingCount, Modifier.weight(1f), onOpenFollowing)
-            UserStatCard(Str.follower(), user?.followerCount, Modifier.weight(1f), onOpenFollowers)
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp),

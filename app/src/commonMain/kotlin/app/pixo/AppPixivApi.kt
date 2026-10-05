@@ -360,9 +360,9 @@ object AppPixivApi {
     }
 
     /** 作者插画分页（无限流用）。 */
-    suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivWork> {
+    suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30, type: String = "illust"): List<PixivWork> {
         val root = PixivHttp.getJson(
-            PixivHttp.appApiHeaders().url("$BASE/user/illusts?user_id=$userId&type=illust&offset=$offset&limit=$limit"),
+            PixivHttp.appApiHeaders().url("$BASE/user/illusts?user_id=$userId&type=$type&offset=$offset&limit=$limit"),
         )
         return parseIllusts(root.arr("illusts"))
     }

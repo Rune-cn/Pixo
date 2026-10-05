@@ -89,6 +89,9 @@ internal object AppSettings
 internal object AppearanceSettings
 
 @Serializable
+internal object DataSettings
+
+@Serializable
 internal object DebugSettings
 
 @Serializable
@@ -107,7 +110,7 @@ internal data class User(val userId: Long)
 internal data class Follows(val userId: Long, val kind: String)
 
 @Serializable
-internal data class Ranking(val mode: String)
+internal data class Ranking(val mode: String, val content: String = "illust")
 
 @Serializable
 internal data class Search(val query: String = "")
@@ -146,6 +149,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var predictiveBack by rememberSaveable { mutableStateOf(AppPrefs.predictiveBack) }
     var floatingBar by rememberSaveable { mutableStateOf(AppPrefs.floatingBar) }
     var liquidGlass by rememberSaveable { mutableStateOf(AppPrefs.liquidGlass) }
+    var ugoiraConfirm by rememberSaveable { mutableStateOf(AppPrefs.ugoiraConfirm) }
     val navController = rememberNavController()
     // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情 / 用户主页
     val deepLink = deepLinkSignal?.value
@@ -172,7 +176,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
             restoreState = true
         }
     }
-    val openRanking: (String) -> Unit = { mode -> navController.navigate(Ranking(mode)) }
+    val openRanking: (String, String) -> Unit = { mode, content -> navController.navigate(Ranking(mode, content)) }
     val openNovelRanking: (String) -> Unit = { mode -> navController.navigate(NovelRanking(mode)) }
     val openDiscover: () -> Unit = { navController.navigate(Discover) }
     val openRecommended: () -> Unit = { navController.navigate(Recommended) }
@@ -285,9 +289,18 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     ) {
                         AppSettingsPage(
                             onOpenAppearance = { navController.navigate(AppearanceSettings) },
+                            onOpenData = { navController.navigate(DataSettings) },
                             onOpenDebug = { navController.navigate(DebugSettings) },
                             onBack = { navController.popBackStack() },
                         )
+                    }
+                    composable<DataSettings>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        DataPage(onBack = { navController.popBackStack() })
                     }
                     composable<AppearanceSettings>(
                         enterTransition = { miuixPushEnter() },
@@ -317,6 +330,11 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onLiquidGlassChange = {
                                 liquidGlass = it
                                 AppPrefs.liquidGlass = it
+                            },
+                            ugoiraConfirm = ugoiraConfirm,
+                            onUgoiraConfirmChange = {
+                                ugoiraConfirm = it
+                                AppPrefs.ugoiraConfirm = it
                             },
                             language = language,
                             onLanguageChange = {
@@ -396,6 +414,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     ) { entry ->
                         RankingScreen(
                             mode = entry.toRoute<Ranking>().mode,
+                            content = entry.toRoute<Ranking>().content,
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
@@ -571,7 +590,7 @@ private fun MainTabsHost(
     onPendingTabHandled: () -> Unit,
     onGoSettingsTab: () -> Unit,
     onOpenAppSettings: () -> Unit,
-    onOpenRanking: (String) -> Unit,
+    onOpenRanking: (String, String) -> Unit,
     onOpenNovelRanking: (String) -> Unit,
     onOpenDiscover: () -> Unit,
     onOpenRecommended: () -> Unit,
@@ -719,6 +738,7 @@ fun SettingsPage(
 @Composable
 fun AppSettingsPage(
     onOpenAppearance: () -> Unit,
+    onOpenData: () -> Unit,
     onOpenDebug: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -737,24 +757,82 @@ fun AppSettingsPage(
                         .padding(top = 4.dp),
                 ) {
                     SettingEntryRow(Str.settings_appearance(), onClick = onOpenAppearance)
+                    SettingEntryRow(Str.settings_data(), onClick = onOpenData)
                     SettingEntryRow(Str.settings_debug(), onClick = onOpenDebug)
                 }
             }
-            item {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 4.dp),
-                ) {
-                    var downloadDir by remember { mutableStateOf(AppPrefs.downloadDir) }
-                    val pickFolder = rememberDownloadFolderPicker { dir -> downloadDir = dir }
-                    ArrowPreference(
-                        title = Str.download_folder(),
-                        summary = downloadDir.ifBlank { "Pictures/Pixo" },
-                        onClick = { pickFolder() },
-                    )
+        }
+    }
+}
+
+/** 数据页：导出 / 导入设置、下载目录、清除缓存。 */
+@Composable
+fun DataPage(onBack: () -> Unit) {
+    var toast by remember { mutableStateOf<String?>(null) }
+    var downloadDir by remember { mutableStateOf(AppPrefs.downloadDir) }
+    val sExportSuccess = Str.export_success()
+    val sExportFailed = Str.export_failed()
+    val sImportSuccess = Str.import_success()
+    val sImportFailed = Str.import_failed()
+    val sCacheCleared = Str.cache_cleared()
+    val pickFolder = rememberDownloadFolderPicker { dir -> downloadDir = dir }
+    val exportFile = rememberExportSettingsFile { ok ->
+        toast = if (ok) sExportSuccess else sExportFailed
+    }
+    val importFile = rememberImportSettingsFile { json ->
+        if (json == null) return@rememberImportSettingsFile
+        toast = if (importSettingsJson(json)) sImportSuccess else sImportFailed
+    }
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.settings_data(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = innerPadding,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                overscrollEffect = null,
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 4.dp),
+                    ) {
+                        ArrowPreference(
+                            title = Str.export_settings(),
+                            summary = Str.export_settings_summary(),
+                            onClick = { exportFile() },
+                        )
+                        ArrowPreference(
+                            title = Str.import_settings(),
+                            summary = Str.import_settings_summary(),
+                            onClick = { importFile() },
+                        )
+                        ArrowPreference(
+                            title = Str.clear_cache(),
+                            summary = Str.clear_cache_summary(),
+                            onClick = {
+                                clearAppCache()
+                                toast = sCacheCleared
+                            },
+                        )
+                    }
+                }
+                item {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 4.dp),
+                    ) {
+                        ArrowPreference(
+                            title = Str.download_folder(),
+                            summary = downloadDir.ifBlank { "Pictures/Pixo" },
+                            onClick = { pickFolder() },
+                        )
+                    }
                 }
             }
+            BottomToast(toast)
         }
     }
 }
@@ -778,6 +856,8 @@ fun AppearancePage(
     onFloatingBarChange: (Boolean) -> Unit,
     liquidGlass: Boolean,
     onLiquidGlassChange: (Boolean) -> Unit,
+    ugoiraConfirm: Boolean,
+    onUgoiraConfirmChange: (Boolean) -> Unit,
     language: String,
     onLanguageChange: (String) -> Unit,
     onBack: () -> Unit,
@@ -839,6 +919,12 @@ fun AppearancePage(
                             onCheckedChange = { onLiquidGlassChange(it) },
                         )
                     }
+                    SwitchPreference(
+                        title = Str.ugoira_confirm(),
+                        summary = Str.ugoira_confirm_summary(),
+                        checked = ugoiraConfirm,
+                        onCheckedChange = { onUgoiraConfirmChange(it) },
+                    )
                 }
             }
         }

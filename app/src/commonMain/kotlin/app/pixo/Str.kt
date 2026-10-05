@@ -153,4 +153,21 @@ internal expect object Str {
     @Composable fun follow_failed(): String
     @Composable fun bookmarks(): String
     @Composable fun r18(): String
+    @Composable fun settings_data(): String
+    @Composable fun export_settings(): String
+    @Composable fun export_settings_summary(): String
+    @Composable fun import_settings(): String
+    @Composable fun import_settings_summary(): String
+    @Composable fun export_success(): String
+    @Composable fun export_failed(): String
+    @Composable fun import_success(): String
+    @Composable fun import_failed(): String
+    @Composable fun clear_cache(): String
+    @Composable fun clear_cache_summary(): String
+    @Composable fun cache_cleared(): String
+    @Composable fun deselect_all(): String
+    @Composable fun manga_ranking(): String
+    @Composable fun ugoira_confirm(): String
+    @Composable fun ugoira_confirm_summary(): String
+    @Composable fun play_animation(): String
 }

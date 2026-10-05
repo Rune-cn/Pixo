@@ -212,6 +212,28 @@ object WebPixivApi {
         }
     }
 
+    /** 漫画排行：同一排行接口，`content=manga`（返回条目 illust_type=1）。 */
+    suspend fun fetchMangaRanking(mode: String, page: Int = 1): List<PixivWork> {
+        val root = PixivHttp.getJson(
+            PixivHttp.webJsonHeaders()
+                .url("https://www.pixiv.net/ranking.php?mode=$mode&content=manga&p=$page&format=json"),
+        )
+        return parseWorks(root.arr("contents")) { item ->
+            PixivWork(
+                id = item.lng("illust_id"),
+                title = item.str("title"),
+                author = item.str("user_name"),
+                authorId = item.lng("user_id"),
+                avatar = item.str("profile_img"),
+                thumb = item.str("url"),
+                illustType = item.int("illust_type").coerceAtLeast(1),
+                pageCount = item.int("illust_page_count").coerceAtLeast(item.int("page_count")).coerceAtLeast(1),
+                xRestrict = item.int("x_restrict"),
+                tags = stringTags(item),
+            )
+        }
+    }
+
     /** ugoira（动图）元数据：返回 zip 下载地址与帧序列（帧需自行解压 zip 获得）。 */
     suspend fun fetchUgoiraMeta(id: Long): PixivUgoira {
         val root = PixivHttp.getJson(
@@ -653,7 +675,7 @@ object WebPixivApi {
      * 网页端 `/ajax/user/{id}/illusts?offset=&limit=` 已不再支持 offset 分页（恒 400「不正确的要求」），
      * 正确做法：先从 `/ajax/user/{id}/profile/all` 拿全部作品 id，切页后按 `ids[]=` 批量拉详情。
      */
-    suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivWork> {
+    suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30, type: String = "illust"): List<PixivWork> {
         val ids = fetchUserWorkIds(userId, "illusts").drop(offset).take(limit)
         if (ids.isEmpty()) return emptyList()
         val root = PixivHttp.getJson(

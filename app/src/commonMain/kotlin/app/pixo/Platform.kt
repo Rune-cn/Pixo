@@ -10,6 +10,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.annotation.DelicateCoilApi
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CoroutineDispatcher
 
 /**
@@ -36,6 +37,8 @@ expect object AppPrefs {
     var liquidGlass: Boolean
     /** 下载目录（空 = 平台默认目录，如 Android 的 Pictures/Pixo）。 */
     var downloadDir: String
+    /** 动图（ugoira）播放前是否需要手动确认（避免详情页自动轮播造成闪烁）。 */
+    var ugoiraConfirm: Boolean
 }
 
 expect object LocalAppLocale {
@@ -83,6 +86,14 @@ expect suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
 /** 弹出「选择下载目录」界面，选中后持久化到 [AppPrefs.downloadDir] 并回调目录值。返回可触发选择的回调。 */
 @Composable
 expect fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit
+
+/** 弹出「导出设置」保存界面，写出 JSON 备份；成功回调 true。返回可触发选择的回调。 */
+@Composable
+expect fun rememberExportSettingsFile(onDone: (Boolean) -> Unit): () -> Unit
+
+/** 弹出「导入设置」选择界面；读取到文件文本后回调（取消回调 null）。返回可触发选择的回调。 */
+@Composable
+expect fun rememberImportSettingsFile(onLoaded: (String?) -> Unit): () -> Unit
 
 /**
  * 下载 ugoira zip 并解压出帧图片字节（顺序与 [frameFiles] 一致）。
@@ -142,3 +153,58 @@ internal fun refreshNetworkConfig() {
     )
 }
 
+/** 导出全部设置（含登录凭据）为 JSON 文本；失败返回空串。 */
+fun exportSettingsJson(): String = runCatching {
+    Json.encodeToString(
+        SettingsBackup(
+            cookie = AppPrefs.cookie,
+            refreshToken = AppPrefs.refreshToken,
+            accessToken = AppPrefs.accessToken,
+            lastLoginUser = AppPrefs.lastLoginUser,
+            selfUserId = AppPrefs.selfUserId,
+            debugLog = AppPrefs.debugLog,
+            language = AppPrefs.language,
+            predictiveBack = AppPrefs.predictiveBack,
+            dynamicColor = AppPrefs.dynamicColor,
+            floatingBar = AppPrefs.floatingBar,
+            liquidGlass = AppPrefs.liquidGlass,
+            downloadDir = AppPrefs.downloadDir,
+            ugoiraConfirm = AppPrefs.ugoiraConfirm,
+        ),
+    )
+}.getOrDefault("")
+
+/** 导入设置 JSON 文本并立即生效；成功返回 true。 */
+fun importSettingsJson(json: String): Boolean = runCatching {
+    val b = Json.decodeFromString<SettingsBackup>(json)
+    AppPrefs.cookie = b.cookie
+    AppPrefs.refreshToken = b.refreshToken
+    AppPrefs.accessToken = b.accessToken
+    AppPrefs.lastLoginUser = b.lastLoginUser
+    AppPrefs.selfUserId = b.selfUserId
+    AppPrefs.debugLog = b.debugLog
+    AppPrefs.language = b.language
+    AppPrefs.predictiveBack = b.predictiveBack
+    AppPrefs.dynamicColor = b.dynamicColor
+    AppPrefs.floatingBar = b.floatingBar
+    AppPrefs.liquidGlass = b.liquidGlass
+    AppPrefs.downloadDir = b.downloadDir
+    AppPrefs.ugoiraConfirm = b.ugoiraConfirm
+    PixivApi.refreshClient()
+    refreshNetworkConfig()
+    applyAppLanguage(b.language)
+    true
+}.getOrDefault(false)
+
+/** 清除内存缓存：列表 / 详情 / 评论缓存与图片内存、磁盘缓存。 */
+fun clearAppCache() {
+    FeedCache.clear()
+    val ctx = loaderContext
+    if (ctx != null) {
+        runCatching {
+            val loader = SingletonImageLoader.get(ctx)
+            loader.memoryCache?.clear()
+            loader.diskCache?.clear()
+        }
+    }
+}

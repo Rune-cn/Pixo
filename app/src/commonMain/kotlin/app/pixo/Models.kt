@@ -1,5 +1,25 @@
 package app.pixo
 
+import kotlinx.serialization.Serializable
+
+/** 设置备份（数据页导出 / 导入用，含登录凭据，用于本机或可信设备迁移）。 */
+@Serializable
+data class SettingsBackup(
+    val cookie: String = "",
+    val refreshToken: String = "",
+    val accessToken: String = "",
+    val lastLoginUser: String = "",
+    val selfUserId: Long = 0L,
+    val debugLog: Boolean = false,
+    val language: String = "system",
+    val predictiveBack: Boolean = true,
+    val dynamicColor: Boolean = true,
+    val floatingBar: Boolean = true,
+    val liquidGlass: Boolean = true,
+    val downloadDir: String = "",
+    val ugoiraConfirm: Boolean = true,
+)
+
 /** 插画/漫画列表条目。 */
 data class PixivWork(
     val id: Long,

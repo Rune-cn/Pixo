@@ -151,4 +151,21 @@
     <string name="unfollow_success">Unfollowed</string>
     <string name="follow_failed">Follow failed</string>
     <string name="r18">R-18</string>
+    <string name="settings_data">Data</string>
+    <string name="export_settings">Export settings</string>
+    <string name="export_settings_summary">Back up login, appearance and download settings to a JSON file</string>
+    <string name="import_settings">Import settings</string>
+    <string name="import_settings_summary">Restore settings from a backup JSON file</string>
+    <string name="export_success">Settings exported</string>
+    <string name="export_failed">Export failed</string>
+    <string name="import_success">Settings imported</string>
+    <string name="import_failed">Import failed: invalid backup file</string>
+    <string name="clear_cache">Clear cache</string>
+    <string name="clear_cache_summary">Clear in-memory lists, details and image caches</string>
+    <string name="cache_cleared">Cache cleared</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="manga_ranking">Manga ranking</string>
+    <string name="ugoira_confirm">Confirm before playing animation</string>
+    <string name="ugoira_confirm_summary">Show a play button first instead of auto-playing animated works</string>
+    <string name="play_animation">Play animation</string>
 </resources>

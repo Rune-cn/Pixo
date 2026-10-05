@@ -100,6 +100,12 @@ actual object AppPrefs {
         set(value) {
             prefs.put("download_dir", value)
         }
+
+    actual var ugoiraConfirm: Boolean
+        get() = prefs.getBoolean("ugoira_confirm", true)
+        set(value) {
+            prefs.putBoolean("ugoira_confirm", value)
+        }
 }
 
 actual object LocalAppLocale {
@@ -220,6 +226,46 @@ actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit 
         if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
             AppPrefs.downloadDir = chooser.selectedFile.absolutePath
             onPicked(chooser.selectedFile.absolutePath)
+        }
+    }
+}
+
+@Composable
+actual fun rememberExportSettingsFile(onDone: (Boolean) -> Unit): () -> Unit = {
+    val chooser = JFileChooser().apply {
+        dialogTitle = "导出设置"
+        selectedFile = File(System.getProperty("user.home"), "pixo-settings.json")
+    }
+    if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+        try {
+            var f = chooser.selectedFile
+            if (!f.name.contains('.')) f = File(f.absolutePath + ".json")
+            val json = exportSettingsJson()
+            if (json.isBlank()) {
+                onDone(false)
+            } else {
+                f.writeText(json)
+                onDone(true)
+            }
+        } catch (e: Exception) {
+            logError("Pixo", "export settings fail", e)
+            onDone(false)
+        }
+    }
+}
+
+@Composable
+actual fun rememberImportSettingsFile(onLoaded: (String?) -> Unit): () -> Unit = {
+    val chooser = JFileChooser().apply {
+        dialogTitle = "导入设置"
+        isAcceptAllFileFilterUsed = true
+    }
+    if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+        try {
+            onLoaded(chooser.selectedFile.readText())
+        } catch (e: Exception) {
+            logError("Pixo", "import settings read fail", e)
+            onLoaded(null)
         }
     }
 }

@@ -150,4 +150,21 @@
     <string name="unfollow_success">已取消关注</string>
     <string name="follow_failed">关注失败</string>
     <string name="r18">R-18</string>
+    <string name="settings_data">数据</string>
+    <string name="export_settings">导出设置</string>
+    <string name="export_settings_summary">把登录、外观与下载目录等设置备份为 JSON 文件</string>
+    <string name="import_settings">导入设置</string>
+    <string name="import_settings_summary">从备份 JSON 文件恢复设置</string>
+    <string name="export_success">设置已导出</string>
+    <string name="export_failed">导出失败</string>
+    <string name="import_success">设置已导入</string>
+    <string name="import_failed">导入失败：备份文件格式不正确</string>
+    <string name="clear_cache">清除缓存</string>
+    <string name="clear_cache_summary">清除内存中的列表、详情与图片缓存</string>
+    <string name="cache_cleared">缓存已清除</string>
+    <string name="deselect_all">取消全选</string>
+    <string name="manga_ranking">漫画排行</string>
+    <string name="ugoira_confirm">动图播放需确认</string>
+    <string name="ugoira_confirm_summary">开启后动图作品先显示播放按钮，不自动轮播</string>
+    <string name="play_animation">播放动图</string>
 </resources>

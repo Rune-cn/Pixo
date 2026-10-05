@@ -19,6 +19,9 @@ object PixivApi {
     suspend fun fetchRanking(mode: String, page: Int = 1): List<PixivWork> =
         WebPixivApi.fetchRanking(mode, page)
 
+    suspend fun fetchMangaRanking(mode: String, page: Int = 1): List<PixivWork> =
+        WebPixivApi.fetchMangaRanking(mode, page)
+
     suspend fun fetchTopFeed(offset: Int = 0, limit: Int = 30): List<PixivWork> =
         // 登录（Token）时走 App API 个性化推荐，未登录回退网页发现页
         if (PixivAuth.isTokenMode) {
@@ -125,9 +128,14 @@ object PixivApi {
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserWorks(userId)
         else WebPixivApi.fetchUserWorks(userId)
 
-    suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivWork> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserIllusts(userId, offset, limit)
-        else WebPixivApi.fetchUserIllusts(userId, offset, limit)
+    suspend fun fetchUserIllusts(
+        userId: Long,
+        offset: Int = 0,
+        limit: Int = 30,
+        type: String = "illust",
+    ): List<PixivWork> =
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserIllusts(userId, offset, limit, type)
+        else WebPixivApi.fetchUserIllusts(userId, offset, limit, type)
 
     suspend fun fetchUserNovels(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivNovel> =
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserNovels(userId, offset, limit)

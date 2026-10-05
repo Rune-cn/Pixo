@@ -121,6 +121,12 @@ actual object AppPrefs {
         set(value) {
             prefs.edit().putString("download_dir", value).apply()
         }
+
+    actual var ugoiraConfirm: Boolean
+        get() = prefs.getBoolean("ugoira_confirm", true)
+        set(value) {
+            prefs.edit().putBoolean("ugoira_confirm", value).apply()
+        }
 }
 
 actual object LocalAppLocale {
@@ -205,9 +211,22 @@ actual fun clearCrashLog() {
 actual fun openUrlInBrowser(url: String) {
     if (!::androidAppContext.isInitialized) return
     try {
-        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        val uri = android.net.Uri.parse(url)
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        androidAppContext.startActivity(intent)
+        // 本应用注册了 pixiv 网页深链过滤器，直接 ACTION_VIEW 会再次打开自己；
+        // 先从解析结果里挑一个非本应用的浏览器 Activity 显式打开。
+        val candidates = androidAppContext.packageManager.queryIntentActivities(
+            intent,
+            android.content.pm.PackageManager.MATCH_DEFAULT_ONLY,
+        )
+        val target = candidates.firstOrNull { it.activityInfo.packageName != androidAppContext.packageName }
+        if (target != null) {
+            intent.setClassName(target.activityInfo.packageName, target.activityInfo.name)
+            androidAppContext.startActivity(intent)
+        } else {
+            androidAppContext.startActivity(intent)
+        }
     } catch (_: Exception) {
     }
 }
@@ -356,6 +375,53 @@ actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit 
         }
     }
     return { launcher.launch(null) }
+}
+
+@Composable
+actual fun rememberExportSettingsFile(onDone: (Boolean) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            val json = exportSettingsJson()
+            if (json.isBlank()) {
+                onDone(false)
+                return@rememberLauncherForActivityResult
+            }
+            val out = context.contentResolver.openOutputStream(uri)
+                ?: run {
+                    onDone(false)
+                    return@rememberLauncherForActivityResult
+                }
+            out.use { it.write(json.toByteArray()) }
+            onDone(true)
+        } catch (e: Exception) {
+            logError("Pixo", "export settings fail", e)
+            onDone(false)
+        }
+    }
+    return { launcher.launch("pixo-settings.json") }
+}
+
+@Composable
+actual fun rememberImportSettingsFile(onLoaded: (String?) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?.toString(Charsets.UTF_8)
+            onLoaded(text)
+        } catch (e: Exception) {
+            logError("Pixo", "import settings read fail", e)
+            onLoaded(null)
+        }
+    }
+    return { launcher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
 }
 
 @Composable
