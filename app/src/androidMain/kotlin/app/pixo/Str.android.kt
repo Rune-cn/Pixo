@@ -17,6 +17,7 @@ internal actual object Str {
     @Composable actual fun settings_title(): String = stringResource(app.pixo.R.string.settings_title)
     @Composable actual fun settings_general(): String = stringResource(app.pixo.R.string.settings_general)
     @Composable actual fun settings_appearance(): String = stringResource(app.pixo.R.string.settings_appearance)
+    @Composable actual fun settings_content(): String = stringResource(app.pixo.R.string.settings_content)
     @Composable actual fun cookie_label(): String = stringResource(app.pixo.R.string.cookie_label)
     @Composable actual fun settings_language(): String = stringResource(app.pixo.R.string.settings_language)
     @Composable actual fun settings_theme(): String = stringResource(app.pixo.R.string.settings_theme)

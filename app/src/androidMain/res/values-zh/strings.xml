@@ -173,10 +173,12 @@
     <string name="about">关于</string>
     <string name="open_source">开源地址</string>
     <string name="privacy_policy">隐私政策</string>
-    <string name="privacy_policy_content">Pixo 不收集、不上传、不共享任何个人数据；登录凭据仅保存在本机。</string>
+    <string name="settings_content">内容</string>
+    <string name="privacy_policy_content">Pixo 隐私政策&#10;&#10;1. 信息收集&#10;我们不收集、不上传、不共享任何用户信息。作品数据来自 Pixiv 官方公开接口，仅在你的设备上展示。&#10;&#10;2. 权限使用&#10;存储与「所有文件访问」权限仅用于把下载的图片保存到本地目录，不会读取或上传其他文件。&#10;&#10;3. 登录凭据&#10;登录 Token 与会话 Cookie 仅保存在本机，仅用于请求 Pixiv 接口，不会发送到任何第三方服务器。&#10;&#10;4. 网络访问&#10;仅连接 Pixiv 官方服务（app-api.pixiv.net / www.pixiv.net / i.pximg.net）。&#10;&#10;5. 第三方链接&#10;通过「在浏览器中打开」访问的外部网站由其各自政策约束。</string>
+    <string name="license_content">Pixo 采用 GNU GPL-3.0 许可证发布。&#10;&#10;你可以自由使用、修改与再分发本软件，但必须：&#10;• 保留版权与许可证声明；&#10;• 修改后的版本继续以 GPL-3.0 开源；&#10;• 提供源代码获取方式。&#10;&#10;完整许可证文本见仓库 LICENSE 文件：https://github.com/Rune-cn/Pixo</string>
+    <string name="disclaimer_content">免责声明&#10;&#10;Pixo 是第三方开源客户端，与 Pixiv Inc. 无任何隶属或合作关系。&#10;&#10;1. 所有作品版权归原作者所有，请勿将下载内容用于商业用途或未经授权的再分发。&#10;2. 请遵守 Pixiv 的服务条款与当地法律法规。&#10;3. 本软件按「现状」提供，不附带任何明示或默示的担保；因使用本软件造成的任何直接或间接损失，作者不承担责任。&#10;4. 若您所在地区无法访问相关服务，请自行评估合规风险。</string>
     <string name="license">许可证</string>
-    <string name="license_content">Pixo 以 MIT 许可证发布。</string>
     <string name="disclaimer">免责声明</string>
-    <string name="disclaimer_content">Pixo 是开源的第三方客户端，与 Pixiv 官方无关；所有作品版权归原作者所有。</string>
     <string name="no_downloaded_images">还没有下载的图片</string>
 </resources>
+

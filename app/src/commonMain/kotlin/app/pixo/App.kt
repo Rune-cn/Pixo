@@ -42,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -104,6 +106,9 @@ internal object AppSettings
 
 @Serializable
 internal object AppearanceSettings
+
+@Serializable
+internal object ContentSettings
 
 @Serializable
 internal object DataSettings
@@ -316,8 +321,24 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     ) {
                         AppSettingsPage(
                             onOpenAppearance = { navController.navigate(AppearanceSettings) },
+                            onOpenContent = { navController.navigate(ContentSettings) },
                             onOpenData = { navController.navigate(DataSettings) },
                             onOpenDebug = { navController.navigate(DebugSettings) },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable<ContentSettings>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        ContentPage(
+                            ugoiraConfirm = ugoiraConfirm,
+                            onUgoiraConfirmChange = {
+                                ugoiraConfirm = it
+                                AppPrefs.ugoiraConfirm = it
+                            },
                             onBack = { navController.popBackStack() },
                         )
                     }
@@ -345,7 +366,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     ) {
                         AboutScreen(
                             onBack = { navController.popBackStack() },
-                            onOpenCrashLog = { navController.navigate(CrashLog) },
                         )
                     }
                     composable<AppearanceSettings>(
@@ -376,11 +396,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onLiquidGlassChange = {
                                 liquidGlass = it
                                 AppPrefs.liquidGlass = it
-                            },
-                            ugoiraConfirm = ugoiraConfirm,
-                            onUgoiraConfirmChange = {
-                                ugoiraConfirm = it
-                                AppPrefs.ugoiraConfirm = it
                             },
                             language = language,
                             onLanguageChange = {
@@ -798,6 +813,7 @@ fun SettingsPage(
 @Composable
 fun AppSettingsPage(
     onOpenAppearance: () -> Unit,
+    onOpenContent: () -> Unit,
     onOpenData: () -> Unit,
     onOpenDebug: () -> Unit,
     onBack: () -> Unit,
@@ -817,6 +833,7 @@ fun AppSettingsPage(
                         .padding(top = 4.dp),
                 ) {
                     SettingEntryRow(Str.settings_appearance(), onClick = onOpenAppearance)
+                    SettingEntryRow(Str.settings_content(), onClick = onOpenContent)
                     SettingEntryRow(Str.settings_data(), onClick = onOpenData)
                     SettingEntryRow(Str.settings_debug(), onClick = onOpenDebug)
                 }
@@ -1009,15 +1026,17 @@ private fun formatBytes(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-/** 关于页：仿 Legado Miuix 关于界面，logo 上浮 + 卡片列表（开源 / 隐私 / 许可 / 免责 / 崩溃日志）。 */
+/** 关于页：仿 Legado-with-MD3 的 Miuix 关于界面（渐变背景 + 浮动 Logo + 卡片列表）。 */
 @Composable
-fun AboutScreen(
-    onBack: () -> Unit,
-    onOpenCrashLog: () -> Unit,
-) {
+fun AboutScreen(onBack: () -> Unit) {
+    var doc by remember { mutableStateOf<Pair<String, String>?>(null) }
+    if (doc != null) {
+        DocViewerScreen(title = doc!!.first, content = doc!!.second, onBack = { doc = null })
+        return
+    }
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
-    val headerHeight = 250.dp
+    val headerHeight = 270.dp
     val scrollProgress by remember {
         derivedStateOf {
             if (lazyListState.firstVisibleItemIndex > 0) 1f
@@ -1028,7 +1047,6 @@ fun AboutScreen(
             }
         }
     }
-    var dialog by remember { mutableStateOf<Int?>(null) }
     val sPrivacy = Str.privacy_policy()
     val sPrivacyContent = Str.privacy_policy_content()
     val sLicense = Str.license()
@@ -1039,15 +1057,26 @@ fun AboutScreen(
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.about(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
+            // 顶部品牌色渐变背景（随滚动被内容覆盖，仿 Legado BgEffectBackground）
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(headerHeight + 100.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            0f to MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            0.55f to MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                            1f to Color.Transparent,
+                        ),
+                    ),
+            )
             LazyColumn(
                 state = lazyListState,
                 modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item(key = "logoSpacer") {
-                    Spacer(Modifier.height(headerHeight))
-                }
+                item(key = "logoSpacer") { Spacer(Modifier.height(headerHeight + 48.dp)) }
                 item {
                     Card(Modifier.fillMaxWidth()) {
                         ArrowPreference(
@@ -1065,17 +1094,13 @@ fun AboutScreen(
                 }
                 item {
                     Card(Modifier.fillMaxWidth()) {
-                        ArrowPreference(title = sPrivacy, onClick = { dialog = 0 })
-                        ArrowPreference(title = sLicense, onClick = { dialog = 1 })
-                        ArrowPreference(title = sDisclaimer, onClick = { dialog = 2 })
-                    }
-                }
-                item {
-                    Card(Modifier.fillMaxWidth()) {
-                        ArrowPreference(title = Str.crash_log(), onClick = onOpenCrashLog)
+                        ArrowPreference(title = sPrivacy, onClick = { doc = sPrivacy to sPrivacyContent })
+                        ArrowPreference(title = sLicense, onClick = { doc = sLicense to sLicenseContent })
+                        ArrowPreference(title = sDisclaimer, onClick = { doc = sDisclaimer to sDisclaimerContent })
                     }
                 }
             }
+            // 浮动 Logo：随滚动上浮、缩小、淡出（顶栏标题随之显现）
             Column(
                 Modifier
                     .align(Alignment.TopCenter)
@@ -1083,20 +1108,21 @@ fun AboutScreen(
                         alpha = 1f - scrollProgress
                         scaleX = 1f - scrollProgress * 0.05f
                         scaleY = 1f - scrollProgress * 0.05f
+                        translationY = -scrollProgress * 40f
                     },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(24.dp))
                 Box(
                     Modifier
                         .size(88.dp)
                         .clip(RoundedCornerShape(24.dp))
-                        .background(MiuixTheme.colorScheme.primary),
+                        .background(Color.White),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         "P",
-                        color = MiuixTheme.colorScheme.onPrimary,
+                        color = MiuixTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 44.sp,
                     )
@@ -1116,41 +1142,31 @@ fun AboutScreen(
                     textAlign = TextAlign.Center,
                 )
             }
-            dialog?.let { idx ->
-                val title = when (idx) {
-                    0 -> sPrivacy
-                    1 -> sLicense
-                    else -> sDisclaimer
-                }
-                val content = when (idx) {
-                    0 -> sPrivacyContent
-                    1 -> sLicenseContent
-                    else -> sDisclaimerContent
-                }
-                OverlayDialog(show = true, onDismissRequest = { dialog = null }) {
-                    Column(
-                        Modifier.fillMaxWidth().padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(title, style = MiuixTheme.textStyles.title3, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            content,
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = { dialog = null }) {
-                            Text(Str.cancel())
-                        }
-                    }
-                }
+        }
+    }
+}
+
+/** 关于页文档子页：隐私政策 / 许可证 / 免责声明全文滚动阅读（仿 Legado 的 Markdown 查看页）。 */
+@Composable
+private fun DocViewerScreen(title: String, content: String, onBack: () -> Unit) {
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = title, onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = innerPadding,
+        ) {
+            item {
+                Text(
+                    content,
+                    style = MiuixTheme.textStyles.body2,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
             }
         }
     }
 }
 
-/** 外观设置页：语言 / 主题 / 预见式返回。 */
+/** 外观设置页：语言 / 主题 / 悬浮底栏 / 预见式返回。 */
 @Composable
 fun AppearancePage(
     themeMode: ColorSchemeMode,
@@ -1163,8 +1179,6 @@ fun AppearancePage(
     onFloatingBarChange: (Boolean) -> Unit,
     liquidGlass: Boolean,
     onLiquidGlassChange: (Boolean) -> Unit,
-    ugoiraConfirm: Boolean,
-    onUgoiraConfirmChange: (Boolean) -> Unit,
     language: String,
     onLanguageChange: (String) -> Unit,
     onBack: () -> Unit,
@@ -1226,6 +1240,32 @@ fun AppearancePage(
                             onCheckedChange = { onLiquidGlassChange(it) },
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/** 内容设置页：作品浏览相关偏好（动图播放需确认等）。 */
+@Composable
+fun ContentPage(
+    ugoiraConfirm: Boolean,
+    onUgoiraConfirmChange: (Boolean) -> Unit,
+    onBack: () -> Unit,
+) {
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.settings_content(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = innerPadding,
+            overscrollEffect = null,
+        ) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
                     SwitchPreference(
                         title = Str.ugoira_confirm(),
                         summary = Str.ugoira_confirm_summary(),

@@ -2,7 +2,7 @@
 
 Pixiv 第三方客户端，基于 Compose Multiplatform + Miuix（MIUI/HyperOS 设计语言），一套 UI 代码同时支持 Android 与桌面端。
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
 > 非官方项目，与 Pixiv 无关。所有作品版权归原作者所有。
 
@@ -36,10 +36,10 @@ Pixiv 第三方客户端，基于 Compose Multiplatform + Miuix（MIUI/HyperOS �
 
 - [x] 深链：`pixiv://artworks/{id}`、`pixiv://novel/{id}`、`pixiv://user/{id}` 及对应网页链接
 - [x] 详情页 / 个人主页「⋮」菜单：浏览器打开、分享、下载原图（多图选择 + 全选 / 取消全选）
-- [x] 原图下载：默认 `Pictures/Pixo`，可自选目录（SAF），失败自动回退应用目录
+- [x] 原图下载：默认 `Pictures/Pixo`，可自选目录（SAF）
 - [x] 「下载」页：浏览已下载图片（读取所选下载目录）
-- [x] 设置：「外观 / 数据 / 调试」；数据页支持偏好设置导出 / 导入、清除缓存、下载目录
-- [x] 「关于」页：开源地址、隐私政策、许可证、免责声明、崩溃日志
+- [x] 设置：「外观 / 内容 / 数据 / 调试」；内容页含动图播放需确认；数据页支持偏好设置导出 / 导入、清除缓存、下载目录
+- [x] 「关于」页：开源地址、隐私政策、许可证、免责声明
 - [x] 界面语言：简体中文 / English；主题：深色 / 浅色 / 跟随系统 / 动态取色
 - [x] 悬浮底栏（液态玻璃）与开关动画
 
@@ -100,10 +100,6 @@ keyPassword=<你的密码>
 2. **网页登录**：Android 内嵌登录页，成功后保存会话 Cookie 与用户 ID。
 3. **Cookie 粘贴**：桌面端或内嵌页不可用时，浏览器登录后粘贴 Cookie。
 
-## 逆向资料
-
-接口逆向结论（端点、鉴权、分页、反爬与实测记录）见 [pixiv-reverse-engineering](https://github.com/Rune-cn/pixiv-reverse-engineering)。
-
 ## 许可证
 
-[MIT](LICENSE)
+[GNU GPL v3](LICENSE)

@@ -3,8 +3,11 @@ package app.pixo
 import android.content.Intent
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -36,8 +39,28 @@ class MainActivity : AppCompatActivity() {
         parseDeepLink(intent)?.let { pendingDeepLink.value = it }
     }
 
-    /** 打开应用时动态申请存储读写权限（仅旧系统生效；API 33+ 系统自动忽略）。 */
+    /** 打开应用时动态申请存储权限：Android 11+ 引导到系统页授予「所有文件访问」，旧系统弹运行时权限。 */
     private fun requestPermissionsIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
+            // 「所有文件访问」是特殊权限，不能走运行时权限弹窗，只能跳到系统设置页
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:$packageName"),
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            } catch (_: Exception) {
+                try {
+                    startActivity(
+                        Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                } catch (_: Exception) {
+                }
+            }
+            return
+        }
         val perms = mutableListOf(
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,

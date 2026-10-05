@@ -274,7 +274,7 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
         try {
             val dir = AppPrefs.downloadDir
             if (dir.isBlank()) {
-                // API 29+ 走 MediaStore，无需存储权限；旧系统写公共 Pictures/Pixo 目录
+                // 默认目录 Pictures/Pixo：API 29+ 走 MediaStore（无需任何权限）
                 if (Build.VERSION.SDK_INT >= 29) {
                     val resolver = androidAppContext.contentResolver
                     val values = ContentValues().apply {
@@ -283,10 +283,9 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
                         put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Pixo")
                         put(MediaStore.MediaColumns.IS_PENDING, 1)
                     }
-                    var uri: Uri? = null
+                    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                        ?: throw IllegalStateException("MediaStore insert returned null")
                     try {
-                        uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                            ?: throw IllegalStateException("MediaStore insert returned null")
                         val out = resolver.openOutputStream(uri)
                             ?: throw IllegalStateException("openOutputStream returned null")
                         out.use { it.write(bytes) }
@@ -295,20 +294,11 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
                         resolver.update(uri, values, null, null)
                         return@withContext "Pictures/Pixo/$fileName"
                     } catch (e: Exception) {
-                        try { uri?.let { resolver.delete(it, null, null) } } catch (_: Exception) {}
-                        logError("Pixo", "MediaStore save failed, fallback to app dir", e)
+                        try { resolver.delete(uri, null, null) } catch (_: Exception) {}
+                        throw e
                     }
-                    // 回退：应用专属外部目录（无需任何权限，一定能写）
-                    val dirFile = File(
-                        androidAppContext.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-                            ?: androidAppContext.filesDir,
-                        "Pixo",
-                    )
-                    dirFile.mkdirs()
-                    val f = File(dirFile, fileName)
-                    f.writeBytes(bytes)
-                    return@withContext f.absolutePath
                 } else {
+                    // 旧系统：写公共 Pictures/Pixo 目录（需要存储权限）
                     val dirFile = File(
                         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
                         "Pixo",
@@ -319,57 +309,21 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
                     return@withContext f.absolutePath
                 }
             } else {
-                // 用户通过 SAF 选择的目录（持久化 URI 权限）；权限丢失时回退 MediaStore/应用目录
-                try {
-                    val uri = Uri.parse(dir)
-                    val resolver = androidAppContext.contentResolver
-                    val doc = DocumentsContract.createDocument(resolver, uri, mimeTypeFor(fileName), fileName)
-                        ?: throw IllegalStateException("SAF createDocument returned null")
-                    val out = resolver.openOutputStream(doc)
-                        ?: throw IllegalStateException("SAF openOutputStream returned null")
-                    out.use { it.write(bytes) }
-                    return@withContext doc.toString()
-                } catch (e: Exception) {
-                    logError("Pixo", "SAF save failed, fallback to MediaStore", e)
-                    val resolver = androidAppContext.contentResolver
-                    val values = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(fileName))
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Pixo")
-                        put(MediaStore.MediaColumns.IS_PENDING, 1)
-                    }
-                    var uri: Uri? = null
-                    try {
-                        uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                            ?: throw IllegalStateException("MediaStore insert returned null")
-                        val out = resolver.openOutputStream(uri)
-                            ?: throw IllegalStateException("openOutputStream returned null")
-                        out.use { it.write(bytes) }
-                        values.clear()
-                        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                        resolver.update(uri, values, null, null)
-                        return@withContext "Pictures/Pixo/$fileName"
-                    } catch (e2: Exception) {
-                        try { uri?.let { resolver.delete(it, null, null) } } catch (_: Exception) {}
-                        logError("Pixo", "MediaStore fallback failed", e2)
-                        val dirFile = File(
-                            androidAppContext.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-                                ?: androidAppContext.filesDir,
-                            "Pixo",
-                        )
-                        dirFile.mkdirs()
-                        val f = File(dirFile, fileName)
-                        f.writeBytes(bytes)
-                        return@withContext f.absolutePath
-                    }
-                }
+                // 用户自选目录（SAF）：只写这里，失败直接返回 null，不做其它兜底
+                val uri = Uri.parse(dir)
+                val resolver = androidAppContext.contentResolver
+                val doc = DocumentsContract.createDocument(resolver, uri, mimeTypeFor(fileName), fileName)
+                    ?: throw IllegalStateException("SAF createDocument returned null")
+                val out = resolver.openOutputStream(doc)
+                    ?: throw IllegalStateException("SAF openOutputStream returned null")
+                out.use { it.write(bytes) }
+                return@withContext doc.toString()
             }
         } catch (e: Exception) {
             logError("Pixo", "write download fail", e)
             null
         }
     }
-
 actual suspend fun listDownloadedImages(): List<DownloadedImage> =
     kotlinx.coroutines.withContext(ioDispatcher) {
         try {

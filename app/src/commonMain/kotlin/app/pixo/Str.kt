@@ -20,6 +20,7 @@ internal expect object Str {
     @Composable fun settings_title(): String
     @Composable fun settings_general(): String
     @Composable fun settings_appearance(): String
+    @Composable fun settings_content(): String
     @Composable fun cookie_label(): String
     @Composable fun settings_language(): String
     @Composable fun settings_theme(): String

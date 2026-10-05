@@ -17,6 +17,7 @@ internal actual object Str {
     @Composable actual fun settings_title(): String = stringResource(Res.string.settings_title)
     @Composable actual fun settings_general(): String = stringResource(Res.string.settings_general)
     @Composable actual fun settings_appearance(): String = stringResource(Res.string.settings_appearance)
+    @Composable actual fun settings_content(): String = stringResource(Res.string.settings_content)
     @Composable actual fun cookie_label(): String = stringResource(Res.string.cookie_label)
     @Composable actual fun settings_language(): String = stringResource(Res.string.settings_language)
     @Composable actual fun settings_theme(): String = stringResource(Res.string.settings_theme)

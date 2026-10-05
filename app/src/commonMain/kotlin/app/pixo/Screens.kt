@@ -3070,6 +3070,7 @@ fun UserScreen(
                             UserHeader(
                                 user = user,
                                 followBusy = followBusy,
+                                canFollow = userId != AppPrefs.selfUserId,
                                 onFollowClick = { followMenu = true },
                                 onPreviewAvatar = { avatarPreview = true },
                                 onCopyBio = { bio -> copyMenu = bio },
@@ -3204,6 +3205,7 @@ fun UserScreen(
 private fun UserHeader(
     user: PixivUser?,
     followBusy: Boolean = false,
+    canFollow: Boolean = true,
     onFollowClick: () -> Unit = {},
     onPreviewAvatar: () -> Unit = {},
     onCopyBio: (String) -> Unit = {},
@@ -3235,15 +3237,17 @@ private fun UserHeader(
                     }
                 }
                 Spacer(Modifier.width(10.dp))
-                Button(
-                    onClick = onFollowClick,
-                    enabled = !followBusy,
-                    modifier = Modifier.heightIn(min = 36.dp),
-                ) {
-                    Text(
-                        if (user?.isFollowed == true) Str.followed() else Str.follow(),
-                        style = MiuixTheme.textStyles.footnote2,
-                    )
+                if (canFollow) {
+                    Button(
+                        onClick = onFollowClick,
+                        enabled = !followBusy,
+                        modifier = Modifier.heightIn(min = 36.dp),
+                    ) {
+                        Text(
+                            if (user?.isFollowed == true) Str.followed() else Str.follow(),
+                            style = MiuixTheme.textStyles.footnote2,
+                        )
+                    }
                 }
             }
         }
@@ -3380,18 +3384,6 @@ fun FollowsScreen(
         scrollBehavior = scrollBehavior,
     ) { innerPadding ->
         Box(Modifier.fillMaxSize()) {
-            if (isFollowing) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = innerPadding.calculateTopPadding() + 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ModeChip("show", Str.following_public(), currentRestrict) { currentRestrict = "show" }
-                    ModeChip("hide", Str.following_private(), currentRestrict) { currentRestrict = "hide" }
-                }
-            }
             when {
                 loading && items == null -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     LoadingState()
@@ -3402,24 +3394,59 @@ fun FollowsScreen(
                 else -> {
                     val list = items.orEmpty()
                     if (list.isEmpty() && !loading) {
-                        Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                            Text(
-                                if (isFollowing) Str.empty_following() else Str.empty_follower(),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            )
-                        }
-                    } else {
                         LazyColumn(
                             state = listState,
                             contentPadding = PaddingValues(
-                                top = innerPadding.calculateTopPadding() + if (isFollowing) 56.dp else 0.dp,
+                                top = innerPadding.calculateTopPadding(),
                                 bottom = innerPadding.calculateBottomPadding(),
                             ),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
                             overscrollEffect = null,
                         ) {
+                            if (isFollowing) {
+                                item("followRestrict") {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        ModeChip("show", Str.following_public(), currentRestrict) { currentRestrict = "show" }
+                                        ModeChip("hide", Str.following_private(), currentRestrict) { currentRestrict = "hide" }
+                                    }
+                                }
+                            }
+                            item {
+                                Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        if (isFollowing) Str.empty_following() else Str.empty_follower(),
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(
+                                top = innerPadding.calculateTopPadding(),
+                                bottom = innerPadding.calculateBottomPadding(),
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                            overscrollEffect = null,
+                        ) {
+                            if (isFollowing) {
+                                item("followRestrict") {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        ModeChip("show", Str.following_public(), currentRestrict) { currentRestrict = "show" }
+                                        ModeChip("hide", Str.following_private(), currentRestrict) { currentRestrict = "hide" }
+                                    }
+                                }
+                            }
                             items(list, key = { "${currentRestrict}:${it.id}" }) { u ->
                                 FollowUserRow(u, onClick = { onOpenUser(u.id) })
                             }
