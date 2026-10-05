@@ -1,5 +1,11 @@
 package app.pixo
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -118,8 +124,8 @@ internal data class Detail(val workId: Long, val kind: String)
 @Serializable
 internal data class Comments(val workId: Long, val kind: String)
 
-/** 深链目标：由 `pixiv://artworks/{id}` 或 `https://www.pixiv.net/artworks/{id}` 解析而来。 */
-data class PixivDeepLink(val workId: Long, val kind: String)
+/** 深链目标：由 `pixiv://artworks/{id}`、`pixiv://user/{id}` 或对应网页链接解析而来。 */
+data class PixivDeepLink(val workId: Long = 0, val kind: String = "", val userId: Long = 0)
 
 @Serializable
 internal object Discover
@@ -141,11 +147,15 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var floatingBar by rememberSaveable { mutableStateOf(AppPrefs.floatingBar) }
     var liquidGlass by rememberSaveable { mutableStateOf(AppPrefs.liquidGlass) }
     val navController = rememberNavController()
-    // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情
+    // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情 / 用户主页
     val deepLink = deepLinkSignal?.value
-    LaunchedEffect(deepLink?.workId, deepLink?.kind) {
+    LaunchedEffect(deepLink?.workId, deepLink?.kind, deepLink?.userId) {
         deepLink?.let {
-            navController.navigate(Detail(it.workId, it.kind)) { launchSingleTop = true }
+            if (it.userId > 0) {
+                navController.navigate(User(it.userId)) { launchSingleTop = true }
+            } else {
+                navController.navigate(Detail(it.workId, it.kind)) { launchSingleTop = true }
+            }
         }
     }
 
@@ -496,37 +506,50 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         if (atRootOnSecondTab) mainPagerState.animateToPage(0) else navController.popBackStack()
                     },
                 )
-                if (isTabPage && !floatingBar) {
-                    NavigationBar(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .onSizeChanged {
-                                barHeight = with(density) { it.height.toDp() }
-                            },
+                // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出（参考 InstallerX 主题切换动画）
+                if (isTabPage) {
+                    AnimatedVisibility(
+                        visible = !floatingBar,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
+                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
                     ) {
-                        NavigationBarItem(
-                            selected = mainPagerState.selectedPage == 0,
-                            onClick = { mainPagerState.animateToPage(0) },
-                            icon = MiuixIcons.Home,
-                            label = Str.nav_home(),
-                        )
-                        NavigationBarItem(
-                            selected = mainPagerState.selectedPage == 1,
-                            onClick = { mainPagerState.animateToPage(1) },
-                            icon = MiuixIcons.Settings,
-                            label = Str.nav_settings(),
+                        Box(Modifier.fillMaxSize()) {
+                            NavigationBar(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .onSizeChanged {
+                                        barHeight = with(density) { it.height.toDp() }
+                                    },
+                            ) {
+                                NavigationBarItem(
+                                    selected = mainPagerState.selectedPage == 0,
+                                    onClick = { mainPagerState.animateToPage(0) },
+                                    icon = MiuixIcons.Home,
+                                    label = Str.nav_home(),
+                                )
+                                NavigationBarItem(
+                                    selected = mainPagerState.selectedPage == 1,
+                                    onClick = { mainPagerState.animateToPage(1) },
+                                    icon = MiuixIcons.Settings,
+                                    label = Str.nav_settings(),
+                                )
+                            }
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = floatingBar,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
+                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
+                    ) {
+                        PixoFloatingBar(
+                            backdrop = barBackdrop,
+                            liquidGlass = liquidGlass,
+                            selectedIndex = mainPagerState.selectedPage,
+                            onPageSelect = { index -> mainPagerState.animateToPage(index) },
+                            onSizeChanged = { barHeight = it },
                         )
                     }
                 }
-                }
-                if (isTabPage && floatingBar) {
-                    PixoFloatingBar(
-                        backdrop = barBackdrop,
-                        liquidGlass = liquidGlass,
-                        selectedIndex = mainPagerState.selectedPage,
-                        onPageSelect = { index -> mainPagerState.animateToPage(index) },
-                        onSizeChanged = { barHeight = it },
-                    )
                 }
             }
         }
@@ -714,6 +737,21 @@ fun AppSettingsPage(
                 ) {
                     SettingEntryRow(Str.settings_appearance(), onClick = onOpenAppearance)
                     SettingEntryRow(Str.settings_debug(), onClick = onOpenDebug)
+                }
+            }
+            item {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 4.dp),
+                ) {
+                    var downloadDir by remember { mutableStateOf(AppPrefs.downloadDir) }
+                    val pickFolder = rememberDownloadFolderPicker { dir -> downloadDir = dir }
+                    ArrowPreference(
+                        title = Str.download_folder(),
+                        summary = downloadDir.ifBlank { "Pictures/Pixo" },
+                        onClick = { pickFolder() },
+                    )
                 }
             }
         }

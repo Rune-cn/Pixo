@@ -1,9 +1,18 @@
 package app.pixo
 
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidedValue
@@ -12,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowCompat
@@ -105,6 +115,12 @@ actual object AppPrefs {
         set(value) {
             prefs.edit().putBoolean("liquid_glass", value).apply()
         }
+
+    actual var downloadDir: String
+        get() = prefs.getString("download_dir", "") ?: ""
+        set(value) {
+            prefs.edit().putString("download_dir", value).apply()
+        }
 }
 
 actual object LocalAppLocale {
@@ -194,6 +210,99 @@ actual fun openUrlInBrowser(url: String) {
         androidAppContext.startActivity(intent)
     } catch (_: Exception) {
     }
+}
+
+actual fun shareText(text: String) {
+    if (!::androidAppContext.isInitialized) return
+    try {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        val chooser = Intent.createChooser(send, "分享")
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        androidAppContext.startActivity(chooser)
+    } catch (_: Exception) {
+    }
+}
+
+/** 按文件名后缀猜 MIME 类型（写 MediaStore / SAF 用）。 */
+private fun mimeTypeFor(fileName: String): String = when (fileName.substringAfterLast('.', "").lowercase()) {
+    "png" -> "image/png"
+    "gif" -> "image/gif"
+    "webp" -> "image/webp"
+    "zip" -> "application/zip"
+    "mp4" -> "video/mp4"
+    "jpeg", "jpg" -> "image/jpeg"
+    else -> "application/octet-stream"
+}
+
+actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String? =
+    kotlinx.coroutines.withContext(ioDispatcher) {
+        try {
+            val dir = AppPrefs.downloadDir
+            if (dir.isBlank()) {
+                // API 29+ 走 MediaStore，无需存储权限；旧系统写公共 Pictures/Pixo 目录
+                if (Build.VERSION.SDK_INT >= 29) {
+                    val resolver = androidAppContext.contentResolver
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(fileName))
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Pixo")
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                        ?: return@withContext null
+                    try {
+                        resolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    } finally {
+                        values.clear()
+                        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                        resolver.update(uri, values, null, null)
+                    }
+                    return@withContext "Pictures/Pixo/$fileName"
+                } else {
+                    val dirFile = File(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                        "Pixo",
+                    )
+                    dirFile.mkdirs()
+                    val f = File(dirFile, fileName)
+                    f.writeBytes(bytes)
+                    return@withContext f.absolutePath
+                }
+            } else {
+                // 用户通过 SAF 选择的目录（持久化 URI 权限）
+                val uri = Uri.parse(dir)
+                val resolver = androidAppContext.contentResolver
+                val doc = DocumentsContract.createDocument(resolver, uri, mimeTypeFor(fileName), fileName)
+                    ?: return@withContext null
+                resolver.openOutputStream(doc)?.use { it.write(bytes) }
+                return@withContext doc.toString()
+            }
+        } catch (e: Exception) {
+            logError("Pixo", "write download fail", e)
+            null
+        }
+    }
+
+@Composable
+actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            } catch (_: Exception) {
+            }
+            AppPrefs.downloadDir = uri.toString()
+            onPicked(uri.toString())
+        }
+    }
+    return { launcher.launch(null) }
 }
 
 @Composable

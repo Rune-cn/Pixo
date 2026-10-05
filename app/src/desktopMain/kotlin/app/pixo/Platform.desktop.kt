@@ -6,9 +6,12 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import java.io.File
+import java.awt.Toolkit
+import java.awt.datatransfer.StringSelection
 import java.time.LocalDateTime
 import java.util.Locale
 import java.util.prefs.Preferences
+import javax.swing.JFileChooser
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 
@@ -90,6 +93,12 @@ actual object AppPrefs {
         get() = prefs.getBoolean("liquid_glass", true)
         set(value) {
             prefs.putBoolean("liquid_glass", value)
+        }
+
+    actual var downloadDir: String
+        get() = prefs.get("download_dir", "")
+        set(value) {
+            prefs.put("download_dir", value)
         }
 }
 
@@ -173,6 +182,45 @@ actual fun openUrlInBrowser(url: String) {
             java.awt.Desktop.getDesktop().browse(java.net.URI(url))
         }
     } catch (_: Exception) {
+    }
+}
+
+actual fun shareText(text: String) {
+    try {
+        Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
+    } catch (_: Exception) {
+    }
+}
+
+actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String? =
+    kotlinx.coroutines.withContext(ioDispatcher) {
+        try {
+            val dir = AppPrefs.downloadDir.ifBlank {
+                File(System.getProperty("user.home"), "Downloads/Pixo").absolutePath
+            }
+            val dirFile = File(dir)
+            dirFile.mkdirs()
+            val f = File(dirFile, fileName)
+            f.writeBytes(bytes)
+            f.absolutePath
+        } catch (e: Exception) {
+            logError("Pixo", "write download fail", e)
+            null
+        }
+    }
+
+@Composable
+actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit {
+    return {
+        val chooser = JFileChooser().apply {
+            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+            dialogTitle = "选择下载目录"
+            isAcceptAllFileFilterUsed = false
+        }
+        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+            AppPrefs.downloadDir = chooser.selectedFile.absolutePath
+            onPicked(chooser.selectedFile.absolutePath)
+        }
     }
 }
 

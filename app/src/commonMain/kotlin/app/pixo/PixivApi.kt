@@ -50,6 +50,15 @@ object PixivApi {
     suspend fun searchNovels(word: String, page: Int = 1): List<PixivNovel> =
         WebPixivApi.searchNovels(word, page)
 
+    suspend fun searchUsers(word: String, page: Int = 1): List<PixivUser> =
+        WebPixivApi.searchUsers(word, page)
+
+    /** 下载单张图片字节并写入下载目录，返回保存位置说明（失败返回 null）。 */
+    suspend fun downloadImage(url: String, fileName: String): String? {
+        val bytes = PixivHttp.fetchBytes(PixivHttp.webJsonHeaders().url(url))
+        return writeDownloadFile(fileName, bytes)
+    }
+
     suspend fun fetchNovelRanking(mode: String, page: Int = 1): List<PixivNovel> =
         WebPixivApi.fetchNovelRanking(mode, page)
 

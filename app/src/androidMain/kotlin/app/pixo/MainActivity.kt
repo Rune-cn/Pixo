@@ -1,7 +1,11 @@
 package app.pixo
 
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.core.app.ActivityCompat
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -14,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        requestPermissionsIfNeeded()
         AppPrefs.attach(applicationContext)
         AppPrefs.init()
         applyAppLanguage(AppPrefs.language)
@@ -31,6 +36,22 @@ class MainActivity : AppCompatActivity() {
         parseDeepLink(intent)?.let { pendingDeepLink.value = it }
     }
 
+    /** 打开应用时动态申请存储/读取权限（API 33+ 为媒体读取，旧版为存储读写）。 */
+    private fun requestPermissionsIfNeeded() {
+        val perms = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 33) {
+            perms += Manifest.permission.READ_MEDIA_IMAGES
+            perms += Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            perms += Manifest.permission.READ_EXTERNAL_STORAGE
+            perms += Manifest.permission.WRITE_EXTERNAL_STORAGE
+        }
+        val missing = perms.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, missing.toTypedArray(), 1001)
+        }
+    }
+
     /** 解析 `pixiv://artworks/{id}`、`pixiv://novel/{id}` 与网页链接为深链目标。 */
     private fun parseDeepLink(intent: Intent?): PixivDeepLink? {
         val data = intent?.data ?: return null
@@ -40,10 +61,13 @@ class MainActivity : AppCompatActivity() {
             when {
                 host == "artworks" -> PixivDeepLink(path.removePrefix("/").substringBefore('/').toLong(), "illust")
                 host == "novel" -> PixivDeepLink(path.removePrefix("/").substringBefore('/').toLong(), "novel")
+                host == "user" -> PixivDeepLink(userId = path.removePrefix("/").substringBefore('/').toLong())
                 host == "www.pixiv.net" && path.startsWith("/artworks/") ->
                     PixivDeepLink(path.removePrefix("/artworks/").substringBefore('/').toLong(), "illust")
                 host == "www.pixiv.net" && path.startsWith("/novel/show.php") ->
                     PixivDeepLink(data.getQueryParameter("id")?.toLong() ?: return null, "novel")
+                host == "www.pixiv.net" && path.startsWith("/users/") ->
+                    PixivDeepLink(userId = path.removePrefix("/users/").substringBefore('/').toLong())
                 else -> null
             }
         } catch (_: Exception) {

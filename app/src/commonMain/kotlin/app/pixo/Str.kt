@@ -132,4 +132,15 @@ internal expect object Str {
     @Composable fun copy_account(): String
     @Composable fun copy_user_id(): String
     @Composable fun user_id_label(): String
+    @Composable fun share(): String
+    @Composable fun download_original(): String
+    @Composable fun download(): String
+    @Composable fun select_all(): String
+    @Composable fun download_folder(): String
+    @Composable fun download_folder_summary(): String
+    @Composable fun choose_folder(): String
+    @Composable fun download_done(count: Int): String
+    @Composable fun download_failed(): String
+    @Composable fun download_selected_hint(): String
+    @Composable fun user(): String
 }

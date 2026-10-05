@@ -9,16 +9,18 @@ Pixo 是一个面向 Android 的 Pixiv 客户端，采用 Compose Multiplatform 
 
 ## 功能
 
-- 首页推荐 / 排行榜（插画、漫画、小说）/ 发现 / 搜索
+- 首页推荐 / 排行榜（插画、漫画、小说）/ 发现 / 搜索（**插画 / 小说 / 用户**三标签，用户支持昵称、账号与数字 ID）
 - 作品详情：插画分页与原图灯箱（**双指捏合缩放、缩放后拖动、双击放大/还原**，由 telephoto zoomable 提供）
 - ugoira 动图（Pixiv 的 “GIF”）：详情页与灯箱自动播放，列表缩略图带「动图」角标（下载 zip → 解压帧 → 按帧延时轮播）
-- 详情页顶栏「⋮」菜单：在浏览器中打开原作品页（插画 / 小说）
-- 深链：`pixiv://artworks/{id}`、`pixiv://novel/{id}` 与 `https://www.pixiv.net/artworks/{id}` 直达作品详情
+- 详情页顶栏「⋮」菜单：在浏览器中打开原作品页、**分享**、**下载原图**（多图弹选择对话框，带「全选」，按 `{id}_p{n}.jpg` 命名存入下载目录）
+- 个人主页顶栏「⋮」菜单：在浏览器中打开、分享
+- 深链：`pixiv://artworks/{id}`、`pixiv://novel/{id}`、`pixiv://user/{id}` 及对应 `https://www.pixiv.net/...` 链接直达作品详情 / 用户主页
 - 收藏：公开 / 私密收藏、收藏列表分页（`max_bookmark_id` 游标）
 - 评论：一级评论列表、**追评查看与回复**（追评卡片嵌在一级卡片内、回复按钮下方，深色区分）、长按卡片复制文字
 - 作者主页：资料卡、关注 / 粉丝列表、作品按【插画 / 漫画 / 小说】分类统计、作品列表分页
 - 用户 ID 长按复制：主页 `@账号` 长按 → 复制 @账号 / 复制数字用户 ID / 选择复制
-- 液态玻璃悬浮底栏、动态取色（壁纸）、深色 / 浅色 / 跟随系统、预见式返回、中英双语
+- 设置：**下载目录**（Android 用系统目录选择器 SAF，桌面用文件夹选择）、悬浮底栏开关切换**淡入淡出 + 底部滑入滑出动画**、动态取色（壁纸）、深色 / 浅色 / 跟随系统、预见式返回、中英双语
+- 权限：App 启动时动态申请存储 / 读取权限（API 33+ 为媒体读取）
 
 ## 目录结构
 
@@ -56,6 +58,8 @@ app/src/commonMain/kotlin/app/pixo/
 - 评论列表：`GET /ajax/{kind}s/comments/roots?{kind}_id=&offset=&limit=`（无 App API 端点）。
 - 追评：App API `/v1/{kind}/comment/replies?{kind}_id=&comment_id=`（有游标）；
   网页 `/ajax/{kind}s/comments/replies?comment_id=&page=`（page 从 1 开始）。
+- 用户搜索：`GET /ajax/search/users?nick={词}&p={页}&i=0`（Referer 必须为 `/search/users`，**不能带 `s_mode`**，每页 10 条）；
+  纯数字 ID 引擎查不到时回退 `/ajax/user/{id}/...` 直达抓取。
 - 评论/追评写操作：App API `POST /v1/{kind}/comment/add`（回复加 `parent_comment_id`）；
   网页 `POST /rpc/post_comment.php`。
 - 评论列表无 Cookie 时匿名请求返回 400，App 内会提示先去登录。

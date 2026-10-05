@@ -3,6 +3,7 @@ package app.pixo
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -101,6 +103,7 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 object FeedCache {
     val illust = HashMap<String, List<PixivWork>>()
     val novels = HashMap<String, List<PixivNovel>>()
+    val users = HashMap<String, List<PixivUser>>()
     val indexes = HashMap<String, Int>()
 
     /** 详情与作品分页：按作品 id 缓存，重开不再请求。 */
@@ -114,6 +117,14 @@ object FeedCache {
     /** 用户资料与主页作品：按用户 id 缓存。 */
     val userProfiles = HashMap<Long, PixivUser>()
     val userWorksCache = HashMap<Long, PixivUserWorks>()
+}
+
+/** 搜索结果/列表里任意条目的稳定 id（插画、小说、用户混排时去重用）。 */
+private fun itemIdOf(it: Any): Long = when (it) {
+    is PixivWork -> it.id
+    is PixivNovel -> it.id
+    is PixivUser -> it.id
+    else -> 0L
 }
 
 @Composable
@@ -710,7 +721,11 @@ fun SearchScreen(
     // 从缓存恢复，返回时保留原列表与滚动位置
     var items by remember(cacheKey) {
         mutableStateOf<List<Any>?>(
-            if (kind == "novel") FeedCache.novels[cacheKey] else FeedCache.illust[cacheKey],
+            when (kind) {
+                "novel" -> FeedCache.novels[cacheKey]
+                "user" -> FeedCache.users[cacheKey]
+                else -> FeedCache.illust[cacheKey]
+            },
         )
     }
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
@@ -722,6 +737,8 @@ fun SearchScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    // 用户搜索每页固定 10 条，插画/小说每页 60 条
+    val pageSize = if (kind == "user") 10 else 60
 
     val current = items
     LaunchedEffect(cacheKey, retryKey) {
@@ -733,13 +750,17 @@ fun SearchScreen(
         loading = true
         error = null
         try {
-            val list: List<Any> = if (kind == "novel") PixivApi.searchNovels(submitted, 1)
-            else PixivApi.searchArtworks(submitted, 1)
+            val list: List<Any> = when (kind) {
+                "novel" -> PixivApi.searchNovels(submitted, 1)
+                "user" -> PixivApi.searchUsers(submitted, 1)
+                else -> PixivApi.searchArtworks(submitted, 1)
+            }
             FeedCache.illust[cacheKey] = list.filterIsInstance<PixivWork>()
             FeedCache.novels[cacheKey] = list.filterIsInstance<PixivNovel>()
+            FeedCache.users[cacheKey] = list.filterIsInstance<PixivUser>()
             items = list
             page = 1
-            hasMore = list.size >= 60
+            hasMore = list.size >= pageSize
         } catch (e: Exception) {
             error = e.friendlyMessage()
             logError("Pixo", "load failed", e)
@@ -752,11 +773,15 @@ fun SearchScreen(
             if (submitted.isBlank()) return@launch
             refreshing = true
             try {
-                val list: List<Any> = if (kind == "novel") PixivApi.searchNovels(submitted, 1)
-                else PixivApi.searchArtworks(submitted, 1)
+                val list: List<Any> = when (kind) {
+                    "novel" -> PixivApi.searchNovels(submitted, 1)
+                    "user" -> PixivApi.searchUsers(submitted, 1)
+                    else -> PixivApi.searchArtworks(submitted, 1)
+                }
                 items = list
                 FeedCache.illust[cacheKey] = list.filterIsInstance<PixivWork>()
                 FeedCache.novels[cacheKey] = list.filterIsInstance<PixivNovel>()
+                FeedCache.users[cacheKey] = list.filterIsInstance<PixivUser>()
                 page = 1
                 error = null
             } catch (e: Exception) {
@@ -773,19 +798,23 @@ fun SearchScreen(
             loadingMore = true
             val next = page + 1
             try {
-                val more: List<Any> = if (kind == "novel") PixivApi.searchNovels(submitted, next)
-                else PixivApi.searchArtworks(submitted, next)
+                val more: List<Any> = when (kind) {
+                    "novel" -> PixivApi.searchNovels(submitted, next)
+                    "user" -> PixivApi.searchUsers(submitted, next)
+                    else -> PixivApi.searchArtworks(submitted, next)
+                }
                 val cur = (items ?: emptyList()).toMutableList()
-                val seen = HashSet(cur.map { if (it is PixivWork) it.id else (it as PixivNovel).id })
+                val seen = HashSet(cur.map { itemIdOf(it) })
                 cur.addAll(more.filter {
-                    val id = if (it is PixivWork) it.id else (it as PixivNovel).id
+                    val id = itemIdOf(it)
                     id !in seen
                 })
                 items = cur
                 FeedCache.illust[cacheKey] = cur.filterIsInstance<PixivWork>()
                 FeedCache.novels[cacheKey] = cur.filterIsInstance<PixivNovel>()
+                FeedCache.users[cacheKey] = cur.filterIsInstance<PixivUser>()
                 page = next
-                hasMore = more.size >= 60
+                hasMore = more.size >= pageSize
             } catch (_: Exception) {
             }
             loadingMore = false
@@ -841,6 +870,7 @@ fun SearchScreen(
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ModeChip("illust", Str.illust(), kind) { kind = "illust" }
                         ModeChip("novel", Str.novel(), kind) { kind = "novel" }
+                        ModeChip("user", Str.user(), kind) { kind = "user" }
                     }
                 }
                 when {
@@ -856,11 +886,15 @@ fun SearchScreen(
                 if (list.isNotEmpty()) {
                     items(list.size, key = { i ->
                         val it = list[i]
-                        if (it is PixivWork) it.id else (it as PixivNovel).id
+                        itemIdOf(it)
                     }) { i ->
                         val it = list[i]
-                        if (it is PixivWork) PixivWorkRow(it, onClick = { openItem(it.id, "illust") }, onOpenUser = onOpenUser)
-                        else NovelRow(it as PixivNovel, onClick = { openItem(it.id, "novel") }, onOpenUser = onOpenUser)
+                        when (it) {
+                            is PixivWork -> PixivWorkRow(it, onClick = { openItem(it.id, "illust") }, onOpenUser = onOpenUser)
+                            is PixivNovel -> NovelRow(it, onClick = { openItem(it.id, "novel") }, onOpenUser = onOpenUser)
+                            is PixivUser -> PixivUserRow(it, onClick = { onOpenUser(it.id) })
+                            else -> {}
+                        }
                     }
                     item { EndItem(loadingMore, hasMore, onRetry = {}) }
                 }
@@ -878,6 +912,8 @@ fun DetailScreen(
     onOpenUser: (Long) -> Unit,
     onOpenComments: (Long, String) -> Unit,
 ) {
+    // 顶栏「下载原图」触发信号：传给 IllustDetail，由它拿原图数据发起下载
+    var downloadSignal by remember { mutableIntStateOf(0) }
     PixoSubScreen(title = "", onBack = onBack, actions = {
         var showMenu by remember { mutableStateOf(false) }
         IconButton(onClick = { showMenu = true }) {
@@ -887,16 +923,26 @@ fun DetailScreen(
             OverlayDialog(show = true, onDismissRequest = { showMenu = false }) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(Str.more_actions(), style = MiuixTheme.textStyles.title3)
-                    Button(
-                        onClick = {
+                    Button(onClick = {
+                        showMenu = false
+                        openUrlInBrowser(
+                            if (kind == "novel") "https://www.pixiv.net/novel/show.php?id=$workId"
+                            else "https://www.pixiv.net/artworks/$workId",
+                        )
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.open_in_browser()) }
+                    Button(onClick = {
+                        showMenu = false
+                        shareText(
+                            if (kind == "novel") "https://www.pixiv.net/novel/show.php?id=$workId"
+                            else "https://www.pixiv.net/artworks/$workId",
+                        )
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.share()) }
+                    if (kind != "novel") {
+                        Button(onClick = {
                             showMenu = false
-                            openUrlInBrowser(
-                                if (kind == "novel") "https://www.pixiv.net/novel/show.php?id=$workId"
-                                else "https://www.pixiv.net/artworks/$workId",
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(Str.open_in_browser()) }
+                            downloadSignal++
+                        }, modifier = Modifier.fillMaxWidth()) { Text(Str.download_original()) }
+                    }
                     Button(onClick = { showMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
                 }
             }
@@ -905,7 +951,7 @@ fun DetailScreen(
         if (kind == "novel") {
             NovelDetail(workId, innerPadding, onSearchTag, onOpenUser, onOpenComments)
         } else {
-            IllustDetail(workId, innerPadding, onSearchTag, onOpenUser, onOpenComments)
+            IllustDetail(workId, innerPadding, onSearchTag, onOpenUser, onOpenComments, downloadSignal)
         }
     }
 }
@@ -917,6 +963,7 @@ private fun IllustDetail(
     onSearchTag: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenComments: (Long, String) -> Unit,
+    downloadSignal: Int = 0,
 ) {
     val cachedDetail = remember(workId) { FeedCache.illustDetail[workId] }
     val cachedPages = remember(workId) { FeedCache.illustPages[workId] }
@@ -930,12 +977,19 @@ private fun IllustDetail(
     var bookmarkBusy by remember { mutableStateOf(false) }
     var lightboxIndex by remember { mutableIntStateOf(-1) }
     var ugoira by remember(workId) { mutableStateOf<PixivUgoira?>(null) }
+    var downloadBusy by remember { mutableStateOf(false) }
+    var downloadDialog by remember { mutableStateOf(false) }
+    var downloadToast by remember { mutableStateOf<String?>(null) }
+    var selectedPages by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val scope = rememberCoroutineScope()
 
     // 预取文案（协程内不能用 @Composable 资源访问）
     val sBookmarkedPublic = Str.bookmarked_public()
     val sBookmarkedPrivate = Str.bookmarked_private()
     val sBookmarkRemoved = Str.bookmark_removed()
+    val sDownloadFailed = Str.download_failed()
+    // 预取带占位数字的完成文案（协程内不能用 @Composable 资源访问）
+    val sDownloadDoneFormat = Str.download_done(123456).replace("123456", "%s")
 
     LaunchedEffect(workId, retryKey) {
         // 已缓存则直接使用，避免重复加载
@@ -1005,6 +1059,63 @@ private fun IllustDetail(
             }
             detail?.let { FeedCache.illustDetail[workId] = it }
             bookmarkBusy = false
+        }
+    }
+
+    fun fileNameFor(page: PixivPage, index: Int): String {
+        val url = page.original.ifBlank { page.url }
+        val ext = url.substringAfterLast('.', "jpg").substringBefore('?')
+            .takeIf { it.isNotBlank() && it.length <= 5 } ?: "jpg"
+        return "${workId}_p$index.$ext"
+    }
+
+    fun downloadOne(page: PixivPage, index: Int) {
+        if (downloadBusy) return
+        scope.launch {
+            downloadBusy = true
+            try {
+                val saved = PixivApi.downloadImage(page.original.ifBlank { page.url }, fileNameFor(page, index))
+                downloadToast = saved ?: sDownloadFailed
+            } catch (e: Exception) {
+                logError("Pixo", "download failed", e)
+                downloadToast = sDownloadFailed + "：" + (e.message ?: "")
+            }
+            downloadBusy = false
+        }
+    }
+
+    fun downloadSelected() {
+        if (downloadBusy) return
+        scope.launch {
+            downloadBusy = true
+            var ok = 0
+            var fail = 0
+            for (index in selectedPages.toSortedSet()) {
+                val page = pages.getOrNull(index) ?: continue
+                try {
+                    PixivApi.downloadImage(page.original.ifBlank { page.url }, fileNameFor(page, index))
+                    ok++
+                } catch (e: Exception) {
+                    logError("Pixo", "download page $index failed", e)
+                    fail++
+                }
+            }
+            downloadToast = if (fail == 0) sDownloadDoneFormat.format(ok) else "$sDownloadFailed（$fail）"
+            downloadBusy = false
+            downloadDialog = false
+        }
+    }
+
+    // 顶栏「下载原图」：单图直接下载，多图弹选择对话框（默认全选）
+    LaunchedEffect(downloadSignal) {
+        if (downloadSignal <= 0) return@LaunchedEffect
+        val p = pages
+        if (p.isEmpty()) return@LaunchedEffect
+        if (p.size == 1) {
+            downloadOne(p[0], 0)
+        } else {
+            selectedPages = p.indices.toSet()
+            downloadDialog = true
         }
     }
 
@@ -1115,6 +1226,61 @@ private fun IllustDetail(
                     }, modifier = Modifier.fillMaxWidth()) { Text(Str.unbookmark()) }
                 }
                 Button(onClick = { showBookmarkMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+            }
+        }
+
+        OverlayDialog(show = downloadDialog, onDismissRequest = { if (!downloadBusy) downloadDialog = false }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(Str.download_selected_hint(), style = MiuixTheme.textStyles.title3)
+                Button(
+                    onClick = {
+                        selectedPages = if (selectedPages.size == pages.size) emptySet() else pages.indices.toSet()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(Str.select_all()) }
+                LazyColumn(Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(pages.size) { index ->
+                        val checked = index in selectedPages
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedPages = if (checked) selectedPages - index else selectedPages + index }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (checked) MiuixTheme.colorScheme.primary else Color.Transparent)
+                                    .border(1.5.dp, if (checked) Color.Transparent else MiuixTheme.colorScheme.onSurfaceVariantSummary, RoundedCornerShape(6.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (checked) {
+                                    Text("✓", style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onPrimary)
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text("${index + 1} / ${pages.size}", style = MiuixTheme.textStyles.body2)
+                        }
+                    }
+                }
+                Button(
+                    onClick = { if (!downloadBusy && selectedPages.isNotEmpty()) downloadSelected() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(Str.download()) }
+                Button(onClick = { downloadDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+            }
+        }
+
+        downloadToast?.let { toast ->
+            Box(Modifier.fillMaxSize().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
+                Box(
+                    Modifier.clip(RoundedCornerShape(50)).background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                ) {
+                    Text(toast, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceContainer)
+                }
             }
         }
 
@@ -2070,6 +2236,39 @@ fun NovelRow(novel: PixivNovel, onClick: () -> Unit, onOpenUser: (Long) -> Unit 
     }
 }
 
+@Composable
+private fun PixivUserRow(user: PixivUser, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick),
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            AuthorAvatar(user.avatar, 48.dp, user.id)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(user.name, style = MiuixTheme.textStyles.title3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                user.account.takeIf { it.isNotBlank() }?.let { account ->
+                    Text(
+                        "@" + account,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                user.comment.takeIf { it.isNotBlank() }?.let { comment ->
+                    Text(
+                        comment.replace('\n', ' '),
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** 作者头像（列表行内小尺寸，可点击进入主页）。 */
 @Composable
 fun AuthorAvatar(url: String, size: Dp, userId: Long, onOpenUser: (Long) -> Unit = {}) {
@@ -2538,7 +2737,28 @@ fun UserScreen(
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     val scrollBehavior = MiuixScrollBehavior()
-    PixoSubScreen(title = Str.author_page(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+    PixoSubScreen(title = Str.author_page(), onBack = onBack, scrollBehavior = scrollBehavior, actions = {
+        var showMenu by remember { mutableStateOf(false) }
+        IconButton(onClick = { showMenu = true }) {
+            Icon(imageVector = MiuixIcons.More, contentDescription = Str.more_actions())
+        }
+        if (showMenu) {
+            OverlayDialog(show = true, onDismissRequest = { showMenu = false }) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Str.more_actions(), style = MiuixTheme.textStyles.title3)
+                    Button(onClick = {
+                        showMenu = false
+                        openUrlInBrowser("https://www.pixiv.net/users/$userId")
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.open_in_browser()) }
+                    Button(onClick = {
+                        showMenu = false
+                        shareText("https://www.pixiv.net/users/$userId")
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.share()) }
+                    Button(onClick = { showMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+                }
+            }
+        }
+    }) { innerPadding ->
         Box(Modifier.fillMaxSize()) {
             when {
                 loading && user == null && currentList.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {

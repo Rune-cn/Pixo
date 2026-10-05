@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 动态申请：读取媒体（API 33+）与旧版存储读写 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:allowBackup="false"
@@ -21,13 +26,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- 深链：pixiv://artworks/{id} / pixiv://novel/{id} -->
+            <!-- 深链：pixiv://artworks/{id} / pixiv://novel/{id} / pixiv://user/{id} -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="pixiv" android:host="artworks" />
                 <data android:scheme="pixiv" android:host="novel" />
+                <data android:scheme="pixiv" android:host="user" />
             </intent-filter>
             <!-- 网页链接：https://www.pixiv.net/artworks/{id} -->
             <intent-filter>
@@ -42,6 +48,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="www.pixiv.net" android:pathPrefix="/novel/show.php" />
+            </intent-filter>
+            <!-- 网页链接：https://www.pixiv.net/users/{id} -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.pixiv.net" android:pathPrefix="/users/" />
             </intent-filter>
         </activity>
     </application>

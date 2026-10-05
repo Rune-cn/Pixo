@@ -130,4 +130,15 @@
     <string name="export_login_dialog_title">Login info (debug only)</string>
     <string name="liquid_glass">Liquid glass</string>
     <string name="liquid_glass_summary">Frosted blur + highlight on the floating bar (off = flat capsule)</string>
+    <string name="share">Share</string>
+    <string name="download_original">Download original</string>
+    <string name="download">Download</string>
+    <string name="select_all">Select all</string>
+    <string name="download_folder">Download folder</string>
+    <string name="download_folder_summary">Folder where downloaded images are saved (default: Pictures/Pixo)</string>
+    <string name="choose_folder">Choose folder</string>
+    <string name="download_done">Downloaded %1$d image(s)</string>
+    <string name="download_failed">Download failed</string>
+    <string name="download_selected_hint">Select images to download</string>
+    <string name="user">Users</string>
 </resources>

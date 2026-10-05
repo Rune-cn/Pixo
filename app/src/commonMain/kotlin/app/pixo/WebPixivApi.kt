@@ -121,6 +121,29 @@ object WebPixivApi {
         return parseNovels(data)
     }
 
+    /** 搜索用户：按昵称/账号关键字，Referer 必须为 /search/users（带 s_mode 会 500）。 */
+    suspend fun searchUsers(word: String, page: Int = 1): List<PixivUser> {
+        val encoded = URLEncoder.encode(word, "UTF-8")
+        val root = PixivHttp.getJson(
+            PixivHttp.webJsonHeaders()
+                .header("Referer", "https://www.pixiv.net/search/users")
+                .url("https://www.pixiv.net/ajax/search/users?nick=$encoded&p=$page&i=0"),
+        )
+        val list = parseUsers(root.obj("body")?.arr("users"))
+        // 数字 ID 直达：搜索引擎按 nick 查不到纯 ID，改为直接抓取该用户主页
+        if (page == 1 && list.isEmpty()) {
+            val id = word.trim().toLongOrNull()
+            if (id != null && id > 0) {
+                try {
+                    return listOf(fetchUser(id))
+                } catch (e: Exception) {
+                    logError("Pixo", "user id direct fetch failed", e)
+                }
+            }
+        }
+        return list
+    }
+
     suspend fun fetchNovelRanking(mode: String, page: Int = 1): List<PixivNovel> {
         val root = PixivHttp.getJson(
             PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/ranking/novel?mode=$mode&p=$page&lang=zh"),
@@ -838,6 +861,28 @@ object WebPixivApi {
                 add(parseNovel(el as JsonObject))
             } catch (_: Exception) {
                 // 跳过异常条目
+            }
+        }
+    }
+
+    private fun parseUsers(arr: JsonArray?): List<PixivUser> = buildList {
+        if (arr == null) return@buildList
+        for (el in arr) {
+            try {
+                val item = el as JsonObject
+                add(
+                    PixivUser(
+                        id = item.lng("userId"),
+                        name = item.str("name"),
+                        account = item.str("account"),
+                        avatar = item.str("imageBig").ifBlank { item.str("image") },
+                        comment = item.str("comment"),
+                        isFollowed = item.str("isFollowed") == "true",
+                        totalIllusts = 0,
+                        totalNovels = 0,
+                    ),
+                )
+            } catch (_: Exception) {
             }
         }
     }

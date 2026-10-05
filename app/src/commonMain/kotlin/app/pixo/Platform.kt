@@ -34,6 +34,8 @@ expect object AppPrefs {
     var dynamicColor: Boolean
     var floatingBar: Boolean
     var liquidGlass: Boolean
+    /** 下载目录（空 = 平台默认目录，如 Android 的 Pictures/Pixo）。 */
+    var downloadDir: String
 }
 
 expect object LocalAppLocale {
@@ -71,6 +73,16 @@ expect fun clearCrashLog()
 
 /** 在系统浏览器中打开链接（用于登录与核实网页端功能）。 */
 expect fun openUrlInBrowser(url: String)
+
+/** 分享文本/链接：Android 弹系统分享面板，桌面端复制到剪贴板。 */
+expect fun shareText(text: String)
+
+/** 把下载的图片字节写入下载目录（返回保存位置说明，失败返回 null）。 */
+expect suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String?
+
+/** 弹出「选择下载目录」界面，选中后持久化到 [AppPrefs.downloadDir] 并回调目录值。返回可触发选择的回调。 */
+@Composable
+expect fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit
 
 /**
  * 下载 ugoira zip 并解压出帧图片字节（顺序与 [frameFiles] 一致）。

@@ -130,4 +130,15 @@
     <string name="export_login_dialog_title">登录信息（仅供调试）</string>
     <string name="liquid_glass">液态玻璃</string>
     <string name="liquid_glass_summary">悬浮底栏启用毛玻璃模糊与高光（关闭后为纯色胶囊）</string>
+    <string name="share">分享</string>
+    <string name="download_original">下载原图</string>
+    <string name="download">下载</string>
+    <string name="select_all">全选</string>
+    <string name="download_folder">下载目录</string>
+    <string name="download_folder_summary">选择保存图片的目录（默认：Pictures/Pixo）</string>
+    <string name="choose_folder">选择目录</string>
+    <string name="download_done">已下载 %1$d 张</string>
+    <string name="download_failed">下载失败</string>
+    <string name="download_selected_hint">选择要下载的图片</string>
+    <string name="user">用户</string>
 </resources>
