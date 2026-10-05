@@ -25,6 +25,16 @@ internal expect object Str {
     @Composable fun settings_theme(): String
     @Composable fun theme_mode(): String
     @Composable fun predictive_back(): String
+    @Composable fun dynamic_color(): String
+    @Composable fun dynamic_color_summary(): String
+    @Composable fun floating_bar(): String
+    @Composable fun floating_bar_summary(): String
+    @Composable fun liquid_glass(): String
+    @Composable fun liquid_glass_summary(): String
+    @Composable fun export_login_info(): String
+    @Composable fun export_login_summary(): String
+    @Composable fun export_copied(): String
+    @Composable fun export_login_dialog_title(): String
     @Composable fun predictive_back_summary(): String
     @Composable fun settings_debug(): String
     @Composable fun debug_log(): String
@@ -96,6 +106,9 @@ internal expect object Str {
     @Composable fun web_login_browser_hint(): String
     @Composable fun web_login_detected(): String
     @Composable fun web_login_confirm(): String
+    @Composable fun cookie_paste_hint(): String
+    @Composable fun cookie_save(): String
+    @Composable fun cookie_saved(): String
     @Composable fun crash_log(): String
     @Composable fun clear_crash_log(): String
     @Composable fun crash_none(): String

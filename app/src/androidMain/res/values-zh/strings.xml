@@ -98,7 +98,20 @@
     <string name="crash_log">崩溃日志</string>
     <string name="clear_crash_log">清除崩溃日志</string>
     <string name="crash_none">无崩溃记录</string>
-    <string name="copy_all">全选复制</string>
+    <string name="copy_all">全部复制</string>
     <string name="copy_select">选择复制</string>
     <string name="copy_title">复制</string>
+    <string name="dynamic_color">动态取色（跟随壁纸）</string>
+    <string name="dynamic_color_summary">Android 12 以上根据系统壁纸自动生成主题色</string>
+    <string name="cookie_paste_hint">也可粘贴网页登录后的 Cookie（PHPSESSID=...），用于加载评论、收藏与推荐</string>
+    <string name="cookie_save">保存</string>
+    <string name="cookie_saved">Cookie 已保存</string>
+    <string name="floating_bar">悬浮底栏</string>
+    <string name="floating_bar_summary">底部导航改为悬浮胶囊（液态玻璃请单独开启）</string>
+    <string name="export_login_info">导出登录信息</string>
+    <string name="export_login_summary">复制 Token / Cookie / 用户 ID，便于排查登录问题</string>
+    <string name="export_copied">已复制到剪贴板</string>
+    <string name="export_login_dialog_title">登录信息（仅供调试）</string>
+    <string name="liquid_glass">液态玻璃</string>
+    <string name="liquid_glass_summary">悬浮底栏启用毛玻璃模糊与高光（关闭后为纯色胶囊）</string>
 </resources>

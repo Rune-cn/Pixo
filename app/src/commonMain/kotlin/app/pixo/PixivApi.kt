@@ -20,13 +20,30 @@ object PixivApi {
         WebPixivApi.fetchRanking(mode, page)
 
     suspend fun fetchTopFeed(offset: Int = 0, limit: Int = 30): List<PixivWork> =
-        WebPixivApi.fetchTopFeed(offset, limit)
+        // 登录（Token）时走 App API 个性化推荐，未登录回退网页发现页
+        if (PixivAuth.isTokenMode) {
+            try {
+                AppPixivApi.fetchTopFeed(offset, limit)
+            } catch (_: Exception) {
+                WebPixivApi.fetchTopFeed(offset, limit)
+            }
+        } else WebPixivApi.fetchTopFeed(offset, limit)
 
     suspend fun searchArtworks(word: String, page: Int = 1): List<PixivWork> =
         WebPixivApi.searchArtworks(word, page)
 
-    suspend fun fetchIllustBookmarks(rest: String, offset: Int = 0, limit: Int = 24): List<PixivWork> =
-        WebPixivApi.fetchIllustBookmarks(rest, offset, limit)
+    suspend fun fetchIllustBookmarks(
+        rest: String,
+        offset: Int = 0,
+        maxBookmarkId: Long? = null,
+        limit: Int = 24,
+    ): PixivBookmarkPage =
+        // 收藏列表：Token 模式走 App API（max_bookmark_id 游标分页），Cookie 模式走网页 ajax（offset 分页）
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchIllustBookmarks(rest, offset, maxBookmarkId, limit)
+        else {
+            val works = WebPixivApi.fetchIllustBookmarks(rest, offset, limit)
+            PixivBookmarkPage(works = works, hasMore = works.size >= limit)
+        }
 
     // ---------- 小说 ----------
 
@@ -53,35 +70,53 @@ object PixivApi {
         WebPixivApi.fetchComments(kind, id)
 
     suspend fun addComment(kind: String, id: Long, text: String) =
-        WebPixivApi.addComment(kind, id, text)
+        // 写评论：Token 模式走 App API（POST /v1/*/comment/add），否则网页 CSRF
+        if (PixivAuth.isTokenMode) AppPixivApi.addComment(kind, id, text)
+        else WebPixivApi.addComment(kind, id, text)
 
     // ---------- 收藏 ----------
 
     suspend fun addBookmark(workId: Long, restrict: Int): String =
-        WebPixivApi.addBookmark(workId, restrict)
+        if (PixivAuth.isTokenMode) AppPixivApi.addBookmark(workId, restrict)
+        else WebPixivApi.addBookmark(workId, restrict)
 
     suspend fun addNovelBookmark(novelId: Long, restrict: Int): String =
-        WebPixivApi.addNovelBookmark(novelId, restrict)
+        if (PixivAuth.isTokenMode) AppPixivApi.addNovelBookmark(novelId, restrict)
+        else WebPixivApi.addNovelBookmark(novelId, restrict)
 
     suspend fun removeBookmark(kind: String, workId: Long, bookmarkId: Long) =
-        WebPixivApi.removeBookmark(kind, workId, bookmarkId)
+        if (PixivAuth.isTokenMode) AppPixivApi.removeBookmark(kind, workId, bookmarkId)
+        else WebPixivApi.removeBookmark(kind, workId, bookmarkId)
 
     // ---------- 用户 ----------
 
     suspend fun fetchUser(userId: Long): PixivUser =
-        WebPixivApi.fetchUser(userId)
+        // 用户主页：Token 模式走 App API（/v1/user/detail，offset 分页稳定），
+        // 网页模式回退 ajax（作者作品分页用 ids[] 批量，见 WebPixivApi）
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchUser(userId)
+        else WebPixivApi.fetchUser(userId)
 
     suspend fun fetchUserWorks(userId: Long): PixivUserWorks =
-        WebPixivApi.fetchUserWorks(userId)
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserWorks(userId)
+        else WebPixivApi.fetchUserWorks(userId)
 
     suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivWork> =
-        WebPixivApi.fetchUserIllusts(userId, offset, limit)
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserIllusts(userId, offset, limit)
+        else WebPixivApi.fetchUserIllusts(userId, offset, limit)
 
     suspend fun fetchUserNovels(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivNovel> =
-        WebPixivApi.fetchUserNovels(userId, offset, limit)
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserNovels(userId, offset, limit)
+        else WebPixivApi.fetchUserNovels(userId, offset, limit)
 
     // ---------- 推荐 ----------
 
     suspend fun fetchTopArtworks(): List<PixivWork> =
-        WebPixivApi.fetchTopArtworks()
+        // 推荐板块：Token 模式用 App API /v1/illust/recommended（需登录），否则网页发现页
+        if (PixivAuth.isTokenMode) {
+            try {
+                AppPixivApi.fetchTopArtworks()
+            } catch (_: Exception) {
+                WebPixivApi.fetchTopArtworks()
+            }
+        } else WebPixivApi.fetchTopArtworks()
 }

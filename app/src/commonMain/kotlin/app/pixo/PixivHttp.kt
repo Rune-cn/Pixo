@@ -14,6 +14,8 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 共享 HTTP 基础设施：OkHttp 客户端、鉴权头、App API 请求签名与 JSON 辅助函数。
@@ -48,7 +50,8 @@ object PixivHttp {
                 if (req.header("Cookie") == null && req.url.host == "www.pixiv.net") {
                     cookieHeader()?.let { b.header("Cookie", it) }
                 }
-                if (req.header("Authorization") == null) {
+                // Bearer Token 只发给 App API，避免污染网页域请求（与 Cookie 规则对偶）。
+                if (req.header("Authorization") == null && req.url.host == "app-api.pixiv.net") {
                     PixivAuth.accessToken.takeIf { it.isNotBlank() }
                         ?.let { b.header("Authorization", "Bearer $it") }
                 }
@@ -132,14 +135,18 @@ object PixivHttp {
     suspend fun getJson(builder: Request.Builder): JsonObject = withContext(ioDispatcher) {
         val url = builder.build().url.toString()
         log("PixoApi", "GET $url | auth=${if (PixivAuth.isTokenMode) "token" else if (AppPrefs.cookie.isBlank()) "none" else "cookie"}")
-        val request = builder.build()
-        client.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
-            log("PixoApi", "HTTP ${response.code} len=${text.length}")
-            if (!response.isSuccessful) throw java.io.IOException(httpError(response.code) + " " + text.take(300))
-            val element = json.parseToJsonElement(text)
-            (element as? JsonObject) ?: throw java.io.IOException("响应不是 JSON 对象")
+        var request = builder.build()
+        var (code, text) = execute(request)
+        maybeRefreshAndRetry(code, builder) { refreshedRequest ->
+            request = refreshedRequest
+            val retry = execute(request)
+            code = retry.first
+            text = retry.second
         }
+        log("PixoApi", "HTTP $code len=${text.length}")
+        if (code !in 200..299) throw java.io.IOException(httpError(code) + " " + text.take(300))
+        val element = json.parseToJsonElement(text)
+        (element as? JsonObject) ?: throw java.io.IOException("响应不是 JSON 对象")
     }
 
     suspend fun postJson(
@@ -149,21 +156,53 @@ object PixivHttp {
         form: Boolean = false,
     ): JsonObject = withContext(ioDispatcher) {
         val mediaType = if (form) "application/x-www-form-urlencoded" else "application/json; charset=utf-8"
-        val request = headers.url(url)
+        var request = headers.url(url)
             .post(payload.toRequestBody(mediaType.toMediaType()))
             .build()
+        var (code, text) = execute(request)
+        maybeRefreshAndRetry(code, headers) { refreshedRequest ->
+            request = refreshedRequest
+            val retry = execute(request)
+            code = retry.first
+            text = retry.second
+        }
+        log("PixoApi", "POST $url HTTP $code len=${text.length}")
+        if (code !in 200..299) throw java.io.IOException(httpError(code) + " " + text.take(300))
+        val element = json.parseToJsonElement(text)
+        (element as? JsonObject) ?: throw java.io.IOException("响应不是 JSON 对象")
+    }
+
+    private fun execute(request: Request): Pair<Int, String> =
         client.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
-            log("PixoApi", "POST $url HTTP ${response.code} len=${text.length}")
-            if (!response.isSuccessful) throw java.io.IOException(httpError(response.code) + " " + text.take(300))
-            val element = json.parseToJsonElement(text)
-            (element as? JsonObject) ?: throw java.io.IOException("响应不是 JSON 对象")
+            response.code to response.body?.string().orEmpty()
+        }
+
+    private val tokenRefreshLock = Mutex()
+
+    /**
+     * App API 的 Access Token 过期时返回 400/401；此时用 Refresh Token 换新 Token 后重试一次。
+     * 并发请求共享同一把锁，避免重复刷新；重试请求由拦截器在发送时读取最新 Token。
+     */
+    private suspend fun maybeRefreshAndRetry(code: Int, builder: Request.Builder, retry: (Request) -> Unit) {
+        if (code != 400 && code != 401) return
+        if (!PixivAuth.isTokenMode || PixivAuth.refreshToken.isBlank()) return
+        tokenRefreshLock.withLock {
+            val before = PixivAuth.accessToken
+            // 刷新失败（refresh_token 也失效）时保持原响应，由上层展示登录失效提示
+            if (PixivAuth.refreshAccessToken() != null) return@withLock
+            // Access Token 没变化说明刚被刷新过或无须换新，直接重试即可
+            if (PixivAuth.accessToken != before || before.isBlank()) {
+                retry(builder.build())
+            }
         }
     }
 
     /** 把常见 HTTP 错误转成容易看懂的中文提示，401 尤其要明说。 */
     private fun httpError(code: Int): String = when (code) {
         401 -> "未登录或会话失效，请重新登录（HTTP 401）"
+        403 -> "需要登录后才能访问（HTTP 403）"
+        400 -> "请求被拒绝，多因未登录或会话过期（HTTP 400）"
+        404 -> "接口不存在或已失效（HTTP 404）"
         429 -> "请求过于频繁，请稍后再试（HTTP 429）"
         else -> "HTTP $code"
     }

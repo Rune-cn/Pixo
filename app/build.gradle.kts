@@ -23,6 +23,7 @@ kotlin {
             implementation("org.jetbrains.compose.ui:ui:$composeVersion")
             implementation("top.yukonga.miuix.kmp:miuix-ui:0.9.4")
             implementation("top.yukonga.miuix.kmp:miuix-preference:0.9.4")
+            implementation("top.yukonga.miuix.kmp:miuix-blur:0.9.4")
             implementation("top.yukonga.miuix.kmp:miuix-icons:0.9.4")
             implementation("io.coil-kt.coil3:coil-compose:3.6.3")
             implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
@@ -51,7 +52,7 @@ android {
 
     defaultConfig {
         applicationId = "app.pixo"
-        minSdk = 24
+        minSdk = 33
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"

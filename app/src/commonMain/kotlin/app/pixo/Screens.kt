@@ -33,6 +33,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -44,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.Dp
@@ -81,7 +83,10 @@ import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Stopwatch
 import top.yukonga.miuix.kmp.icon.extended.Tasks
 import top.yukonga.miuix.kmp.icon.extended.Weeks
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 内存级分页/滚动缓存：从详情返回时恢复到原滚动位置，详情等避免重复加载。 */
 object FeedCache {
@@ -220,7 +225,8 @@ fun HomePage(
         FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex
     }
 
-    PixoTabFrame(title = Str.nav_home()) { frame ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoTabFrame(title = Str.nav_home(), scrollBehavior = scrollBehavior) { frame ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -230,7 +236,8 @@ fun HomePage(
             LazyColumn(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
                 contentPadding = PaddingValues(top = frame.calculateTopPadding(), bottom = bottomPadding),
             ) {
             item {
@@ -398,7 +405,8 @@ fun RankingScreen(
     }
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
-    PixoSubScreen(title = Str.ranking(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.ranking(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -409,7 +417,8 @@ fun RankingScreen(
                 state = listState,
                 contentPadding = innerPadding,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
             ) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -516,7 +525,8 @@ fun NovelRankingScreen(
     }
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
-    PixoSubScreen(title = Str.novel_ranking(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.novel_ranking(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -527,7 +537,8 @@ fun NovelRankingScreen(
                 state = listState,
                 contentPadding = innerPadding,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
             ) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -562,6 +573,8 @@ fun BookmarksScreen(
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
     val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
     var offset by remember { mutableIntStateOf(items?.size ?: 0) }
+    var maxBookmarkId by remember { mutableLongStateOf(0L) }
+    var hasMore by remember { mutableStateOf(true) }
     var loading by remember { mutableStateOf(items == null) }
     var loadingMore by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
@@ -575,10 +588,12 @@ fun BookmarksScreen(
         loading = true
         error = null
         try {
-            val list = PixivApi.fetchIllustBookmarks(restrict, 0, 24)
-            FeedCache.illust[cacheKey] = list
-            items = list
-            offset = list.size
+            val page = PixivApi.fetchIllustBookmarks(restrict, 0, null, 24)
+            FeedCache.illust[cacheKey] = page.works
+            items = page.works
+            offset = page.works.size
+            maxBookmarkId = page.nextMaxBookmarkId ?: 0L
+            hasMore = page.hasMore
         } catch (e: Exception) {
             error = e.friendlyMessage()
             logError("Pixo", "load failed", e)
@@ -590,10 +605,12 @@ fun BookmarksScreen(
         scope.launch {
             refreshing = true
             try {
-                val list = PixivApi.fetchIllustBookmarks(restrict, 0, 24)
-                FeedCache.illust[cacheKey] = list
-                items = list
-                offset = list.size
+                val page = PixivApi.fetchIllustBookmarks(restrict, 0, null, 24)
+                FeedCache.illust[cacheKey] = page.works
+                items = page.works
+                offset = page.works.size
+                maxBookmarkId = page.nextMaxBookmarkId ?: 0L
+                hasMore = page.hasMore
                 error = null
             } catch (e: Exception) {
                 error = e.friendlyMessage()
@@ -604,17 +621,19 @@ fun BookmarksScreen(
     }
 
     fun loadMore() {
-        if (loadingMore) return
+        if (loadingMore || !hasMore) return
         scope.launch {
             loadingMore = true
             try {
-                val more = PixivApi.fetchIllustBookmarks(restrict, offset, 24)
+                val page = PixivApi.fetchIllustBookmarks(restrict, offset, maxBookmarkId.takeIf { it > 0L }, 24)
                 val cur = (items ?: emptyList()).toMutableList()
                 val seen = HashSet(cur.map { it.id })
-                cur.addAll(more.filter { it.id !in seen })
+                cur.addAll(page.works.filter { it.id !in seen })
                 items = cur
                 FeedCache.illust[cacheKey] = cur
                 offset = cur.size
+                maxBookmarkId = page.nextMaxBookmarkId ?: 0L
+                hasMore = page.hasMore
             } catch (_: Exception) {
             }
             loadingMore = false
@@ -633,7 +652,8 @@ fun BookmarksScreen(
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     val title = if (restrict == "show") Str.bookmark_public_label() else Str.bookmark_private_label()
-    PixoSubScreen(title = title, onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = title, onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -644,7 +664,8 @@ fun BookmarksScreen(
                 state = listState,
                 contentPadding = innerPadding,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
             ) {
                 when {
                     loading && list.isEmpty() -> item { LoadingState() }
@@ -656,7 +677,7 @@ fun BookmarksScreen(
                     items(list, key = { it.id }) { work ->
                         PixivWorkRow(work, onClick = { onOpenDetail(work.id, "illust") }, onOpenUser = onOpenUser)
                     }
-                    item { EndItem(loadingMore, hasMore = true, onRetry = {}) }
+                    item { EndItem(loadingMore, hasMore, onRetry = {}) }
                 }
             }
         }
@@ -778,7 +799,8 @@ fun SearchScreen(
         onOpenDetail(id, kindOf)
     }
 
-    PixoSubScreen(title = Str.search(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.search(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -789,7 +811,8 @@ fun SearchScreen(
                 state = listState,
                 contentPadding = innerPadding,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
             ) {
                 item {
                     InputField(
@@ -944,7 +967,7 @@ private fun IllustDetail(
 
             else -> {
                 val d = detail
-                LazyColumn(contentPadding = innerPadding) {
+                LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
                     items(pages) { page ->
                         val ctx = LocalPlatformContext.current
                         AsyncImage(
@@ -1192,7 +1215,8 @@ fun CommentsScreen(
         }
     }
 
-    PixoSubScreen(title = Str.comments(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.comments(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
@@ -1206,6 +1230,8 @@ fun CommentsScreen(
                     else -> LazyColumn(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                        overscrollEffect = null,
                     ) {
                         itemsIndexed(comments.orEmpty()) { _, c -> CommentCard(c, onOpenUser) { t -> copyMenu = t } }
                     }
@@ -1377,7 +1403,7 @@ private fun NovelDetail(
             else -> {
                 val d = detail ?: return@Box
                 val clipboard = LocalClipboardManager.current
-                LazyColumn(contentPadding = innerPadding) {
+                LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
                     item {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text(d.title, style = MiuixTheme.textStyles.title3)
@@ -1599,10 +1625,11 @@ fun LogViewerScreen(onBack: () -> Unit) {
             tick++
         }
     }
-    PixoSubScreen(title = Str.view_logs(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.view_logs(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         val logs = remember(tick) { LogBuffer.snapshot() }
         val crashText = remember(tick) { readCrashLog().trim() }
-        LazyColumn(contentPadding = innerPadding) {
+        LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
             if (crashText.isNotEmpty()) {
                 item {
                     Row(
@@ -1673,7 +1700,8 @@ fun CrashLogPage(onBack: () -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
     val clipboard = LocalClipboardManager.current
     val text = remember(tick) { readCrashLog().trim() }
-    PixoSubScreen(title = Str.crash_log(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.crash_log(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -1692,7 +1720,7 @@ fun CrashLogPage(onBack: () -> Unit) {
                     Text(Str.crash_none(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                 }
             } else {
-                LazyColumn(contentPadding = innerPadding) {
+                LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
                     item {
                         Text(
                             text = text,
@@ -1714,6 +1742,7 @@ fun DiscoverScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val cacheKey = "discover:feed"
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
@@ -1789,7 +1818,8 @@ fun DiscoverScreen(
     }
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
-    PixoSubScreen(title = Str.discover(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.discover(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -1804,13 +1834,14 @@ fun DiscoverScreen(
                     ErrorState(error ?: "", onRetry = { retryKey++ })
                 }
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    EmptyHint()
+                    EmptyHint(onOpenSettings = onOpenSettings)
                 }
                 else -> LazyColumn(
                     state = listState,
                     contentPadding = innerPadding,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
                 ) {
                     items(list, key = { it.id }) { w ->
                         PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
@@ -1828,6 +1859,7 @@ fun RecommendedScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val cacheKey = "recommend:feed"
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
@@ -1874,7 +1906,8 @@ fun RecommendedScreen(
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     val list = items.orEmpty()
-    PixoSubScreen(title = Str.recommended(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.recommended(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         PullToRefresh(
             isRefreshing = refreshing,
             onRefresh = { refresh() },
@@ -1889,13 +1922,14 @@ fun RecommendedScreen(
                     ErrorState(error ?: "", onRetry = { retryKey++ })
                 }
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    EmptyHint()
+                    EmptyHint(onOpenSettings = onOpenSettings)
                 }
                 else -> LazyColumn(
                     state = listState,
                     contentPadding = innerPadding,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
                 ) {
                     items(list, key = { it.id }) { w ->
                         PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
@@ -2012,7 +2046,8 @@ fun UserScreen(
     }
     SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
-    PixoSubScreen(title = Str.author_page(), onBack = onBack) { innerPadding ->
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.author_page(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         Box(Modifier.fillMaxSize()) {
             when {
                 loading && user == null && currentList.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
@@ -2026,7 +2061,8 @@ fun UserScreen(
                         state = listState,
                         contentPadding = innerPadding,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                overscrollEffect = null,
                     ) {
                         item { UserHeader(user) { bio -> copyMenu = bio } }
                         item {
@@ -2122,8 +2158,20 @@ private fun UserHeader(user: PixivUser?, onCopyBio: (String) -> Unit = {}) {
 }
 
 @Composable
-private fun EmptyHint() {
-    Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
+private fun EmptyHint(onOpenSettings: (() -> Unit)? = null) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(Str.no_works(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+        if (onOpenSettings != null && AppPrefs.cookie.isBlank() && !PixivAuth.isLoggedIn) {
+            Text(
+                text = Str.need_cookie_hint(),
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+            Button(onClick = onOpenSettings) { Text(Str.go_settings()) }
+        }
     }
 }

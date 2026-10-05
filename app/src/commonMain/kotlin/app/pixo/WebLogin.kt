@@ -38,7 +38,7 @@ internal fun WebLoginScreen(onBack: () -> Unit) {
     var exchanging by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    PixoSubScreen(title = Str.web_login(), onBack = onBack) { innerPadding ->
+    PixoSubScreen(title = Str.web_login(), onBack = onBack, blur = false) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
             Text(
                 text = status,

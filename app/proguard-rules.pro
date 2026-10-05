@@ -1,1 +1,11 @@
--keep class top.yukonga.miuix.** { *; }
+# miuix 无内置混淆规则：运行时依赖反射/元数据的包必须全量保留（否则 R8 裁剪导致闪退）。
+# icons 只按静态引用保留，交给 R8 裁掉未用图标，显著降体积。
+-keep class top.yukonga.miuix.kmp.basic.** { *; }
+-keep class top.yukonga.miuix.kmp.blur.** { *; }
+-keep class top.yukonga.miuix.kmp.preference.** { *; }
+-keep class top.yukonga.miuix.kmp.theme.** { *; }
+-keep class top.yukonga.miuix.kmp.overlay.** { *; }
+-keep class top.yukonga.miuix.kmp.utils.** { *; }
+-keep class top.yukonga.miuix.kmp.shader.** { *; }
+-keep class top.yukonga.miuix.kmp.squircle.** { *; }
+-keep class top.yukonga.miuix.kmp.animation.** { *; }

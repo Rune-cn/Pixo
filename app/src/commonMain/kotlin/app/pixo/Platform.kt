@@ -18,6 +18,9 @@ import kotlinx.coroutines.CoroutineDispatcher
  */
 expect val ioDispatcher: CoroutineDispatcher
 
+/** 是否为桌面端（JVM）。桌面端用 ESC 键模拟系统返回。 */
+expect val isDesktop: Boolean
+
 expect object AppPrefs {
     fun init()
     var cookie: String
@@ -28,6 +31,9 @@ expect object AppPrefs {
     var debugLog: Boolean
     var language: String
     var predictiveBack: Boolean
+    var dynamicColor: Boolean
+    var floatingBar: Boolean
+    var liquidGlass: Boolean
 }
 
 expect object LocalAppLocale {
@@ -102,6 +108,7 @@ internal fun initImageLoaderOnce() {
         loaderContext = context
         ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(PixivHttp.client)) }
+            // coil 默认自带内存缓存；头像列表数据由 FeedCache 缓存，避免重复请求
             .build()
     }
 }
@@ -116,3 +123,4 @@ internal fun refreshNetworkConfig() {
             .build()
     )
 }
+

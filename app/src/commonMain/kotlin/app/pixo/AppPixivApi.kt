@@ -53,12 +53,28 @@ object AppPixivApi {
         return parseIllusts(root.arr("illusts"))
     }
 
-    suspend fun fetchIllustBookmarks(rest: String, offset: Int = 0, limit: Int = 24): List<PixivWork> {
+    suspend fun fetchIllustBookmarks(
+        rest: String,
+        offset: Int = 0,
+        maxBookmarkId: Long? = null,
+        limit: Int = 24,
+    ): PixivBookmarkPage {
+        val uid = AppPrefs.selfUserId
+        if (uid <= 0L) throw java.io.IOException("未登录，无法加载收藏：请先在「设置」中完成登录")
         val restrict = if (rest == "hide") "private" else "public"
+        // App API 收藏分页只认 max_bookmark_id；offset 会被静默忽略（实测 offset=30 仍返回第一页），
+        // 旧实现用 offset 分页导致「只显示部分收藏」（永远停在第一页）。
+        val cursor = maxBookmarkId?.takeIf { it > 0L }?.let { "&max_bookmark_id=$it" }.orEmpty()
         val root = PixivHttp.getJson(
-            PixivHttp.appApiHeaders().url("$BASE/user/bookmarks/illust?user_id=${AppPrefs.selfUserId}&restrict=$restrict&offset=$offset&limit=$limit&filter=for_android"),
+            PixivHttp.appApiHeaders().url("$BASE/user/bookmarks/illust?user_id=$uid&restrict=$restrict$cursor&limit=$limit&filter=for_android"),
         )
-        return parseIllusts(root.arr("illusts"))
+        val next = root.str("next_url")
+            ?.let { Regex("max_bookmark_id=(\\d+)").find(it)?.groupValues?.get(1)?.toLongOrNull() }
+        return PixivBookmarkPage(
+            works = parseIllusts(root.arr("illusts")),
+            nextMaxBookmarkId = next,
+            hasMore = next != null,
+        )
     }
 
     // ---------- 小说列表 ----------
@@ -162,37 +178,8 @@ object AppPixivApi {
 
     // ---------- 评论 ----------
 
-    suspend fun fetchComments(kind: String, id: Long): List<PixivComment> {
-        // App API 评论端点（新版为 /roots）
-        val url = if (kind == "novel") "$BASE/novel/comment/roots?novel_id=$id&offset=0"
-        else "$BASE/illust/comment/roots?illust_id=$id&offset=0"
-        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
-        val arr = root.arr("comments")
-        return buildList {
-            if (arr == null) return@buildList
-            for (el in arr) {
-                try {
-                    val o = el as JsonObject
-                    val commenter = o.obj("user")
-                    val content = o.str("comment")
-                    if (content.isBlank()) continue
-                    add(
-                        PixivComment(
-                            id = o.lng("id"),
-                            user = commenter?.str("name").orEmpty().ifBlank { o.str("userName") },
-                            userId = commenter?.lng("id") ?: 0L,
-                            avatar = commenter?.obj("profile_image_urls")?.str("medium").orEmpty(),
-                            content = content,
-                            date = o.str("comment_date"),
-                        ),
-                    )
-                } catch (_: Exception) {
-                    // 跳过异常条目
-                }
-            }
-        }
-    }
-
+    // 注意：评论列表只有网页端（/ajax/../comments/roots，需会话 Cookie），App API 无列表端点，
+    // 列表统一走 WebPixivApi.fetchComments。
     suspend fun addComment(kind: String, id: Long, text: String) {
         val url = if (kind == "novel") "$BASE/novel/comment/add" else "$BASE/illust/comment/add"
         val idField = if (kind == "novel") "novel_id" else "illust_id"

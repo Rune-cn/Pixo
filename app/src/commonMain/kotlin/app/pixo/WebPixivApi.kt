@@ -85,16 +85,15 @@ object WebPixivApi {
     }
 
     suspend fun fetchIllustBookmarks(rest: String, offset: Int = 0, limit: Int = 24): List<PixivWork> {
-        val uid = PixivHttp.selfUserId()
-        if (uid <= 0L) throw IOException("无法获取登录用户，请重新设置 Cookie")
+        // Cookie 解析不到时回退到登录时保存的用户 ID（PKCE 登录也写这个字段）
+        val uid = PixivHttp.selfUserId().takeIf { it > 0L } ?: AppPrefs.selfUserId
+        if (uid <= 0L) throw IOException("未登录，无法加载收藏：请先在「设置」中完成登录")
         val root = PixivHttp.getJson(
             PixivHttp.webJsonHeaders().url(
                 "https://www.pixiv.net/ajax/user/$uid/illusts/bookmarks?tag=&rest=$rest&offset=$offset&limit=$limit&lang=zh",
             ),
         )
-        if (root.str("error") == "true") {
-            throw IOException("收藏获取失败：${root.str("message")}")
-        }
+        throwIfWebError(root, "收藏获取失败")
         val works = root.obj("body")?.arr("works")
         return parseWorks(works) { item ->
             PixivWork(
@@ -231,8 +230,14 @@ object WebPixivApi {
         } else {
             "https://www.pixiv.net/ajax/illusts/comments/roots?illust_id=$id&offset=0&limit=30"
         }
+        // 评论列表接口必须带网页会话；没登录时直接给出明确提示（匿名访问会返回 400）
+        if (AppPrefs.cookie.isBlank() && !PixivAuth.isTokenMode) {
+            throw IOException("未登录，无法加载评论：请先在「设置」中登录（Android 网页登录会自动保存会话）")
+        }
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
-        val arr = root.obj("body")?.arr("comments")
+        throwIfWebError(root, "评论获取失败")
+        val body = root.obj("body")
+        val arr = body?.arr("comments") ?: root.arr("comments")
         return buildList {
             if (arr == null) return@buildList
             for (el in arr) {
@@ -433,55 +438,145 @@ object WebPixivApi {
         return PixivUserWorks(illusts = illusts, novels = novels)
     }
 
-    /** 作者插画分页（无限流用）：/ajax/user/{id}/illusts 返回 body.works。 */
+    /**
+     * 作者插画分页（无限流用）。
+     *
+     * 网页端 `/ajax/user/{id}/illusts?offset=&limit=` 已不再支持 offset 分页（恒 400「不正确的要求」），
+     * 正确做法：先从 `/ajax/user/{id}/profile/all` 拿全部作品 id，切页后按 `ids[]=` 批量拉详情。
+     */
     suspend fun fetchUserIllusts(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivWork> {
+        val ids = fetchUserWorkIds(userId, "illusts").drop(offset).take(limit)
+        if (ids.isEmpty()) return emptyList()
         val root = PixivHttp.getJson(
             PixivHttp.webJsonHeaders().url(
-                "https://www.pixiv.net/ajax/user/$userId/illusts?offset=$offset&limit=$limit&type=illust&lang=zh",
+                "https://www.pixiv.net/ajax/user/$userId/illusts?" +
+                    ids.joinToString("") { "ids[]=$it&" } + "work_category=illustManga&lang=zh",
             ),
         )
-        return parseWorks(root.obj("body")?.arr("works")) { item ->
-            PixivWork(
-                id = item.lng("id"),
-                title = item.str("title"),
-                author = item.str("userName"),
-                authorId = item.lng("userId"),
-                avatar = item.str("profileImageUrl"),
-                thumb = item.str("url"),
-                illustType = item.int("illustType"),
-                pageCount = item.int("pageCount").coerceAtLeast(1),
-            )
+        val map = root.obj("body")?.obj("works") ?: root.obj("body") ?: return emptyList()
+        return buildList {
+            for (id in ids) {
+                val o = map.obj(id) ?: continue
+                try {
+                    add(
+                        PixivWork(
+                            id = o.lng("id").takeIf { it > 0 } ?: id.toLongOrNull() ?: 0L,
+                            title = o.str("title"),
+                            author = o.str("userName").ifBlank { o.str("user_name") },
+                            authorId = o.lng("userId").takeIf { it > 0 } ?: userId,
+                            avatar = o.str("profileImageUrl").ifBlank { o.str("profile_img") },
+                            thumb = o.str("url"),
+                            illustType = o.int("illustType").coerceAtLeast(o.int("illust_type")),
+                            pageCount = o.int("pageCount").coerceAtLeast(o.int("illust_page_count")).coerceAtLeast(1),
+                        ),
+                    )
+                } catch (_: Exception) {
+                    // 跳过异常条目
+                }
+            }
         }
     }
 
-    /** 作者小说分页（无限流用）：/ajax/user/{id}/novels 返回 body.works。 */
+    /** 作者小说分页（无限流用）：同插画，走 `/ajax/user/{id}/novels?ids[]=`。 */
     suspend fun fetchUserNovels(userId: Long, offset: Int = 0, limit: Int = 30): List<PixivNovel> {
+        val ids = fetchUserWorkIds(userId, "novels").drop(offset).take(limit)
+        if (ids.isEmpty()) return emptyList()
         val root = PixivHttp.getJson(
             PixivHttp.webJsonHeaders().url(
-                "https://www.pixiv.net/ajax/user/$userId/novels?offset=$offset&limit=$limit&lang=zh",
+                "https://www.pixiv.net/ajax/user/$userId/novels?" +
+                    ids.joinToString("") { "ids[]=$it&" } + "lang=zh",
             ),
         )
-        return parseNovels(root.obj("body")?.arr("works"))
+        val map = root.obj("body")?.obj("works") ?: root.obj("body") ?: return emptyList()
+        return buildList {
+            for (id in ids) {
+                val o = map.obj(id) ?: continue
+                try {
+                    add(
+                        PixivNovel(
+                            id = o.lng("id").takeIf { it > 0 } ?: id.toLongOrNull() ?: 0L,
+                            title = o.str("title"),
+                            author = o.str("userName").ifBlank { o.str("user_name") },
+                            authorId = o.lng("userId").takeIf { it > 0 } ?: userId,
+                            avatar = o.str("profileImageUrl").ifBlank { o.str("profile_img") },
+                            cover = o.str("url").ifBlank { o.obj("urls")?.str("medium").orEmpty() },
+                            tags = buildList {
+                                val arr = o.arr("tags")
+                                if (arr != null) for (t in arr) {
+                                    when (t) {
+                                        is JsonPrimitive -> if (t.content.isNotBlank()) add(t.content)
+                                        is JsonObject -> t.str("name").takeIf { it.isNotBlank() }?.let { add(it) }
+                                        else -> {}
+                                    }
+                                }
+                            },
+                            bookmarkCount = o.int("total_bookmarks").coerceAtLeast(o.int("bookmark_count")),
+                            textCount = o.int("text_length").coerceAtLeast(o.int("word_count")),
+                        ),
+                    )
+                } catch (_: Exception) {
+                    // 跳过异常条目
+                }
+            }
+        }
     }
 
-    /** 推荐板块：/ajax/top/illust（thumbnails.illust 为 id→条目 映射）。 */
-    suspend fun fetchTopArtworks(): List<PixivWork> {
+    /** 作者全部作品 id：`/ajax/user/{id}/profile/all` 的 illusts/novels 可能是数组也可能是 id 映射。 */
+    private suspend fun fetchUserWorkIds(userId: Long, key: String): List<String> = try {
         val root = PixivHttp.getJson(
-            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/top/illust?mode=all&lang=zh"),
+            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/user/$userId/profile/all"),
         )
-        val map = root.obj("body")?.obj("thumbnails")?.obj("illust") ?: return emptyList()
-        return map.values.mapNotNull { v ->
-            (v as? JsonObject)?.let { o ->
+        val el = root.obj("body")?.get(key) ?: return emptyList()
+        when (el) {
+            is JsonArray -> el.mapNotNull { (it as? JsonPrimitive)?.content?.takeIf(String::isNotBlank) }
+            is JsonObject -> el.keys.toList()
+            else -> emptyList()
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    /**
+     * 推荐板块（需登录）：优先 /ajax/discovery/artworks（个性化推荐，需会话 Cookie），
+     * 兼容旧版 /ajax/top/illust 的 id→条目 映射结构。
+     */
+    suspend fun fetchTopArtworks(): List<PixivWork> {
+        if (AppPrefs.cookie.isBlank() && !PixivAuth.isTokenMode) {
+            throw IOException("未登录，无法加载推荐：请先在「设置」中登录")
+        }
+        val root = PixivHttp.getJson(
+            PixivHttp.webJsonHeaders().url(
+                "https://www.pixiv.net/ajax/discovery/artworks?mode=all&lang=zh&limit=30&offset=0",
+            ),
+        )
+        throwIfWebError(root, "推荐获取失败")
+        val thumbnails = root.obj("body")?.obj("thumbnails")?.obj("illust")
+        val list = thumbnails as? JsonArray
+        val map = if (list == null) thumbnails as? JsonObject else null
+        val items = buildList {
+            if (list != null) {
+                for (el in list) {
+                    val o = el as? JsonObject ?: continue
+                    add(o)
+                }
+            } else if (map != null) {
+                for ((_, v) in map) add(v as? JsonObject ?: continue)
+            }
+        }
+        return items.mapNotNull { o ->
+            try {
                 PixivWork(
                     id = o.lng("id"),
                     title = o.str("title"),
-                    author = o.str("userName"),
-                    authorId = o.lng("userId"),
-                    avatar = o.str("profileImageUrl"),
+                    author = o.str("userName").ifBlank { o.str("user_name") },
+                    authorId = o.lng("userId").takeIf { it > 0L } ?: o.lng("user_id"),
+                    avatar = o.str("profileImageUrl").ifBlank { o.str("profile_img") },
                     thumb = o.str("url"),
-                    illustType = o.int("illustType"),
-                    pageCount = o.int("pageCount").coerceAtLeast(1),
+                    illustType = o.int("illustType").coerceAtLeast(o.int("illust_type")),
+                    pageCount = o.int("pageCount").coerceAtLeast(o.int("illust_page_count")).coerceAtLeast(1),
                 )
+            } catch (_: Exception) {
+                null
             }
         }
     }
@@ -502,6 +597,18 @@ object WebPixivApi {
     }
 
     // ---------- 工具 ----------
+
+    /** 网页 API 错误统一翻译：error:true 或 400「不正なリクエスト」都转成可读信息。 */
+    private fun throwIfWebError(root: JsonObject, prefix: String) {
+        if (root.str("error") == "true") {
+            val msg = root.str("message").ifBlank { "请求被拒绝（可能需要登录）" }
+            throw IOException("$prefix：$msg")
+        }
+        val jp = root.str("message")
+        if (jp.contains("不正") || jp.contains("invalid request")) {
+            throw IOException("$prefix：请求无效，未登录或会话过期，请重新登录")
+        }
+    }
 
     private suspend fun fetchIllustBookmarkData(illustId: Long): PixivBookmarkState? {
         return try {

@@ -91,3 +91,10 @@ data class PixivBookmarkState(
     val isPrivate: Boolean,
     val bookmarkId: Long = 0,
 )
+
+/** 收藏分页结果：works + 下一页游标。App API 只认 `max_bookmark_id`（offset 恒被忽略，会一直返回第一页）。 */
+data class PixivBookmarkPage(
+    val works: List<PixivWork>,
+    val nextMaxBookmarkId: Long? = null,
+    val hasMore: Boolean = false,
+)

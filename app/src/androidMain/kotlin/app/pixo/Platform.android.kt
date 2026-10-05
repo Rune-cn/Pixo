@@ -24,6 +24,9 @@ import kotlinx.coroutines.Dispatchers
 
 actual val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
+actual val isDesktop: Boolean = false
+
+
 internal lateinit var androidAppContext: Context
 
 actual object AppPrefs {
@@ -84,6 +87,24 @@ actual object AppPrefs {
         set(value) {
             prefs.edit().putBoolean("predictive_back", value).apply()
         }
+
+    actual var dynamicColor: Boolean
+        get() = prefs.getBoolean("dynamic_color", true)
+        set(value) {
+            prefs.edit().putBoolean("dynamic_color", value).apply()
+        }
+
+    actual var floatingBar: Boolean
+        get() = prefs.getBoolean("floating_bar", true)
+        set(value) {
+            prefs.edit().putBoolean("floating_bar", value).apply()
+        }
+
+    actual var liquidGlass: Boolean
+        get() = prefs.getBoolean("liquid_glass", true)
+        set(value) {
+            prefs.edit().putBoolean("liquid_glass", value).apply()
+        }
 }
 
 actual object LocalAppLocale {
@@ -129,9 +150,23 @@ actual fun initCrashLogging() {
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         try {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-            crashFile().appendText("$stamp | ${thread.name}\n${throwable.stackTraceToString()}\n\n")
+            val text = "$stamp | ${thread.name}\n${throwable.stackTraceToString()}\n\n"
+            crashFile().appendText(text)
+            // 同步写入公共「下载」目录（API 29+，无需权限）：无 adb 时也能从文件管理器取日志
+            try {
+                val resolver = androidAppContext.contentResolver
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "pixo_crash.log")
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+                }
+            } catch (_: Exception) {
+            }
         } catch (_: Exception) {
-            // 忽略写入失败
         }
         Log.e("Pixo", "CRASH in ${thread.name}", throwable)
         previous?.uncaughtException(thread, throwable)

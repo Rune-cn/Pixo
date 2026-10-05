@@ -14,6 +14,9 @@ import kotlinx.coroutines.Dispatchers
 
 actual val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
+actual val isDesktop: Boolean = true
+
+
 val LocalPixoWindow = staticCompositionLocalOf<java.awt.Window?> { null }
 
 private val defaultLocale: Locale = Locale.getDefault()
@@ -69,6 +72,24 @@ actual object AppPrefs {
         get() = prefs.getBoolean("predictive_back", true)
         set(value) {
             prefs.putBoolean("predictive_back", value)
+        }
+
+    actual var dynamicColor: Boolean
+        get() = prefs.getBoolean("dynamic_color", true)
+        set(value) {
+            prefs.putBoolean("dynamic_color", value)
+        }
+
+    actual var floatingBar: Boolean
+        get() = prefs.getBoolean("floating_bar", true)
+        set(value) {
+            prefs.putBoolean("floating_bar", value)
+        }
+
+    actual var liquidGlass: Boolean
+        get() = prefs.getBoolean("liquid_glass", true)
+        set(value) {
+            prefs.putBoolean("liquid_glass", value)
         }
 }
 
