@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,15 +17,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,6 +41,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
@@ -42,9 +54,12 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
@@ -54,6 +69,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
@@ -90,6 +107,12 @@ internal object AppearanceSettings
 
 @Serializable
 internal object DataSettings
+
+@Serializable
+internal object Downloads
+
+@Serializable
+internal object About
 
 @Serializable
 internal object DebugSettings
@@ -187,6 +210,8 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     val openFollows: (Long, String) -> Unit = { id, kind -> navController.navigate(Follows(id, kind)) }
     val openWebLogin: () -> Unit = { navController.navigate(WebLogin) }
     val openAppSettings: () -> Unit = { navController.navigate(AppSettings) }
+    val openDownloads: () -> Unit = { navController.navigate(Downloads) }
+    val openAbout: () -> Unit = { navController.navigate(About) }
     val controller = remember(themeMode, dynamicColor) {
         if (dynamicColor && !isDesktop) {
             // Android：Monet 引擎跟随壁纸动态取色
@@ -276,6 +301,8 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenDetail = openDetail,
                             onOpenBookmarks = openBookmarks,
                             onOpenAppSettings = openAppSettings,
+                            onOpenDownloads = openDownloads,
+                            onOpenAbout = openAbout,
                             onOpenUser = openUser,
                             onOpenFollows = openFollows,
                             onOpenWebLogin = openWebLogin,
@@ -301,6 +328,25 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         popExitTransition = { miuixPopExit() },
                     ) {
                         DataPage(onBack = { navController.popBackStack() })
+                    }
+                    composable<Downloads>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        DownloadsScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable<About>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        AboutScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenCrashLog = { navController.navigate(CrashLog) },
+                        )
                     }
                     composable<AppearanceSettings>(
                         enterTransition = { miuixPushEnter() },
@@ -590,6 +636,8 @@ private fun MainTabsHost(
     onPendingTabHandled: () -> Unit,
     onGoSettingsTab: () -> Unit,
     onOpenAppSettings: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenAbout: () -> Unit,
     onOpenRanking: (String, String) -> Unit,
     onOpenNovelRanking: (String) -> Unit,
     onOpenDiscover: () -> Unit,
@@ -635,6 +683,8 @@ private fun MainTabsHost(
                 onOpenUser = onOpenUser,
                 onOpenFollows = onOpenFollows,
                 onOpenAppSettings = onOpenAppSettings,
+                onOpenDownloads = onOpenDownloads,
+                onOpenAbout = onOpenAbout,
                 bottomPadding = bottomPadding,
             )
         }
@@ -647,6 +697,8 @@ fun SettingsPage(
     onOpenUser: (Long) -> Unit,
     onOpenFollows: (Long, String) -> Unit,
     onOpenAppSettings: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenAbout: () -> Unit,
     bottomPadding: Dp = 0.dp,
 ) {
     var selfId by remember { mutableStateOf(AppPrefs.selfUserId) }
@@ -727,6 +779,14 @@ fun SettingsPage(
                     ArrowPreference(
                         title = Str.settings_title(),
                         onClick = onOpenAppSettings,
+                    )
+                    ArrowPreference(
+                        title = Str.download(),
+                        onClick = onOpenDownloads,
+                    )
+                    ArrowPreference(
+                        title = Str.about(),
+                        onClick = onOpenAbout,
                     )
                 }
             }
@@ -841,6 +901,253 @@ fun DataPage(onBack: () -> Unit) {
 @Composable
 private fun SettingEntryRow(title: String, onClick: () -> Unit) {
     ArrowPreference(title = title, onClick = onClick)
+}
+
+/** 下载页：展示已下载目录里的图片（默认 Pictures/Pixo 或自选 SAF 目录）。 */
+@Composable
+fun DownloadsScreen(onBack: () -> Unit) {
+    var images by remember { mutableStateOf<List<DownloadedImage>?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var viewer by remember { mutableStateOf<DownloadedImage?>(null) }
+    val sNone = Str.no_downloaded_images()
+
+    LaunchedEffect(refreshKey) {
+        images = null
+        error = null
+        runCatching { listDownloadedImages() }
+            .onSuccess { images = it }
+            .onFailure { error = it.friendlyMessage() }
+    }
+
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.download(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        Box(Modifier.fillMaxSize()) {
+            when {
+                images == null && error == null ->
+                    Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                        LoadingState()
+                    }
+                error != null && images == null ->
+                    Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                        ErrorState(error ?: "", onRetry = { refreshKey++ })
+                    }
+                images.orEmpty().isEmpty() ->
+                    Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                        Text(
+                            sNone,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Adaptive(110.dp),
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentPadding = PaddingValues(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(images.orEmpty(), key = { it.uri }) { img ->
+                        DownloadedImageCard(img, onClick = { viewer = img })
+                    }
+                }
+            }
+            viewer?.let { img ->
+                OverlayDialog(show = true, onDismissRequest = { viewer = null }) {
+                    Box(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AsyncImage(
+                            model = img.uri,
+                            contentDescription = img.name,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 下载页网格项：缩略图 + 文件名 + 大小。 */
+@Composable
+private fun DownloadedImageCard(img: DownloadedImage, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainer)
+            .clickable(onClick = onClick)
+            .padding(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        AsyncImage(
+            model = img.uri,
+            contentDescription = img.name,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(8.dp)),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            img.name,
+            style = MiuixTheme.textStyles.footnote2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            formatBytes(img.size),
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+    }
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1024L * 1024 -> "%.1f MB".format(bytes / 1024.0 / 1024.0)
+    bytes >= 1024L -> "%.1f KB".format(bytes / 1024.0)
+    else -> "$bytes B"
+}
+
+/** 关于页：仿 Legado Miuix 关于界面，logo 上浮 + 卡片列表（开源 / 隐私 / 许可 / 免责 / 崩溃日志）。 */
+@Composable
+fun AboutScreen(
+    onBack: () -> Unit,
+    onOpenCrashLog: () -> Unit,
+) {
+    val lazyListState = rememberLazyListState()
+    val density = LocalDensity.current
+    val headerHeight = 250.dp
+    val scrollProgress by remember {
+        derivedStateOf {
+            if (lazyListState.firstVisibleItemIndex > 0) 1f
+            else {
+                with(density) {
+                    (lazyListState.firstVisibleItemScrollOffset.toFloat() / headerHeight.toPx()).coerceIn(0f, 1f)
+                }
+            }
+        }
+    }
+    var dialog by remember { mutableStateOf<Int?>(null) }
+    val sPrivacy = Str.privacy_policy()
+    val sPrivacyContent = Str.privacy_policy_content()
+    val sLicense = Str.license()
+    val sLicenseContent = Str.license_content()
+    val sDisclaimer = Str.disclaimer()
+    val sDisclaimerContent = Str.disclaimer_content()
+
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.about(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item(key = "logoSpacer") {
+                    Spacer(Modifier.height(headerHeight))
+                }
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        ArrowPreference(
+                            title = Str.open_source(),
+                            endActions = {
+                                Text(
+                                    "GitHub",
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                            },
+                            onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo") },
+                        )
+                    }
+                }
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        ArrowPreference(title = sPrivacy, onClick = { dialog = 0 })
+                        ArrowPreference(title = sLicense, onClick = { dialog = 1 })
+                        ArrowPreference(title = sDisclaimer, onClick = { dialog = 2 })
+                    }
+                }
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        ArrowPreference(title = Str.crash_log(), onClick = onOpenCrashLog)
+                    }
+                }
+            }
+            Column(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer {
+                        alpha = 1f - scrollProgress
+                        scaleX = 1f - scrollProgress * 0.05f
+                        scaleY = 1f - scrollProgress * 0.05f
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(Modifier.height(20.dp))
+                Box(
+                    Modifier
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MiuixTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "P",
+                        color = MiuixTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 44.sp,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Pixo",
+                    color = MiuixTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 32.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    appVersionName(),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            dialog?.let { idx ->
+                val title = when (idx) {
+                    0 -> sPrivacy
+                    1 -> sLicense
+                    else -> sDisclaimer
+                }
+                val content = when (idx) {
+                    0 -> sPrivacyContent
+                    1 -> sLicenseContent
+                    else -> sDisclaimerContent
+                }
+                OverlayDialog(show = true, onDismissRequest = { dialog = null }) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(title, style = MiuixTheme.textStyles.title3, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            content,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = { dialog = null }) {
+                            Text(Str.cancel())
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** 外观设置页：语言 / 主题 / 预见式返回。 */

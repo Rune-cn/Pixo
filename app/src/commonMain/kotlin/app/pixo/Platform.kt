@@ -83,6 +83,12 @@ expect fun shareText(text: String)
 /** 把下载的图片字节写入下载目录（返回保存位置说明，失败返回 null）。 */
 expect suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String?
 
+/** 列出已下载目录中的图片（Android 读 MediaStore 或 SAF 目录，桌面读本地目录）。 */
+expect suspend fun listDownloadedImages(): List<DownloadedImage>
+
+/** 应用版本名（关于页显示）。 */
+expect fun appVersionName(): String
+
 /** 弹出「选择下载目录」界面，选中后持久化到 [AppPrefs.downloadDir] 并回调目录值。返回可触发选择的回调。 */
 @Composable
 expect fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit
@@ -157,11 +163,6 @@ internal fun refreshNetworkConfig() {
 fun exportSettingsJson(): String = runCatching {
     Json.encodeToString(
         SettingsBackup(
-            cookie = AppPrefs.cookie,
-            refreshToken = AppPrefs.refreshToken,
-            accessToken = AppPrefs.accessToken,
-            lastLoginUser = AppPrefs.lastLoginUser,
-            selfUserId = AppPrefs.selfUserId,
             debugLog = AppPrefs.debugLog,
             language = AppPrefs.language,
             predictiveBack = AppPrefs.predictiveBack,
@@ -177,11 +178,6 @@ fun exportSettingsJson(): String = runCatching {
 /** 导入设置 JSON 文本并立即生效；成功返回 true。 */
 fun importSettingsJson(json: String): Boolean = runCatching {
     val b = Json.decodeFromString<SettingsBackup>(json)
-    AppPrefs.cookie = b.cookie
-    AppPrefs.refreshToken = b.refreshToken
-    AppPrefs.accessToken = b.accessToken
-    AppPrefs.lastLoginUser = b.lastLoginUser
-    AppPrefs.selfUserId = b.selfUserId
     AppPrefs.debugLog = b.debugLog
     AppPrefs.language = b.language
     AppPrefs.predictiveBack = b.predictiveBack
@@ -208,3 +204,7 @@ fun clearAppCache() {
         }
     }
 }
+
+/** 是否为常见图片扩展名（下载页列表过滤用）。 */
+internal fun isImageFileName(name: String): Boolean =
+    name.substringAfterLast('.', "").lowercase() in setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "avif")

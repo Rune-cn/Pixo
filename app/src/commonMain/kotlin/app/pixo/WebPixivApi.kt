@@ -568,9 +568,9 @@ object WebPixivApi {
     }
 
     /** 关注列表（网页 ajax，offset 分页）。 */
-    suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage {
+    suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null, rest: String = "show"): PixivRelationPage {
         val url = nextUrl
-            ?: "https://www.pixiv.net/ajax/user/$userId/following?offset=$offset&limit=24&rest=show"
+            ?: "https://www.pixiv.net/ajax/user/$userId/following?offset=$offset&limit=24&rest=$rest"
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
         val body = root.obj("body")
         val users = parseRelationUsers(body)

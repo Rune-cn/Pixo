@@ -152,7 +152,7 @@
     <string name="r18">R-18</string>
     <string name="settings_data">数据</string>
     <string name="export_settings">导出设置</string>
-    <string name="export_settings_summary">把登录、外观与下载目录等设置备份为 JSON 文件</string>
+    <string name="export_settings_summary">把外观、语言与下载目录等偏好设置备份为 JSON 文件</string>
     <string name="import_settings">导入设置</string>
     <string name="import_settings_summary">从备份 JSON 文件恢复设置</string>
     <string name="export_success">设置已导出</string>
@@ -167,4 +167,15 @@
     <string name="ugoira_confirm">动图播放需确认</string>
     <string name="ugoira_confirm_summary">开启后动图作品先显示播放按钮，不自动轮播</string>
     <string name="play_animation">播放动图</string>
+    <string name="following_public">公开</string>
+    <string name="following_private">私密</string>
+    <string name="about">关于</string>
+    <string name="open_source">开源地址</string>
+    <string name="privacy_policy">隐私政策</string>
+    <string name="privacy_policy_content">Pixo 不收集、不上传、不共享任何个人数据；登录凭据仅保存在本机。</string>
+    <string name="license">许可证</string>
+    <string name="license_content">Pixo 以 MIT 许可证发布。</string>
+    <string name="disclaimer">免责声明</string>
+    <string name="disclaimer_content">Pixo 是开源的第三方客户端，与 Pixiv 官方无关；所有作品版权归原作者所有。</string>
+    <string name="no_downloaded_images">还没有下载的图片</string>
 </resources>

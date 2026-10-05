@@ -36,16 +36,12 @@ class MainActivity : AppCompatActivity() {
         parseDeepLink(intent)?.let { pendingDeepLink.value = it }
     }
 
-    /** 打开应用时动态申请存储/读取权限（API 33+ 为媒体读取，旧版为存储读写）。 */
+    /** 打开应用时动态申请存储读写权限（仅旧系统生效；API 33+ 系统自动忽略）。 */
     private fun requestPermissionsIfNeeded() {
-        val perms = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= 33) {
-            perms += Manifest.permission.READ_MEDIA_IMAGES
-            perms += Manifest.permission.READ_MEDIA_VIDEO
-        } else {
-            perms += Manifest.permission.READ_EXTERNAL_STORAGE
-            perms += Manifest.permission.WRITE_EXTERNAL_STORAGE
-        }
+        val perms = mutableListOf(
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        )
         val missing = perms.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 1001)

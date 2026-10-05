@@ -2,14 +2,9 @@ package app.pixo
 
 import kotlinx.serialization.Serializable
 
-/** 设置备份（数据页导出 / 导入用，含登录凭据，用于本机或可信设备迁移）。 */
+/** 设置备份（数据页导出 / 导入用，仅偏好设置，不含任何登录凭据）。 */
 @Serializable
 data class SettingsBackup(
-    val cookie: String = "",
-    val refreshToken: String = "",
-    val accessToken: String = "",
-    val lastLoginUser: String = "",
-    val selfUserId: Long = 0L,
     val debugLog: Boolean = false,
     val language: String = "system",
     val predictiveBack: Boolean = true,
@@ -169,4 +164,11 @@ data class PixivBookmarkPage(
     val works: List<PixivWork>,
     val nextMaxBookmarkId: Long? = null,
     val hasMore: Boolean = false,
+)
+
+/** 已下载到本地目录的图片（下载页展示用）。[uri] 为可直接交给图片加载器的字符串（Android content://，桌面 file://）。 */
+data class DownloadedImage(
+    val name: String,
+    val uri: String,
+    val size: Long,
 )

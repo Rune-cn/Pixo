@@ -170,4 +170,15 @@ internal expect object Str {
     @Composable fun ugoira_confirm(): String
     @Composable fun ugoira_confirm_summary(): String
     @Composable fun play_animation(): String
+    @Composable fun following_public(): String
+    @Composable fun following_private(): String
+    @Composable fun about(): String
+    @Composable fun open_source(): String
+    @Composable fun privacy_policy(): String
+    @Composable fun privacy_policy_content(): String
+    @Composable fun license(): String
+    @Composable fun license_content(): String
+    @Composable fun disclaimer(): String
+    @Composable fun disclaimer_content(): String
+    @Composable fun no_downloaded_images(): String
 }

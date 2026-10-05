@@ -312,8 +312,8 @@ object AppPixivApi {
     }
 
     /** 关注列表（App API，offset 分页 + next_url 游标）。 */
-    suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage {
-        val url = nextUrl ?: "$BASE/user/following?user_id=$userId&rest=show&offset=$offset"
+    suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null, rest: String = "show"): PixivRelationPage {
+        val url = nextUrl ?: "$BASE/user/following?user_id=$userId&rest=$rest&offset=$offset"
         val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
         val users = parseRelationUsers(root)
         val nu = root.str("next_url").ifBlank { null }

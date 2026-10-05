@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -1471,6 +1473,11 @@ private fun AvatarPreview(url: String, onClose: () -> Unit) {
     }
 }
 
+private class UgoiraFrameData(val frames: List<ByteArray>, val delays: List<Int>)
+
+/** 已下载的 ugoira 帧缓存（进程内共享），避免详情页/灯箱反复下载 zip 造成闪烁。 */
+private val ugoiraFrameCache = mutableMapOf<Long, UgoiraFrameData>()
+
 /** ugoira 动图播放：下载 zip → 解压帧 → 按帧延时轮播；失败时回退到静态图。 */
 @Composable
 private fun UgoiraAsyncImage(
@@ -1482,18 +1489,20 @@ private fun UgoiraAsyncImage(
     playing: Boolean = true,
 ) {
     val ctx = LocalPlatformContext.current
-    var frameBytes by remember(workId) { mutableStateOf<List<ByteArray>>(emptyList()) }
-    var delays by remember(workId) { mutableStateOf<List<Int>>(emptyList()) }
+    var frameBytes by remember(workId) { mutableStateOf(ugoiraFrameCache[workId]?.frames.orEmpty()) }
+    var delays by remember(workId) { mutableStateOf(ugoiraFrameCache[workId]?.delays.orEmpty()) }
     var index by remember(workId) { mutableIntStateOf(0) }
 
-    LaunchedEffect(workId, playing) {
-        if (!playing) return@LaunchedEffect
+    LaunchedEffect(workId) {
+        if (ugoiraFrameCache.containsKey(workId)) return@LaunchedEffect
         try {
             val meta = PixivApi.fetchUgoiraMeta(workId)
             val bytes = loadUgoiraFrames(meta.zipUrl, meta.frames.map { it.file })
             if (bytes != null && bytes.isNotEmpty()) {
-                frameBytes = bytes
-                delays = meta.frames.map { it.delayMs }
+                val data = UgoiraFrameData(bytes, meta.frames.map { it.delayMs })
+                ugoiraFrameCache[workId] = data
+                frameBytes = data.frames
+                delays = data.delays
             }
         } catch (e: Exception) {
             logError("Pixo", "ugoira load fail", e)
@@ -1506,10 +1515,16 @@ private fun UgoiraAsyncImage(
             index = (index + 1) % frameBytes.size
         }
     }
-    val frame = if (playing) frameBytes.getOrNull(if (frameBytes.isEmpty()) 0 else index % frameBytes.size) else null
-    if (frame != null) {
-        AsyncImage(
-            model = ImageRequest.Builder(ctx).data(frame).build(),
+    // 帧字节直接解码为 ImageBitmap 再用 Image 绘制，避免每帧走 Coil 请求造成闪烁
+    // 暂停时固定显示首帧（zip 首帧即静态图），不切回 Coil，避免“播放/暂停”反复闪烁
+    val frame = if (frameBytes.isEmpty()) null
+    else frameBytes.getOrNull((if (playing) index else 0) % frameBytes.size)
+    val frameBitmap = remember(frame) {
+        frame?.let { runCatching { it.decodeToImageBitmap() }.getOrNull() }
+    }
+    if (frameBitmap != null) {
+        Image(
+            bitmap = frameBitmap,
             contentDescription = contentDescription,
             contentScale = contentScale,
             modifier = modifier,
@@ -3298,6 +3313,7 @@ fun FollowsScreen(
     onOpenUser: (Long) -> Unit,
 ) {
     val isFollowing = kind == "following"
+    var currentRestrict by remember { mutableStateOf("show") }
     var items by remember { mutableStateOf<List<PixivUser>?>(null) }
     var total by remember { mutableStateOf<Int?>(null) }
     var nextUrl by remember { mutableStateOf<String?>(null) }
@@ -3311,10 +3327,10 @@ fun FollowsScreen(
     val label = if (isFollowing) Str.following() else Str.follower()
 
     suspend fun fetchPage(offset: Int, cursor: String?): PixivRelationPage =
-        if (isFollowing) PixivApi.fetchUserFollowing(userId, offset, cursor)
+        if (isFollowing) PixivApi.fetchUserFollowing(userId, offset, cursor, currentRestrict)
         else PixivApi.fetchUserFollowers(userId, offset, cursor)
 
-    LaunchedEffect(userId, kind, retryKey) {
+    LaunchedEffect(userId, kind, currentRestrict, retryKey) {
         loading = items == null
         error = null
         try {
@@ -3359,11 +3375,23 @@ fun FollowsScreen(
 
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(
-        title = label + (total?.let { " $it" } ?: ""),
+        title = if (isFollowing) Str.following() + (total?.let { " $it" } ?: "") else label + (total?.let { " $it" } ?: ""),
         onBack = onBack,
         scrollBehavior = scrollBehavior,
     ) { innerPadding ->
         Box(Modifier.fillMaxSize()) {
+            if (isFollowing) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(top = innerPadding.calculateTopPadding() + 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ModeChip("show", Str.following_public(), currentRestrict) { currentRestrict = "show" }
+                    ModeChip("hide", Str.following_private(), currentRestrict) { currentRestrict = "hide" }
+                }
+            }
             when {
                 loading && items == null -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     LoadingState()
@@ -3384,12 +3412,15 @@ fun FollowsScreen(
                     } else {
                         LazyColumn(
                             state = listState,
-                            contentPadding = innerPadding,
+                            contentPadding = PaddingValues(
+                                top = innerPadding.calculateTopPadding() + if (isFollowing) 56.dp else 0.dp,
+                                bottom = innerPadding.calculateBottomPadding(),
+                            ),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
                             overscrollEffect = null,
                         ) {
-                            items(list, key = { it.id }) { u ->
+                            items(list, key = { "${currentRestrict}:${it.id}" }) { u ->
                                 FollowUserRow(u, onClick = { onOpenUser(u.id) })
                             }
                             item { EndItem(loadingMore, hasMore, onRetry = { retryKey++ }) }

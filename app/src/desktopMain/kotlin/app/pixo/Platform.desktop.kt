@@ -215,6 +215,27 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
         }
     }
 
+actual suspend fun listDownloadedImages(): List<DownloadedImage> =
+    kotlinx.coroutines.withContext(ioDispatcher) {
+        try {
+            val dir = AppPrefs.downloadDir.ifBlank {
+                File(System.getProperty("user.home"), "Downloads/Pixo").absolutePath
+            }
+            val dirFile = File(dir)
+            if (!dirFile.isDirectory) return@withContext emptyList()
+            dirFile.listFiles()
+                ?.filter { it.isFile && isImageFileName(it.name) }
+                ?.map { DownloadedImage(it.name, it.toURI().toString(), it.length()) }
+                ?.sortedByDescending { it.name }
+                ?: emptyList()
+        } catch (e: Exception) {
+            logError("Pixo", "list downloaded images fail", e)
+            emptyList()
+        }
+    }
+
+actual fun appVersionName(): String = "1.0"
+
 @Composable
 actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit {
     return {

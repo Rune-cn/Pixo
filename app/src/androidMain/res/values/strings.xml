@@ -153,7 +153,7 @@
     <string name="r18">R-18</string>
     <string name="settings_data">Data</string>
     <string name="export_settings">Export settings</string>
-    <string name="export_settings_summary">Back up login, appearance and download settings to a JSON file</string>
+    <string name="export_settings_summary">Back up appearance, language and download preferences to a JSON file</string>
     <string name="import_settings">Import settings</string>
     <string name="import_settings_summary">Restore settings from a backup JSON file</string>
     <string name="export_success">Settings exported</string>
@@ -168,4 +168,15 @@
     <string name="ugoira_confirm">Confirm before playing animation</string>
     <string name="ugoira_confirm_summary">Show a play button first instead of auto-playing animated works</string>
     <string name="play_animation">Play animation</string>
+    <string name="following_public">Public</string>
+    <string name="following_private">Private</string>
+    <string name="about">About</string>
+    <string name="open_source">Open source</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="privacy_policy_content">Pixo does not collect, upload or share any personal data. Login credentials are stored only on your device.</string>
+    <string name="license">License</string>
+    <string name="license_content">Pixo is released under the MIT License.</string>
+    <string name="disclaimer">Disclaimer</string>
+    <string name="disclaimer_content">Pixo is an open-source third-party client and is not affiliated with Pixiv Inc. All artwork copyrights belong to their respective creators.</string>
+    <string name="no_downloaded_images">No downloaded images yet</string>
 </resources>

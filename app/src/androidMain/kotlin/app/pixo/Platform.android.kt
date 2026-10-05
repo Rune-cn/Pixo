@@ -210,24 +210,37 @@ actual fun clearCrashLog() {
 
 actual fun openUrlInBrowser(url: String) {
     if (!::androidAppContext.isInitialized) return
+    LogBuffer.add("openUrlInBrowser: $url")
     try {
         val uri = android.net.Uri.parse(url)
-        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
-        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        // 本应用注册了 pixiv 网页深链过滤器，直接 ACTION_VIEW 会再次打开自己；
-        // 先从解析结果里挑一个非本应用的浏览器 Activity 显式打开。
+        // 用系统“默认浏览器”主选择器直达浏览器，绕过本应用注册的 pixiv 网页深链过滤器
+        val intent = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_BROWSER)
+        intent.data = uri
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            androidAppContext.startActivity(intent)
+            return
+        } catch (e: Exception) {
+            LogBuffer.add("openUrlInBrowser: default browser failed (${e.message}), fallback to VIEW")
+        }
+        // 兜底：ACTION_VIEW 解析浏览器候选，排除自身深链
+        val fallback = Intent(Intent.ACTION_VIEW, uri)
+        fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val candidates = androidAppContext.packageManager.queryIntentActivities(
-            intent,
-            android.content.pm.PackageManager.MATCH_DEFAULT_ONLY,
+            fallback,
+            android.content.pm.PackageManager.MATCH_ALL,
         )
         val target = candidates.firstOrNull { it.activityInfo.packageName != androidAppContext.packageName }
         if (target != null) {
-            intent.setClassName(target.activityInfo.packageName, target.activityInfo.name)
-            androidAppContext.startActivity(intent)
+            fallback.setClassName(target.activityInfo.packageName, target.activityInfo.name)
+            androidAppContext.startActivity(fallback)
         } else {
-            androidAppContext.startActivity(intent)
+            val chooser = Intent.createChooser(fallback, "打开链接")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            androidAppContext.startActivity(chooser)
         }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        LogBuffer.add("openUrlInBrowser: failed (${e.message})")
     }
 }
 
@@ -356,6 +369,77 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
             null
         }
     }
+
+actual suspend fun listDownloadedImages(): List<DownloadedImage> =
+    kotlinx.coroutines.withContext(ioDispatcher) {
+        try {
+            val dir = AppPrefs.downloadDir
+            if (dir.isBlank()) {
+                // 默认目录：MediaStore 里 Pictures/Pixo 相对路径的图片
+                val projection = arrayOf(
+                    MediaStore.MediaColumns._ID,
+                    MediaStore.MediaColumns.DISPLAY_NAME,
+                    MediaStore.MediaColumns.SIZE,
+                    MediaStore.MediaColumns.DATE_ADDED,
+                )
+                val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+                val args = arrayOf(Environment.DIRECTORY_PICTURES + "/Pixo%")
+                val out = mutableListOf<DownloadedImage>()
+                androidAppContext.contentResolver.query(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    projection,
+                    selection,
+                    args,
+                    "${MediaStore.MediaColumns.DATE_ADDED} DESC",
+                )?.use { c ->
+                    val idCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                    val nameCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+                    val sizeCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+                    while (c.moveToNext()) {
+                        val id = c.getLong(idCol)
+                        val name = c.getString(nameCol) ?: continue
+                        val size = c.getLong(sizeCol)
+                        out += DownloadedImage(name, "content://media/external/images/media/$id", size)
+                    }
+                }
+                return@withContext out
+            }
+            // 自选目录：SAF tree 下枚举子文件
+            val treeUri = Uri.parse(dir)
+            val treeDocId = DocumentsContract.getTreeDocumentId(treeUri)
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, treeDocId)
+            val projection = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_SIZE,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            )
+            val out = mutableListOf<DownloadedImage>()
+            androidAppContext.contentResolver.query(childrenUri, projection, null, null, null)?.use { c ->
+                val idCol = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameCol = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                val sizeCol = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)
+                val mimeCol = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                while (c.moveToNext()) {
+                    val name = c.getString(nameCol) ?: continue
+                    if (!isImageFileName(name)) continue
+                    val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, c.getString(idCol))
+                    out += DownloadedImage(name, docUri.toString(), c.getLong(sizeCol))
+                }
+            }
+            out.sortByDescending { it.name }
+            out
+        } catch (e: Exception) {
+            logError("Pixo", "list downloaded images fail", e)
+            emptyList()
+        }
+    }
+
+actual fun appVersionName(): String = try {
+    androidAppContext.packageManager.getPackageInfo(androidAppContext.packageName, 0).versionName ?: "1.0"
+} catch (_: Exception) {
+    "1.0"
+}
 
 @Composable
 actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit {
