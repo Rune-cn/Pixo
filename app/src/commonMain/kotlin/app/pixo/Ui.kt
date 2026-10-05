@@ -348,8 +348,12 @@ private val iOSIndicatorSpecular: Highlight = Highlight(
     ),
 )
 
-/** 胶囊按压放大倍率：按下时从 56dp 撑到 ~90dp，明显撑出容器（InstallerX 为 78/56≈1.39，太含蓄）。 */
-private const val PILL_PRESSED_SCALE = 1.6f
+/** 胶囊按压放大倍率：对齐 InstallerX（78/56≈1.39），
+ *  既明显撑出容器，又不会在边缘槽位弹出屏幕外被切断、看起来像被无形屏障挡住。 */
+private const val PILL_PRESSED_SCALE = 1.39f
+
+/** 容器（大椭圆）按压放大附加量：整层（玻璃+阴影）一起放大，让大椭圆也明显撑出原轮廓。 */
+private const val CONTAINER_PRESS_SCALE_DP = 24f
 
 /** 标签内容按压放大倍率：对齐 InstallerX LocalFloatingBottomBarTabScale（1f → 1.2f）。 */
 private const val TAB_PRESSED_SCALE = 1.2f
@@ -385,6 +389,7 @@ fun PixoFloatingBar(
     val barMargin = 14.dp
 
     var tabWidthPx by remember { mutableFloatStateOf(0f) }
+    val pillWidthPx = tabWidthPx - indicatorPadding * 2f
     val pillIndex = remember { Animatable(selectedIndex.toFloat().coerceIn(0f, 1f)) }
     val pressProgress = remember { Animatable(0f) }
     // 幽灵层取样：layerBackdrop 记录“全部标签内容”的副本，供胶囊玻璃采样（InstallerX tabsBackdrop）
@@ -424,12 +429,6 @@ fun PixoFloatingBar(
                 )
             },
             highlight = { iOSIndicatorSpecular.copy(alpha = 0.75f) },
-            layerBlock = {
-                val width = size.width.coerceAtLeast(1f)
-                val s = lerpFloat(1f, 1f + 16.dp.toPx() / width, pressProgress.value)
-                scaleX = s
-                scaleY = s
-            },
             onDrawSurface = { drawRect(scheme.surfaceContainer.copy(alpha = 0.4f)) },
         )
         liquidGlass -> Modifier.background(scheme.surface.copy(alpha = 0.85f), containerShape)
@@ -494,6 +493,14 @@ fun PixoFloatingBar(
             // 1) 容器层：玻璃/纯色背景 + 手势（先画，作胶囊与内容的底座）
             Box(
                 modifier = Modifier
+                    // 整层（阴影+玻璃+高光）一起按压放大：大椭圆也从原轮廓里撑出来，
+                    // 阴影与玻璃同步变大，不再被固定大小的旧轮廓/阴影“无形屏障”困住
+                    .graphicsLayer {
+                        val width = size.width.coerceAtLeast(1f)
+                        val s = lerpFloat(1f, 1f + CONTAINER_PRESS_SCALE_DP.dp.toPx() / width, pressProgress.value)
+                        scaleX = s
+                        scaleY = s
+                    }
                     .shadow(
                         10.dp,
                         containerShape,
@@ -578,14 +585,16 @@ fun PixoFloatingBar(
             }
 
             // 3) 滑动胶囊指示器：与容器平级、可自由溢出（不受容器显示大小限制），
-            //    按压放大 1.6 倍明显撑出容器；内容画在其上，所以文字始终清晰
+            //    按压放大 1.39 倍明显撑出容器；内容画在其上，所以文字始终清晰。
+            //    放大时绕槽位中心（标签/图标中心）缩放：首页/账号两侧弹出量完全对称
             Box(
                 modifier = Modifier
                     .graphicsLayer {
                         val s = lerpFloat(1f, PILL_PRESSED_SCALE, pressProgress.value)
                         scaleX = s
                         scaleY = s
-                        translationX = pillIndex.value * tabWidthPx + indicatorPadding
+                        translationX = pillIndex.value * tabWidthPx + indicatorPadding +
+                            (tabWidthPx - pillWidthPx) / 2f
                     }
                     .then(indicatorBackground)
                     .innerShadow(shape = pillShape) {
@@ -596,7 +605,7 @@ fun PixoFloatingBar(
                         )
                     }
                     .height(56.dp)
-                    .width(with(density) { (tabWidthPx - indicatorPadding * 2f).toDp() }),
+                    .width(with(density) { pillWidthPx.toDp() }),
             )
 
             // 4) 内容层：真实标签画在最上层，文字/图标不被胶囊玻璃盖住 → 始终清晰；

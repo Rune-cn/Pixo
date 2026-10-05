@@ -102,6 +102,19 @@ compose.desktop {
     }
 }
 
+// 临时预览任务（无头渲染悬浮底栏按压前后）：
+// > .\gradlew.bat :app:barPreview --args=build/barfix2
+tasks.register<JavaExec>("barPreview") {
+    group = "application"
+    dependsOn("desktopMainClasses")
+    val mainCompilation = kotlin.targets.getByName("desktop").compilations.getByName("main")
+    classpath = (mainCompilation.runtimeDependencyFiles ?: project.files())
+        .plus(project.files("build/classes/kotlin/desktop/main"))
+        .plus(project.files("build/processedResources/desktop/main"))
+    mainClass.set("app.pixo.BarPreviewKt")
+    workingDir = rootProject.projectDir
+}
+
 compose.resources {
     packageOfResClass = "app.pixo.resources"
     publicResClass = true
