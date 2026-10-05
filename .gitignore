@@ -11,5 +11,6 @@ release.keystore
 Pixo-*.apk
 *.apk
 .kotlin/
+.gradle-cache/
 captures/
 .DS_Store
