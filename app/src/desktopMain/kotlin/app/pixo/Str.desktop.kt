@@ -120,6 +120,7 @@ internal actual object Str {
     @Composable actual fun replies(): String = stringResource(Res.string.replies)
     @Composable actual fun view_replies(): String = stringResource(Res.string.view_replies)
     @Composable actual fun view_all_replies(): String = stringResource(Res.string.view_all_replies)
+    @Composable actual fun collapse_replies(): String = stringResource(Res.string.collapse_replies)
     @Composable actual fun load_more_replies(): String = stringResource(Res.string.load_more_replies)
     @Composable actual fun no_replies(): String = stringResource(Res.string.no_replies)
     @Composable actual fun reply_action(): String = stringResource(Res.string.reply_action)

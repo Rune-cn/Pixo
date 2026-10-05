@@ -109,6 +109,7 @@
     <string name="replies">Replies</string>
     <string name="view_replies">View replies</string>
     <string name="view_all_replies">View all replies</string>
+    <string name="collapse_replies">Collapse replies</string>
     <string name="load_more_replies">Load more replies</string>
     <string name="no_replies">No replies</string>
     <string name="reply_action">Reply</string>

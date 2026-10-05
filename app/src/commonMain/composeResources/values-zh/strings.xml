@@ -108,6 +108,7 @@
     <string name="replies">追评</string>
     <string name="view_replies">查看追评</string>
     <string name="view_all_replies">查看全部追评</string>
+    <string name="collapse_replies">收起追评</string>
     <string name="load_more_replies">加载更多追评</string>
     <string name="no_replies">暂无追评</string>
     <string name="reply_action">回复</string>

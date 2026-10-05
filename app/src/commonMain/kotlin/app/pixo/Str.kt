@@ -123,6 +123,7 @@ internal expect object Str {
     @Composable fun replies(): String
     @Composable fun view_replies(): String
     @Composable fun view_all_replies(): String
+    @Composable fun collapse_replies(): String
     @Composable fun load_more_replies(): String
     @Composable fun no_replies(): String
     @Composable fun reply_action(): String

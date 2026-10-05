@@ -120,6 +120,7 @@ internal actual object Str {
     @Composable actual fun replies(): String = stringResource(app.pixo.R.string.replies)
     @Composable actual fun view_replies(): String = stringResource(app.pixo.R.string.view_replies)
     @Composable actual fun view_all_replies(): String = stringResource(app.pixo.R.string.view_all_replies)
+    @Composable actual fun collapse_replies(): String = stringResource(app.pixo.R.string.collapse_replies)
     @Composable actual fun load_more_replies(): String = stringResource(app.pixo.R.string.load_more_replies)
     @Composable actual fun no_replies(): String = stringResource(app.pixo.R.string.no_replies)
     @Composable actual fun reply_action(): String = stringResource(app.pixo.R.string.reply_action)

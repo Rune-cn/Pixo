@@ -64,7 +64,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -76,7 +75,6 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -1330,7 +1328,10 @@ fun CommentsScreen(
     var feedbackError by remember { mutableStateOf(false) }
     var copyMenu by remember { mutableStateOf<String?>(null) }
     var copySelect by remember { mutableStateOf<String?>(null) }
-    var repliesRoot by remember { mutableStateOf<PixivComment?>(null) }
+    /** 正在回复的目标：(评论 id, 用户名)；为空表示发表一级评论。 */
+    var replyTarget by remember { mutableStateOf<Pair<Long, String>?>(null) }
+    /** 评论/追评刷新标记：发评论后 +1，触发已展开的追评区重拉数据。 */
+    var refreshTick by remember { mutableIntStateOf(0) }
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val sPosted = Str.comment_posted()
@@ -1360,11 +1361,13 @@ fun CommentsScreen(
         scope.launch {
             posting = true
             try {
-                PixivApi.addComment(kind, workId, text)
+                PixivApi.addComment(kind, workId, text, replyTarget?.first ?: 0)
                 val list = PixivApi.fetchComments(kind, workId)
                 FeedCache.comments[cacheKey] = list
                 comments = list
                 draft = ""
+                replyTarget = null
+                refreshTick++
                 feedback = sPosted
                 feedbackError = false
             } catch (e: Exception) {
@@ -1397,9 +1400,12 @@ fun CommentsScreen(
                             itemsIndexed(comments.orEmpty()) { _, c ->
                                 RootCommentCard(
                                     c = c,
+                                    kind = kind,
+                                    workId = workId,
                                     onOpenUser = onOpenUser,
                                     onCopy = { t -> copyMenu = t },
-                                    onOpenReplies = { repliesRoot = c },
+                                    onReply = { t -> replyTarget = t.id to t.user },
+                                    refreshTick = refreshTick,
                                 )
                             }
                         }
@@ -1411,6 +1417,29 @@ fun CommentsScreen(
                             it,
                             style = MiuixTheme.textStyles.footnote2,
                             color = if (feedbackError) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                // 回复目标提示：点评论卡片下的「回复」后出现
+                replyTarget?.let { target ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = Str.reply_action() + " @" + target.second.ifBlank { Str.anonymous() },
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Text(
+                            text = "×",
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { replyTarget = null }
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
                         )
                     }
                 }
@@ -1454,27 +1483,58 @@ fun CommentsScreen(
                     }
                 }
             }
-            repliesRoot?.let { root ->
-                CommentRepliesView(
-                    kind = kind,
-                    workId = workId,
-                    root = root,
-                    onOpenUser = onOpenUser,
-                    onClose = { repliesRoot = null },
-                )
-            }
         }
     }
 }
 
-/** 一级评论卡片：整卡长按复制文字；内嵌深色追评预览区，点击进入追评页。 */
+/** 一级评论卡片：整卡长按复制文字；深色追评区内嵌卡片里，点「查看追评」展开、可对一级评论回复。 */
 @Composable
 private fun RootCommentCard(
     c: PixivComment,
+    kind: String,
+    workId: Long,
     onOpenUser: (Long) -> Unit,
     onCopy: (String) -> Unit,
-    onOpenReplies: () -> Unit,
+    onReply: (PixivComment) -> Unit,
+    refreshTick: Int,
 ) {
+    var expanded by remember(c.id) { mutableStateOf(false) }
+    var replies by remember(c.id) { mutableStateOf(c.replies) }
+    var loading by remember(c.id) { mutableStateOf(false) }
+    var loadingMore by remember(c.id) { mutableStateOf(false) }
+    var hasMore by remember(c.id) { mutableStateOf(c.hasReplies) }
+    var appNextUrl by remember(c.id) { mutableStateOf<String?>(null) }
+    var webPage by remember(c.id) { mutableIntStateOf(0) }
+    var error by remember(c.id) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    suspend fun loadPage() {
+        try {
+            val res = PixivApi.fetchCommentReplies(kind, workId, c.id, appNextUrl, webPage + 1)
+            val seen = replies.mapTo(HashSet()) { it.id }
+            replies = replies + res.replies.filter { it.id !in seen }
+            hasMore = res.hasMore
+            appNextUrl = res.nextUrl
+            webPage++
+            error = null
+        } catch (e: Exception) {
+            error = e.friendlyMessage()
+        }
+    }
+
+    // 首次展开或发过新评论（refreshTick 变化）时拉取/刷新追评
+    LaunchedEffect(c.id, expanded, refreshTick) {
+        if (expanded && (c.hasReplies || c.replies.isNotEmpty())) {
+            if (refreshTick > 0 || replies.isEmpty()) {
+                appNextUrl = null
+                webPage = 0
+                loading = true
+                loadPage()
+                loading = false
+            }
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1502,72 +1562,164 @@ private fun RootCommentCard(
                     Text(c.content, style = MiuixTheme.textStyles.body2)
                 }
             }
-            // 深色追评区：内嵌前几条预览，点击进入追评页
-            if (c.replies.isNotEmpty() || c.hasReplies) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-                        .combinedClickable(onClick = onOpenReplies, onLongClick = { onCopy(c.content) })
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    c.replies.take(3).forEach { r ->
-                        ReplyRow(c = r, onOpenUser = onOpenUser, onCopy = { t -> onCopy(t) }, onReply = null, interactive = false)
+            // 深色追评区：追评直接嵌在一级评论卡片里面
+            if (c.hasReplies || c.replies.isNotEmpty() || expanded) {
+                if (!expanded) {
+                    // 收起态：深色条，点击展开
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                            .clickable { expanded = true }
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = Str.view_replies(),
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.primary,
+                        )
                     }
-                    if (c.hasReplies) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.End) {
+                } else {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        when {
+                            loading && replies.isEmpty() -> Box(Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Text(Str.load_more(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            error != null && replies.isEmpty() -> Column(
+                                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(error ?: "", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                Text(
+                                    text = Str.retry(),
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            error = null
+                                            loading = true
+                                            scope.launch {
+                                                loadPage()
+                                                loading = false
+                                            }
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                                )
+                            }
+                            replies.isEmpty() -> Box(Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Text(Str.no_replies(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            else -> {
+                                replies.forEach { r ->
+                                    ReplyCard(c = r, onOpenUser = onOpenUser, onCopy = { t -> onCopy(t) }, onReply = { onReply(r) })
+                                }
+                                if (loadingMore) {
+                                    Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                                        Text(Str.load_more(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                    }
+                                }
+                            }
+                        }
+                        // 底部操作：加载更多 / 收起
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (hasMore) {
+                                Text(
+                                    text = Str.load_more_replies(),
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable(enabled = !loadingMore) {
+                                            scope.launch {
+                                                loadingMore = true
+                                                loadPage()
+                                                loadingMore = false
+                                            }
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                )
+                            } else {
+                                Spacer(Modifier.weight(1f))
+                            }
                             Text(
-                                text = if (c.replies.isEmpty()) Str.view_replies() else Str.view_all_replies(),
+                                text = Str.collapse_replies(),
                                 style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.primary,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { expanded = false }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         }
                     }
                 }
             }
+            // 操作行：回复（对一级评论也能回复）
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text(
+                    text = Str.reply_action(),
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onReply(c) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
         }
     }
 }
 
-/** 追评行：深色底、长按复制文字；[onReply] 非空时显示「回复」入口。 */
+/** 追评卡片（用于一级评论卡片内的深色追评区）：头像 + 昵称 + 日期 + 内容 + 回复入口。 */
 @Composable
-private fun ReplyRow(
+private fun ReplyCard(
     c: PixivComment,
     onOpenUser: (Long) -> Unit,
     onCopy: (String) -> Unit,
-    onReply: (() -> Unit)?,
-    interactive: Boolean = true,
+    onReply: () -> Unit,
 ) {
-    val base = if (interactive) {
-        Modifier.combinedClickable(onClick = {}, onLongClick = { onCopy(c.content) })
-    } else {
+    Column(
         Modifier
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth().then(base).padding(vertical = 4.dp),
-        verticalAlignment = Alignment.Top,
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainer)
+            .combinedClickable(onClick = {}, onLongClick = { onCopy(c.content) })
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        AuthorAvatar(c.avatar, 24.dp, c.userId, onOpenUser)
-        Spacer(Modifier.width(8.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = c.user.ifBlank { Str.anonymous() },
-                    style = MiuixTheme.textStyles.footnote1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                c.date.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.width(6.dp))
-                    Text(it, style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AuthorAvatar(c.avatar, 24.dp, c.userId, onOpenUser)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = c.user.ifBlank { Str.anonymous() },
+                style = MiuixTheme.textStyles.footnote1,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            c.date.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.width(6.dp))
+                Text(it, style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             }
-            Text(c.content, style = MiuixTheme.textStyles.footnote2)
         }
-        if (onReply != null) {
+        Text(c.content, style = MiuixTheme.textStyles.footnote2)
+        // 卡片下点击回复，唤起回复输入框
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Text(
                 text = Str.reply_action(),
                 style = MiuixTheme.textStyles.footnote2,
@@ -1575,260 +1727,8 @@ private fun ReplyRow(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .clickable { onReply() }
-                    .padding(horizontal = 10.dp, vertical = 2.dp),
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
             )
-        }
-    }
-}
-
-/**
- * 追评页（全屏盖层，盖在评论区上）：
- * 展示某条一级评论的全部追评；底部输入框可发评论，默认回复一级评论，
- * 点某条追评的「回复」切换为回复该条；长按追评复制文字。
- */
-@Composable
-private fun CommentRepliesView(
-    kind: String,
-    workId: Long,
-    root: PixivComment,
-    onOpenUser: (Long) -> Unit,
-    onClose: () -> Unit,
-) {
-    var items by remember(root.id) { mutableStateOf(root.replies) }
-    var loading by remember(root.id) { mutableStateOf(root.replies.isEmpty() && root.hasReplies) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var hasMore by remember(root.id) { mutableStateOf(root.hasReplies) }
-    var appNextUrl by remember(root.id) { mutableStateOf<String?>(null) }
-    // 网页通道页码：0 表示还没翻过页，首次 loadPage 从第 1 页开始
-    var webPage by remember(root.id) { mutableIntStateOf(0) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    var draft by remember { mutableStateOf("") }
-    var posting by remember { mutableStateOf(false) }
-    var targetId by remember(root.id) { mutableStateOf(root.id) }
-    var targetName by remember(root.id) { mutableStateOf(root.user) }
-    var feedback by remember { mutableStateOf<String?>(null) }
-    var feedbackError by remember { mutableStateOf(false) }
-    var copyMenu by remember { mutableStateOf<String?>(null) }
-    var copySelect by remember { mutableStateOf<String?>(null) }
-    val clipboard = LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
-    val sPosted = Str.comment_posted()
-    val sFailPrefix = Str.comment_post_failed("")
-    val sHint = Str.comment_hint()
-    val sSend = Str.comment_send()
-    val listState = rememberLazyListState()
-
-    suspend fun loadPage() {
-        try {
-            val res = PixivApi.fetchCommentReplies(kind, workId, root.id, appNextUrl, webPage + 1)
-            val seen = items.mapTo(HashSet()) { it.id }
-            items = items + res.replies.filter { it.id !in seen }
-            hasMore = res.hasMore
-            appNextUrl = res.nextUrl
-            webPage++
-            error = null
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-        }
-    }
-
-    LaunchedEffect(root.id, retryKey) {
-        if (root.hasReplies || root.replies.isNotEmpty()) {
-            loading = true
-            loadPage()
-            loading = false
-        } else {
-            loading = false
-            hasMore = false
-        }
-    }
-
-    fun send() {
-        val text = draft.trim()
-        if (text.isEmpty() || posting) return
-        scope.launch {
-            posting = true
-            try {
-                PixivApi.addComment(kind, workId, text, targetId)
-                draft = ""
-                targetId = root.id
-                targetName = root.user
-                // 重拉追评（从第一页/游标起点），按 id 去重并入列表
-                appNextUrl = null
-                webPage = 0
-                loadPage()
-                feedback = sPosted
-                feedbackError = false
-            } catch (e: Exception) {
-                feedback = sFailPrefix + (e.message ?: "")
-                feedbackError = true
-            }
-            posting = false
-        }
-    }
-
-    SystemBackHandler(enabled = true) { onClose() }
-    Box(Modifier.fillMaxSize().background(MiuixTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onClose) {
-                    Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
-                }
-                Text(Str.replies(), style = MiuixTheme.textStyles.title3)
-            }
-            // 一级评论摘要
-            Column(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = root.user.ifBlank { Str.anonymous() },
-                        style = MiuixTheme.textStyles.body1,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    root.date.takeIf { it.isNotBlank() }?.let {
-                        Spacer(Modifier.width(8.dp))
-                        Text(it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                    }
-                }
-                Text(root.content, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    loading && items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        LoadingState()
-                    }
-                    error != null && items.isEmpty() -> ErrorState(error ?: "", onRetry = { retryKey++ })
-                    items.isEmpty() -> Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                        Text(Str.no_replies(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                    }
-                    else -> LazyColumn(
-                        state = listState,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical(),
-                        overscrollEffect = null,
-                    ) {
-                        items(items, key = { it.id }) { r ->
-                            ReplyRow(
-                                c = r,
-                                onOpenUser = onOpenUser,
-                                onCopy = { t -> copyMenu = t },
-                                onReply = {
-                                    targetId = r.id
-                                    targetName = r.user
-                                },
-                            )
-                        }
-                        if (hasMore) {
-                            item {
-                                if (loadingMore) {
-                                    Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                                        Text(Str.load_more(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                                    }
-                                } else {
-                                    Text(
-                                        text = Str.load_more_replies(),
-                                        style = MiuixTheme.textStyles.footnote2,
-                                        color = MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                scope.launch {
-                                                    loadingMore = true
-                                                    loadPage()
-                                                    loadingMore = false
-                                                }
-                                            }
-                                            .padding(vertical = 14.dp),
-                                        textAlign = TextAlign.Center,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            feedback?.let {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)) {
-                    Text(
-                        it,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = if (feedbackError) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.primary,
-                    )
-                }
-            }
-            // 回复目标提示：默认回复一级评论，点追评「回复」后切换目标
-            if (targetId != root.id) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "@" + targetName.ifBlank { Str.anonymous() },
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Text(
-                        text = "×",
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                targetId = root.id
-                                targetName = root.user
-                            }
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                    )
-                }
-            }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextField(
-                    value = draft,
-                    onValueChange = { draft = it },
-                    label = sHint,
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = { send() }, enabled = draft.isNotBlank() && !posting) {
-                    Text(sSend)
-                }
-            }
-        }
-        OverlayDialog(show = copyMenu != null, onDismissRequest = { copyMenu = null }) {
-            val menuText = copyMenu.orEmpty()
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(Str.copy_title(), style = MiuixTheme.textStyles.title3)
-                Button(onClick = {
-                    clipboard.setText(AnnotatedString(menuText))
-                    copyMenu = null
-                }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_all()) }
-                Button(onClick = {
-                    copySelect = menuText
-                    copyMenu = null
-                }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_select()) }
-            }
-        }
-        OverlayDialog(show = copySelect != null, onDismissRequest = { copySelect = null }) {
-            val text = copySelect.orEmpty()
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(Str.copy_title(), style = MiuixTheme.textStyles.title3)
-                SelectionContainer {
-                    Text(text, style = MiuixTheme.textStyles.body2)
-                }
-            }
         }
     }
 }
