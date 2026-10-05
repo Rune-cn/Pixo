@@ -97,6 +97,9 @@ internal object WebLogin
 internal data class User(val userId: Long)
 
 @Serializable
+internal data class Follows(val userId: Long, val kind: String)
+
+@Serializable
 internal data class Ranking(val mode: String)
 
 @Serializable
@@ -156,6 +159,7 @@ fun App() {
     val openDetail: (Long, String) -> Unit = { workId, kind -> navController.navigate(Detail(workId, kind)) }
     val openBookmarks: (String) -> Unit = { restrict -> navController.navigate(Bookmarks(restrict)) }
     val openUser: (Long) -> Unit = { id -> navController.navigate(User(id)) }
+    val openFollows: (Long, String) -> Unit = { id, kind -> navController.navigate(Follows(id, kind)) }
     val openWebLogin: () -> Unit = { navController.navigate(WebLogin) }
     val openAppSettings: () -> Unit = { navController.navigate(AppSettings) }
     val controller = remember(themeMode, dynamicColor) {
@@ -248,6 +252,7 @@ fun App() {
                             onOpenBookmarks = openBookmarks,
                             onOpenAppSettings = openAppSettings,
                             onOpenUser = openUser,
+                            onOpenFollows = openFollows,
                             onOpenWebLogin = openWebLogin,
                         )
                     }
@@ -453,6 +458,20 @@ fun App() {
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
+                            onOpenFollows = { id, kind -> navController.navigate(Follows(id, kind)) },
+                        )
+                    }
+                    composable<Follows>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) { entry ->
+                        FollowsScreen(
+                            userId = entry.toRoute<Follows>().userId,
+                            kind = entry.toRoute<Follows>().kind,
+                            onBack = { navController.popBackStack() },
+                            onOpenUser = { navController.navigate(User(it)) },
                         )
                     }
                 }
@@ -525,6 +544,7 @@ private fun MainTabsHost(
     onOpenDetail: (Long, String) -> Unit,
     onOpenBookmarks: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenFollows: (Long, String) -> Unit,
     onOpenWebLogin: () -> Unit,
 ) {
     // 手动滑动落定后同步悬浮底栏高亮（对齐示例应用 syncPage 范式）
@@ -559,6 +579,7 @@ private fun MainTabsHost(
             SettingsPage(
                 onOpenWebLogin = onOpenWebLogin,
                 onOpenUser = onOpenUser,
+                onOpenFollows = onOpenFollows,
                 onOpenAppSettings = onOpenAppSettings,
                 bottomPadding = bottomPadding,
             )
@@ -570,6 +591,7 @@ private fun MainTabsHost(
 fun SettingsPage(
     onOpenWebLogin: () -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenFollows: (Long, String) -> Unit,
     onOpenAppSettings: () -> Unit,
     bottomPadding: Dp = 0.dp,
 ) {
@@ -626,6 +648,19 @@ fun SettingsPage(
                             selfInfo?.account?.takeIf { it.isNotBlank() }?.let {
                                 Text("@" + it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                             }
+                            Spacer(Modifier.height(4.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                UserStatCard(Str.following(), selfInfo?.followingCount, Modifier.weight(1f)) {
+                                    onOpenFollows(selfId, "following")
+                                }
+                                UserStatCard(Str.follower(), selfInfo?.followerCount, Modifier.weight(1f)) {
+                                    onOpenFollows(selfId, "followers")
+                                }
+                                UserStatCard(Str.works_title(), selfInfo?.let { it.totalIllusts + it.totalNovels }, Modifier.weight(1f)) {
+                                    onOpenUser(selfId)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
                             Button(onClick = { doLogout() }) {
                                 Text(Str.logout_button())
                             }

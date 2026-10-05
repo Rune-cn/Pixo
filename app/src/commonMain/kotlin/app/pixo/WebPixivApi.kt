@@ -175,7 +175,8 @@ object WebPixivApi {
                 val urls = (el as? JsonObject)?.obj("urls")
                 val url = urls?.str("regular")?.takeIf { it.isNotBlank() }
                     ?: urls?.str("original") ?: ""
-                add(PixivPage(url))
+                val original = urls?.str("original").orEmpty()
+                add(PixivPage(url, original))
             }
         }
     }
@@ -359,6 +360,8 @@ object WebPixivApi {
     suspend fun fetchUser(userId: Long): PixivUser {
         val body = fetchUserBasic(userId)
         val counts = fetchUserCounts(userId)
+        val following = fetchFollowingCount(userId)
+        val follower = fetchFollowerCount(userId)
         return PixivUser(
             id = body.lng("userId").takeIf { it > 0 } ?: userId,
             name = body.str("name"),
@@ -368,6 +371,78 @@ object WebPixivApi {
             isFollowed = body.str("isFollowed") == "true",
             totalIllusts = counts.first,
             totalNovels = counts.second,
+            followingCount = following,
+            followerCount = follower,
+        )
+    }
+
+    /** 关注数：/ajax/user/{id}/following 自带 total 字段。 */
+    suspend fun fetchFollowingCount(userId: Long): Int? = try {
+        val root = PixivHttp.getJson(
+            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/user/$userId/following?offset=0&limit=1&rest=show"),
+        )
+        root.obj("body")?.int("total")
+    } catch (_: Exception) {
+        null
+    }
+
+    /** 粉丝数：/ajax/user/{id}/follower 自带 total 字段（空列表时接口可能不返回，按 0 处理）。 */
+    suspend fun fetchFollowerCount(userId: Long): Int? = try {
+        val root = PixivHttp.getJson(
+            PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/user/$userId/follower?offset=0&limit=1&rest=show"),
+        )
+        val body = root.obj("body")
+        body?.int("total") ?: if (body?.arr("users")?.isEmpty() == true) 0 else null
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun parseRelationUsers(body: JsonObject?): List<PixivUser> = buildList {
+        val arr = body?.arr("users") ?: return@buildList
+        for (el in arr) {
+            val u = el as? JsonObject ?: continue
+            add(
+                PixivUser(
+                    id = u.lng("userId").takeIf { it > 0 } ?: continue,
+                    name = u.str("name"),
+                    account = u.str("account"),
+                    avatar = u.str("imageBig").ifBlank { u.str("image") },
+                    comment = u.str("comment"),
+                    isFollowed = u.str("isFollowed") == "true",
+                    totalIllusts = 0,
+                    totalNovels = 0,
+                ),
+            )
+        }
+    }
+
+    /** 关注列表（网页 ajax，offset 分页）。 */
+    suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage {
+        val url = nextUrl
+            ?: "https://www.pixiv.net/ajax/user/$userId/following?offset=$offset&limit=24&rest=show"
+        val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
+        val body = root.obj("body")
+        val users = parseRelationUsers(body)
+        return PixivRelationPage(
+            users = users,
+            total = body?.int("total"),
+            nextOffset = offset + users.size,
+            hasMore = users.size >= 24,
+        )
+    }
+
+    /** 粉丝列表（网页 ajax，offset 分页）。 */
+    suspend fun fetchUserFollowers(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage {
+        val url = nextUrl
+            ?: "https://www.pixiv.net/ajax/user/$userId/follower?offset=$offset&limit=24&rest=show"
+        val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
+        val body = root.obj("body")
+        val users = parseRelationUsers(body)
+        return PixivRelationPage(
+            users = users,
+            total = body?.int("total") ?: if (users.isEmpty()) 0 else null,
+            nextOffset = offset + users.size,
+            hasMore = users.size >= 24,
         )
     }
 

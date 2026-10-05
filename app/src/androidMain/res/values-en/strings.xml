@@ -87,6 +87,10 @@
     <string name="author_page">Profile</string>
     <string name="user_stats">%1$d illustrations · %2$d novels</string>
     <string name="avatar_desc">Author avatar</string>
+    <string name="following">Following</string>
+    <string name="follower">Followers</string>
+    <string name="empty_following">Not following anyone yet</string>
+    <string name="empty_follower">No followers yet</string>
     <string name="web_login">Web Login</string>
     <string name="web_login_hint">Sign in on this page. The session is saved automatically.</string>
     <string name="web_login_success">Signed in, session saved</string>

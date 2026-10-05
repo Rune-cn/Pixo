@@ -98,6 +98,10 @@ internal expect object Str {
     @Composable fun author_page(): String
     @Composable fun user_stats(illusts: Int, novels: Int): String
     @Composable fun avatar_desc(): String
+    @Composable fun following(): String
+    @Composable fun follower(): String
+    @Composable fun empty_following(): String
+    @Composable fun empty_follower(): String
     @Composable fun web_login(): String
     @Composable fun web_login_hint(): String
     @Composable fun web_login_success(): String

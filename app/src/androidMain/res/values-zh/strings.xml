@@ -84,9 +84,13 @@
     <string name="unbookmark">取消收藏</string>
     <string name="bookmark_removed">已取消收藏</string>
     <string name="works_title">作品</string>
-    <string name="author_page">作者</string>
+    <string name="author_page">个人主页</string>
     <string name="user_stats">插画 %1$d · 小说 %2$d</string>
     <string name="avatar_desc">作者头像</string>
+    <string name="following">关注</string>
+    <string name="follower">粉丝</string>
+    <string name="empty_following">还没有关注任何人</string>
+    <string name="empty_follower">还没有粉丝</string>
     <string name="web_login">网页登录</string>
     <string name="web_login_hint">在此页面完成登录，会话会自动保存。</string>
     <string name="web_login_success">登录成功，会话已保存</string>

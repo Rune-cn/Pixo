@@ -108,6 +108,24 @@ object PixivApi {
         if (PixivAuth.isTokenMode) AppPixivApi.fetchUserNovels(userId, offset, limit)
         else WebPixivApi.fetchUserNovels(userId, offset, limit)
 
+    /** 关注列表：[nextUrl] 为 App API 游标；网页通道忽略游标、用 [offset] 分页。 */
+    suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage =
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserFollowing(userId, offset, nextUrl)
+        else {
+            val page = WebPixivApi.fetchUserFollowing(userId, offset, nextUrl)
+            if (page.users.isEmpty() && page.total == null) WebPixivApi.fetchUserFollowing(userId, offset, null)
+            else page
+        }
+
+    /** 粉丝列表：[nextUrl] 为 App API 游标；网页通道忽略游标、用 [offset] 分页。 */
+    suspend fun fetchUserFollowers(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage =
+        if (PixivAuth.isTokenMode) AppPixivApi.fetchUserFollowers(userId, offset, nextUrl)
+        else {
+            val page = WebPixivApi.fetchUserFollowers(userId, offset, nextUrl)
+            if (page.users.isEmpty() && page.total == null) WebPixivApi.fetchUserFollowers(userId, offset, null)
+            else page
+        }
+
     // ---------- 推荐 ----------
 
     suspend fun fetchTopArtworks(): List<PixivWork> =

@@ -35,6 +35,22 @@ data class PixivUser(
     val isFollowed: Boolean,
     val totalIllusts: Int,
     val totalNovels: Int,
+    /** 关注数；未知时为 null。 */
+    val followingCount: Int? = null,
+    /** 粉丝数；未知时为 null。 */
+    val followerCount: Int? = null,
+)
+
+/** 关注/粉丝列表分页结果。 */
+data class PixivRelationPage(
+    val users: List<PixivUser>,
+    /** 总数；接口没给时为 null。 */
+    val total: Int? = null,
+    /** 下一页 offset（网页通道）。 */
+    val nextOffset: Int? = null,
+    /** 下一页完整 URL 游标（App API 通道）。 */
+    val nextUrl: String? = null,
+    val hasMore: Boolean = false,
 )
 
 /** 用户主页作品列表。 */
@@ -72,8 +88,8 @@ data class PixivNovelDetail(
     val bookmarkId: Long = 0,
 )
 
-/** 插画分页图。 */
-data class PixivPage(val url: String)
+/** 插画分页图。[url] 为列表用图（regular），[original] 为原图（灯箱/全屏用）。 */
+data class PixivPage(val url: String, val original: String = "")
 
 /** 评论。 */
 data class PixivComment(

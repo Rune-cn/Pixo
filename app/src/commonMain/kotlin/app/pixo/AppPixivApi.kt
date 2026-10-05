@@ -248,6 +248,56 @@ object AppPixivApi {
             isFollowed = user.str("is_followed") == "true",
             totalIllusts = profile?.int("total_illusts") ?: 0,
             totalNovels = profile?.int("total_novels") ?: 0,
+            // 关注数：detail 自带；粉丝数：detail 没有，尝试网页接口（无 Cookie 时返回 null）
+            followingCount = profile?.int("total_follow_users"),
+            followerCount = WebPixivApi.fetchFollowerCount(userId),
+        )
+    }
+
+    private fun parseRelationUsers(root: JsonObject): List<PixivUser> = buildList {
+        val arr = root.arr("user_previews") ?: return@buildList
+        for (el in arr) {
+            val u = (el as? JsonObject)?.obj("user") ?: continue
+            add(
+                PixivUser(
+                    id = u.lng("id"),
+                    name = u.str("name"),
+                    account = u.str("account").ifBlank { u.str("id") },
+                    avatar = u.obj("profile_image_urls")?.str("medium").orEmpty(),
+                    comment = "",
+                    isFollowed = u.str("is_followed") == "true",
+                    totalIllusts = 0,
+                    totalNovels = 0,
+                ),
+            )
+        }
+    }
+
+    /** 关注列表（App API，offset 分页 + next_url 游标）。 */
+    suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage {
+        val url = nextUrl ?: "$BASE/user/following?user_id=$userId&rest=show&offset=$offset"
+        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
+        val users = parseRelationUsers(root)
+        val nu = root.str("next_url").ifBlank { null }
+        return PixivRelationPage(
+            users = users,
+            total = null,
+            nextUrl = nu,
+            hasMore = nu != null,
+        )
+    }
+
+    /** 粉丝列表（App API）。 */
+    suspend fun fetchUserFollowers(userId: Long, offset: Int = 0, nextUrl: String? = null): PixivRelationPage {
+        val url = nextUrl ?: "$BASE/user/follower?user_id=$userId&offset=$offset"
+        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
+        val users = parseRelationUsers(root)
+        val nu = root.str("next_url").ifBlank { null }
+        return PixivRelationPage(
+            users = users,
+            total = null,
+            nextUrl = nu,
+            hasMore = nu != null,
         )
     }
 

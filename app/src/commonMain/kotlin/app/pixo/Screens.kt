@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,6 +71,7 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.icon.extended.All
 import top.yukonga.miuix.kmp.icon.extended.Image
@@ -896,6 +899,7 @@ private fun IllustDetail(
     var copiedTag by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var bookmarkBusy by remember { mutableStateOf(false) }
+    var lightboxIndex by remember { mutableIntStateOf(-1) }
     val scope = rememberCoroutineScope()
 
     // 预取文案（协程内不能用 @Composable 资源访问）
@@ -968,13 +972,13 @@ private fun IllustDetail(
             else -> {
                 val d = detail
                 LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
-                    items(pages) { page ->
+                    itemsIndexed(pages) { index, page ->
                         val ctx = LocalPlatformContext.current
                         AsyncImage(
                             model = ImageRequest.Builder(ctx).data(page.url).crossfade(true).build(),
                             contentDescription = d?.title ?: "",
                             contentScale = ContentScale.FillWidth,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().clickable { lightboxIndex = index },
                         )
                     }
                     item {
@@ -1041,6 +1045,59 @@ private fun IllustDetail(
                 }
                 Button(onClick = { showBookmarkMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
             }
+        }
+
+        if (lightboxIndex >= 0) {
+            ImageLightbox(pages = pages, initialIndex = lightboxIndex, onClose = { lightboxIndex = -1 })
+        }
+    }
+}
+
+/** 图片灯箱：点击图片全屏查看，横向滑动翻页（左滑下一张/右滑上一张）。 */
+@Composable
+private fun ImageLightbox(pages: List<PixivPage>, initialIndex: Int, onClose: () -> Unit) {
+    val ctx = LocalPlatformContext.current
+    val safeIndex = initialIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+    val pagerState = rememberPagerState(initialPage = safeIndex) { pages.size.coerceAtLeast(1) }
+    SystemBackHandler(enabled = true) { onClose() }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            overscrollEffect = null,
+        ) { index ->
+            val page = pages.getOrNull(index) ?: return@HorizontalPager
+            AsyncImage(
+                model = ImageRequest.Builder(ctx).data(page.original.ifBlank { page.url }).crossfade(true).build(),
+                contentDescription = "illust",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().clickable { onClose() },
+            )
+        }
+        // 页码指示
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp), contentAlignment = Alignment.TopCenter) {
+            Text(
+                text = "${pagerState.currentPage + 1} / ${pages.size}",
+                style = MiuixTheme.textStyles.body2,
+                color = Color.White,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+            )
+        }
+        // 关闭按钮
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.4f))
+                .clickable { onClose() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(imageVector = MiuixIcons.Back, contentDescription = "关闭", tint = Color.White)
         }
     }
 }
@@ -1947,6 +2004,7 @@ fun UserScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    onOpenFollows: (Long, String) -> Unit,
 ) {
     val illustKey = "userIllusts:$userId"
     val novelKey = "userNovels:$userId"
@@ -2064,7 +2122,15 @@ fun UserScreen(
                         modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
                 overscrollEffect = null,
                     ) {
-                        item { UserHeader(user) { bio -> copyMenu = bio } }
+                        item {
+                            UserHeader(
+                                user = user,
+                                onCopyBio = { bio -> copyMenu = bio },
+                                onOpenFollowing = { onOpenFollows(userId, "following") },
+                                onOpenFollowers = { onOpenFollows(userId, "followers") },
+                                onOpenWorks = { kind = "illust" },
+                            )
+                        }
                         item {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ModeChip("illust", Str.illust(), kind) { kind = "illust" }
@@ -2120,7 +2186,13 @@ fun UserScreen(
 }
 
 @Composable
-private fun UserHeader(user: PixivUser?, onCopyBio: (String) -> Unit = {}) {
+private fun UserHeader(
+    user: PixivUser?,
+    onCopyBio: (String) -> Unit = {},
+    onOpenFollowing: () -> Unit = {},
+    onOpenFollowers: () -> Unit = {},
+    onOpenWorks: () -> Unit = {},
+) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // 基本信息卡
         Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
@@ -2132,14 +2204,17 @@ private fun UserHeader(user: PixivUser?, onCopyBio: (String) -> Unit = {}) {
                     user?.account?.takeIf { it.isNotBlank() }?.let {
                         Text("@" + it, style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        Str.user_stats(user?.totalIllusts ?: 0, user?.totalNovels ?: 0),
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    )
                 }
             }
+        }
+        // 数据卡片：关注 / 粉丝 / 作品，每一项一个卡片，点击进入对应列表
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            UserStatCard(Str.following(), user?.followingCount, Modifier.weight(1f), onOpenFollowing)
+            UserStatCard(Str.follower(), user?.followerCount, Modifier.weight(1f), onOpenFollowers)
+            UserStatCard(Str.works_title(), user?.let { it.totalIllusts + it.totalNovels }, Modifier.weight(1f), onOpenWorks)
         }
         // 简介卡：长按可复制（全部或部分）
         user?.comment?.takeIf { it.isNotBlank() }?.let { bio ->
@@ -2151,6 +2226,178 @@ private fun UserHeader(user: PixivUser?, onCopyBio: (String) -> Unit = {}) {
             ) {
                 Box(Modifier.fillMaxWidth().padding(14.dp)) {
                     Text(bio, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun UserStatCard(
+    label: String,
+    count: Int?,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Card(modifier = modifier.clickable(onClick = onClick)) {
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = count?.toString() ?: "—",
+                style = MiuixTheme.textStyles.title3,
+            )
+            Text(
+                text = label,
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
+    }
+}
+
+/** 关注/粉丝列表页。[kind] = "following" / "followers"。 */
+@Composable
+fun FollowsScreen(
+    userId: Long,
+    kind: String,
+    onBack: () -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
+    val isFollowing = kind == "following"
+    var items by remember { mutableStateOf<List<PixivUser>?>(null) }
+    var total by remember { mutableStateOf<Int?>(null) }
+    var nextUrl by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var retryKey by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    val label = if (isFollowing) Str.following() else Str.follower()
+
+    suspend fun fetchPage(offset: Int, cursor: String?): PixivRelationPage =
+        if (isFollowing) PixivApi.fetchUserFollowing(userId, offset, cursor)
+        else PixivApi.fetchUserFollowers(userId, offset, cursor)
+
+    LaunchedEffect(userId, kind, retryKey) {
+        loading = items == null
+        error = null
+        try {
+            val page = fetchPage(0, null)
+            items = page.users
+            total = page.total
+            nextUrl = page.nextUrl
+            hasMore = page.hasMore
+        } catch (e: Exception) {
+            error = e.friendlyMessage()
+            logError("Pixo", "follows load failed", e)
+        }
+        loading = false
+    }
+
+    fun loadMore() {
+        if (loadingMore || !hasMore || loading) return
+        scope.launch {
+            loadingMore = true
+            try {
+                val cur = items.orEmpty()
+                val page = fetchPage(cur.size, nextUrl)
+                val seen = HashSet(cur.map { it.id }.toSet())
+                val merged = cur + page.users.filter { it.id !in seen }
+                items = merged
+                nextUrl = page.nextUrl
+                total = page.total ?: total
+                hasMore = page.hasMore
+            } catch (_: Exception) {
+            }
+            loadingMore = false
+        }
+    }
+
+    LaunchedEffect(listState, items?.size ?: 0) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.collect { nearEnd -> if (nearEnd) loadMore() }
+    }
+
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(
+        title = label + (total?.let { " $it" } ?: ""),
+        onBack = onBack,
+        scrollBehavior = scrollBehavior,
+    ) { innerPadding ->
+        Box(Modifier.fillMaxSize()) {
+            when {
+                loading && items == null -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    LoadingState()
+                }
+                error != null && items == null -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                    ErrorState(error ?: "", onRetry = { retryKey++ })
+                }
+                else -> {
+                    val list = items.orEmpty()
+                    if (list.isEmpty() && !loading) {
+                        Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                            Text(
+                                if (isFollowing) Str.empty_following() else Str.empty_follower(),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = innerPadding,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                            overscrollEffect = null,
+                        ) {
+                            items(list, key = { it.id }) { u ->
+                                FollowUserRow(u, onClick = { onOpenUser(u.id) })
+                            }
+                            item { EndItem(loadingMore, hasMore, onRetry = { retryKey++ }) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FollowUserRow(user: PixivUser, onClick: () -> Unit) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AuthorAvatar(user.avatar, 44.dp, user.id, { onClick() })
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(user.name, style = MiuixTheme.textStyles.body2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (user.account.isNotBlank()) {
+                    Text(
+                        "@" + user.account,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (user.comment.isNotBlank()) {
+                    Text(
+                        user.comment,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
