@@ -348,8 +348,8 @@ private val iOSIndicatorSpecular: Highlight = Highlight(
     ),
 )
 
-/** 胶囊按压放大倍率：按下时从 56dp 撑到 78dp（示例应用 pressedScale）。 */
-private const val PILL_PRESSED_SCALE = 78f / 56f
+/** 胶囊按压放大倍率：按下时从 56dp 撑到 ~90dp，明显撑出容器（InstallerX 为 78/56≈1.39，太含蓄）。 */
+private const val PILL_PRESSED_SCALE = 1.6f
 
 /** 标签内容按压放大倍率：对齐 InstallerX LocalFloatingBottomBarTabScale（1f → 1.2f）。 */
 private const val TAB_PRESSED_SCALE = 1.2f
@@ -362,7 +362,7 @@ private fun lerpFloat(start: Float, stop: Float, fraction: Float): Float =
  * 悬浮底栏（示例应用同款）：悬浮胶囊 + 滑动胶囊指示器 + 玻璃质感。
  * - 液态玻璃开：容器用 drawBackdrop 采样页面做 vibrancy + 4dp 模糊 + 24dp 折射透镜 + iOS 高光 + 40% 容器色罩；
  *   关闭则为纯色 surfaceContainer 胶囊。指示器按按压进度放大透镜 / 内阴影 / 高光，还原 InstallerX 质感。
- * - 按下/长按：胶囊指示器弹簧放大（1→78/56）、高光增强、包边增亮、内部压暗；按住不放即保持放大。
+ * - 按下/长按：胶囊指示器弹簧放大（1→1.6，撑出容器）、高光增强、包边增亮、内部压暗；按住不放即保持放大。
  * - 横向拖拽：胶囊指示器跟手滑动，松手弹簧吸附最近槽位并切换（由 onPageSelect 驱动 Pager）。
  * - 点击：直接切换到按下位置的标签。
  */
@@ -491,7 +491,7 @@ fun PixoFloatingBar(
                 },
             contentAlignment = Alignment.CenterStart,
         ) {
-            // 1) 基础内容层：容器玻璃/纯色背景 + 手势 + 全部标签（先画，被胶囊玻璃盖住）
+            // 1) 容器层：玻璃/纯色背景 + 手势（先画，作胶囊与内容的底座）
             Box(
                 modifier = Modifier
                     .shadow(
@@ -544,34 +544,9 @@ fun PixoFloatingBar(
                             }
                         }
                     }
-                    .widthIn(min = 200.dp)
-                    .onSizeChanged { size ->
-                        tabWidthPx = ((size.width - indicatorPadding * 2f) / 2f).coerceAtLeast(0f)
-                    }
+                    .fillMaxWidth()
                     .height(64.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .padding(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    PixoFloatingBarItem(
-                        selected = selectedIndex == 0,
-                        icon = MiuixIcons.Home,
-                        label = Str.nav_home(),
-                        scale = pressedScale(),
-                    )
-                    PixoFloatingBarItem(
-                        selected = selectedIndex == 1,
-                        icon = MiuixIcons.Settings,
-                        label = Str.nav_settings(),
-                        scale = pressedScale(),
-                    )
-                }
-            }
+            )
 
             // 2) 液态玻璃幽灵层：屏幕上不可见，但 layerBackdrop 记录标签内容副本；
             //    胶囊取样 = 应用背景 + 幽灵内容，按压时激活标签像在玻璃里撑出来
@@ -582,7 +557,7 @@ fun PixoFloatingBar(
                         .alpha(0f)
                         .layerBackdrop(tabsBackdrop)
                         .then(glowModifier)
-                        .widthIn(min = 200.dp)
+                        .fillMaxWidth()
                         .height(64.dp)
                         .padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -602,8 +577,8 @@ fun PixoFloatingBar(
                 }
             }
 
-            // 3) 滑动胶囊指示器（最上层，玻璃盖住内容；与容器平级，可自由溢出，
-            //    不再受容器“显示大小”限制——这是 InstallerX 胶囊能撑出来的关键）
+            // 3) 滑动胶囊指示器：与容器平级、可自由溢出（不受容器显示大小限制），
+            //    按压放大 1.6 倍明显撑出容器；内容画在其上，所以文字始终清晰
             Box(
                 modifier = Modifier
                     .graphicsLayer {
@@ -623,6 +598,32 @@ fun PixoFloatingBar(
                     .height(56.dp)
                     .width(with(density) { (tabWidthPx - indicatorPadding * 2f).toDp() }),
             )
+
+            // 4) 内容层：真实标签画在最上层，文字/图标不被胶囊玻璃盖住 → 始终清晰；
+            //    胶囊玻璃在下面只提供边缘玻璃质感，按压撑出时相对内容往外扩
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size ->
+                        tabWidthPx = ((size.width - indicatorPadding * 2f) / 2f).coerceAtLeast(0f)
+                    }
+                    .height(64.dp)
+                    .padding(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PixoFloatingBarItem(
+                    selected = selectedIndex == 0,
+                    icon = MiuixIcons.Home,
+                    label = Str.nav_home(),
+                    scale = pressedScale(),
+                )
+                PixoFloatingBarItem(
+                    selected = selectedIndex == 1,
+                    icon = MiuixIcons.Settings,
+                    label = Str.nav_settings(),
+                    scale = pressedScale(),
+                )
+            }
         }
     }
 }
