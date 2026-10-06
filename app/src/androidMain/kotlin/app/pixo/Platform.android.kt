@@ -313,9 +313,9 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
             if (dir.isBlank()) {
                 return@withContext writeDefaultDir(fileName, bytes)
             }
-            // 用户自选目录（SAF）：优先写这里
+            // 用户自选目录（SAF）：优先通过 DocumentsContract 写入
+            val uri = Uri.parse(dir)
             try {
-                val uri = Uri.parse(dir)
                 val resolver = androidAppContext.contentResolver
                 val doc = DocumentsContract.createDocument(resolver, uri, mimeTypeFor(fileName), fileName)
                     ?: throw IllegalStateException("SAF createDocument returned null")
@@ -324,15 +324,18 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
                 out.use { it.write(bytes) }
                 return@withContext doc.toString()
             } catch (e: Exception) {
-                // 目录 URI 失效（SD 卡移除 / 路径不合法，如 Invalid URI）或持久化权限丢失：
-                // 清掉失效目录并回退默认 MediaStore 目录，避免后续每次下载都失败
-                if (e is IllegalArgumentException || e is SecurityException ||
-                    e is java.io.FileNotFoundException
-                ) {
-                    Log.w("Pixo", "download dir invalid, fallback to default: ${e.message}")
-                    AppPrefs.downloadDir = ""
-                    val saved = writeDefaultDir(fileName, bytes)
-                    if (saved != null) return@withContext saved
+                // 部分厂商设备（vivo 等）对某些卷的 tree uri 在 provider 端无效（Invalid URI），
+                // SAF 写入会失败。此时**不清用户目录设置**，改用“所有文件访问”权限
+                // 直接写 tree uri 对应的真实文件路径；仍失败就如实抛错，让界面提示原因
+                val dirFile = safTreeToFileDir(uri)
+                if (dirFile != null && Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()) {
+                    try {
+                        val f = File(dirFile, fileName)
+                        f.writeBytes(bytes)
+                        return@withContext f.absolutePath
+                    } catch (raw: Exception) {
+                        logError("Pixo", "download dir raw write failed", raw)
+                    }
                 }
                 throw e
             }
@@ -401,15 +404,55 @@ actual suspend fun listDownloadedImages(): List<DownloadedImage> =
             out.sortByDescending { it.name }
             out
         } catch (e: Exception) {
-            // 目录 URI 失效（SD 卡移除 / 路径不合法）：清掉失效目录，让下载页回退默认目录
-            if (e is IllegalArgumentException || e is SecurityException) {
-                Log.w("Pixo", "download dir invalid, cleared: ${e.message}")
-                AppPrefs.downloadDir = ""
-            }
+            // SAF/MediaStore 枚举失败（部分厂商卷 provider 拒绝 tree 查询）：
+            // 不清用户目录设置，改为直接从文件系统枚举（需要所有文件访问权限）
             logError("Pixo", "list downloaded images fail", e)
-            emptyList()
+            try {
+                listImagesFromFileSystem()
+            } catch (_: Exception) {
+                emptyList()
+            }
         }
     }
+
+/** 直接从文件系统枚举下载目录图片（SAF/MediaStore 枚举失败时的兜底；需要所有文件访问权限）。 */
+private fun listImagesFromFileSystem(): List<DownloadedImage> {
+    val dir = AppPrefs.downloadDir
+    val dirFile = if (dir.isBlank()) {
+        File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+            "Pixo",
+        )
+    } else {
+        safTreeToFileDir(Uri.parse(dir))
+    } ?: return emptyList()
+    if (!dirFile.isDirectory) return emptyList()
+    return dirFile.listFiles()
+        ?.filter { it.isFile && isImageFileName(it.name) }
+        ?.sortedByDescending { it.lastModified() }
+        ?.map { DownloadedImage(it.name, Uri.fromFile(it).toString(), it.length()) }
+        .orEmpty()
+}
+
+/** SAF tree uri → 真实文件系统目录（形如 primary:MT2/pixo → /storage/emulated/0/MT2/pixo）。 */
+private fun safTreeToFileDir(treeUri: Uri): File? = try {
+    val docId = DocumentsContract.getTreeDocumentId(treeUri)
+    val sep = docId.indexOf(":")
+    val volume = if (sep >= 0) docId.substring(0, sep) else "primary"
+    val rel = if (sep >= 0) docId.substring(sep + 1) else docId
+    val base = when {
+        volume == "primary" -> Environment.getExternalStorageDirectory().absolutePath
+        else -> {
+            val sm = androidAppContext.getSystemService(android.content.Context.STORAGE_SERVICE)
+                as? android.os.storage.StorageManager
+            sm?.storageVolumes?.firstOrNull { it.uuid == volume }?.directory?.absolutePath
+        }
+    } ?: return null
+    val f = File(base, rel)
+    if (f.isDirectory || f.mkdirs()) f else null
+} catch (e: Exception) {
+    null
+}
 
 actual fun appVersionName(): String = try {
     androidAppContext.packageManager.getPackageInfo(androidAppContext.packageName, 0).versionName ?: "1.0"

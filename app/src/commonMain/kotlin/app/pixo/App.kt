@@ -1339,9 +1339,10 @@ private fun AboutContent(
 @Composable
 private fun AboutBgEffect(scrollProgress: Float, backdrop: LayerBackdrop) {
     val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-    val blobA = MiuixTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.5f)
-    val blobB = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.45f else 0.4f)
-    val blobC = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.4f else 0.35f)
+    // 光斑透明度刻意压得很低：容器色本身饱和度高，alpha 一大整页就显得又深又脏
+    val blobA = MiuixTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.30f else 0.24f)
+    val blobB = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.22f else 0.18f)
+    val blobC = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.18f else 0.14f)
     val colorStage = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         // 循环推进色阶：先停留再 spring 过渡（对齐 Legado 的 colorInterpPeriod 节奏）
