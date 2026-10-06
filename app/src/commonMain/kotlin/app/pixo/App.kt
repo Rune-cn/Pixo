@@ -90,7 +90,6 @@ import kotlin.math.floor
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
@@ -112,13 +111,7 @@ import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurColors
-import top.yukonga.miuix.kmp.blur.BlurDefaults
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -147,9 +140,6 @@ internal object Downloads
 
 @Serializable
 internal object About
-
-@Serializable
-internal data class AboutDoc(val title: String, val content: String)
 
 @Serializable
 internal object DebugSettings
@@ -397,19 +387,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         popExitTransition = { miuixPopExit() },
                     ) {
                         AboutScreen(
-                            onBack = { navController.popBackStack() },
-                            onOpenDoc = { title, content -> navController.navigate(AboutDoc(title, content)) },
-                        )
-                    }
-                    composable<AboutDoc>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
-                        AboutDocScreen(
-                            title = entry.toRoute<AboutDoc>().title,
-                            content = entry.toRoute<AboutDoc>().content,
                             onBack = { navController.popBackStack() },
                         )
                     }
@@ -1076,11 +1053,9 @@ private fun formatBytes(bytes: Long): String = when {
 /** 关于页：按 legado-with-MD3 的 MiuixAboutScreen 结构复刻（沉浸式滚动顶栏 + 背景光效 + 浮动 Logo + 卡片列表）。 */
 @OptIn(ExperimentalScrollBarApi::class)
 @Composable
-fun AboutScreen(
-    onBack: () -> Unit,
-    onOpenDoc: (String, String) -> Unit,
-) {
+fun AboutScreen(onBack: () -> Unit) {
     val topAppBarScrollBehavior = MiuixScrollBehavior()
+    var consoleDoc by remember { mutableStateOf<Pair<String, String>?>(null) }
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
 
@@ -1135,10 +1110,17 @@ fun AboutScreen(
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 lazyListState = lazyListState,
                 scrollProgress = scrollProgress,
-                backdrop = backdrop,
-                onOpenDoc = onOpenDoc,
+                onOpenDoc = { title, content -> consoleDoc = title to content },
             )
         }
+    }
+    // 文档控制台：从底部滑出的终端式 Markdown 面板
+    consoleDoc?.let { (title, content) ->
+        DocConsoleSheet(
+            title = title,
+            content = content,
+            onDismiss = { consoleDoc = null },
+        )
     }
 }
 
@@ -1149,7 +1131,6 @@ private fun AboutContent(
     topAppBarScrollBehavior: ScrollBehavior,
     lazyListState: LazyListState,
     scrollProgress: Float,
-    backdrop: LayerBackdrop?,
     onOpenDoc: (String, String) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -1177,29 +1158,9 @@ private fun AboutContent(
     val projectNameProgress = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
     val iconProgress = ((scrollProgress - 0.35f) / 0.15f).coerceIn(0f, 1f)
 
-    // 玻璃卡片：与 Legado 一致——卡片透明 + 磨砂采样“背景专用 backdrop”（只含背景光效，
-    // 绝不能采样包住卡片自己的内容盒 backdrop，否则渲染树每帧自嵌套加深、RenderThread 栈溢出）
-    val bgSurface = MiuixTheme.colorScheme.surface
-    val bgBackdrop = rememberLayerBackdrop {
-        drawRect(bgSurface)
-        drawContent()
-    }
-    val cardModifier = Modifier.textureBlur(
-        backdrop = bgBackdrop,
-        shape = RoundedCornerShape(16.dp),
-        blurRadius = 60f,
-        noiseCoefficient = BlurDefaults.NoiseCoefficient,
-        colors = BlurColors(
-            blendColors = listOf(
-                BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f)),
-            ),
-        ),
-    )
-    val cardColors = CardDefaults.defaultColors(Color.Transparent, Color.Transparent)
-
     Box(Modifier.fillMaxSize()) {
         // 背景光效：独立组件（动画状态只影响背景自身，不带动整页重组）
-        AboutBgEffect(scrollProgress = scrollProgress, backdrop = bgBackdrop)
+        AboutBgEffect(scrollProgress = scrollProgress)
         // 浮动 Logo 区：叠在内容上方，随滚动上浮、分段淡出缩小
         Column(
             modifier = Modifier
@@ -1287,10 +1248,7 @@ private fun AboutContent(
                 )
             }
             item(key = "openSource") {
-                Card(
-                    modifier = cardModifier.fillMaxWidth(),
-                    colors = cardColors,
-                ) {
+                Card(Modifier.fillMaxWidth()) {
                     ArrowPreference(
                         title = Str.open_source(),
                         endActions = {
@@ -1301,10 +1259,7 @@ private fun AboutContent(
                 }
             }
             item(key = "docs") {
-                Card(
-                    modifier = cardModifier.fillMaxWidth(),
-                    colors = cardColors,
-                ) {
+                Card(Modifier.fillMaxWidth()) {
                     ArrowPreference(
                         title = sPrivacy,
                         onClick = { onOpenDoc(sPrivacy, sPrivacyContent) },
@@ -1333,11 +1288,9 @@ private fun AboutContent(
     }
 }
 
-/** 关于页背景光效：仿 Legado BgEffectBackground——三个主题容器色按阶段循环流动的双色斑。
- * [backdrop] 是“背景专用”采样源（挂在背景节点上，只含背景光效，不含卡片/内容），
- * 玻璃卡片从这里取样，避免采样包含卡片自身的内容盒导致渲染树自递归。 */
+/** 关于页背景光效：仿 Legado BgEffectBackground——三个主题容器色按阶段循环流动的双色斑。 */
 @Composable
-private fun AboutBgEffect(scrollProgress: Float, backdrop: LayerBackdrop) {
+private fun AboutBgEffect(scrollProgress: Float) {
     val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
     // 光斑透明度刻意压得很低：容器色本身饱和度高，alpha 一大整页就显得又深又脏
     val blobA = MiuixTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.30f else 0.24f)
@@ -1365,7 +1318,6 @@ private fun AboutBgEffect(scrollProgress: Float, backdrop: LayerBackdrop) {
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .layerBackdrop(backdrop)
             .graphicsLayer { alpha = 1f - scrollProgress },
     ) {
         val w = with(LocalDensity.current) { maxWidth.toPx() }
@@ -1387,26 +1339,6 @@ private fun AboutBgEffect(scrollProgress: Float, backdrop: LayerBackdrop) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(brushA, radius = w * 0.85f, center = Offset(w * 0.15f, h * 0.18f))
             drawCircle(brushB, radius = w * 0.8f, center = Offset(w * 0.92f, h * 0.95f))
-        }
-    }
-}
-
-/** 文档子页（隐私政策 / 许可证 / 免责声明）：独立路由 push 打开，替代原先在页内整页替换。 */
-@Composable
-private fun AboutDocScreen(title: String, content: String, onBack: () -> Unit) {
-    val scrollBehavior = MiuixScrollBehavior()
-    PixoSubScreen(title = title, onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = innerPadding,
-        ) {
-            item {
-                Text(
-                    content,
-                    style = MiuixTheme.textStyles.body2,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                )
-            }
         }
     }
 }
