@@ -311,9 +311,10 @@ object AppPixivApi {
         }
     }
 
-    /** 关注列表（App API，offset 分页 + next_url 游标）。 */
+    /** 关注列表（App API，offset 分页 + next_url 游标；restrict 只认 public/private，show/hide 需映射）。 */
     suspend fun fetchUserFollowing(userId: Long, offset: Int = 0, nextUrl: String? = null, rest: String = "show"): PixivRelationPage {
-        val url = nextUrl ?: "$BASE/user/following?user_id=$userId&rest=$rest&offset=$offset"
+        val restrict = if (rest == "hide") "private" else "public"
+        val url = nextUrl ?: "$BASE/user/following?user_id=$userId&restrict=$restrict&offset=$offset"
         val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
         val users = parseRelationUsers(root)
         val nu = root.str("next_url").ifBlank { null }

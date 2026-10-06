@@ -180,7 +180,7 @@ internal fun rememberPixoBlurBackdrop(): LayerBackdrop? {
 
 /** 顶栏毛玻璃：25dp 高斯模糊 + 80% surface 混色（对齐 InstallerX/legado 的玻璃拟态规范）。 */
 @Composable
-private fun Modifier.pixoTopBarBlur(backdrop: LayerBackdrop?): Modifier {
+internal fun Modifier.pixoTopBarBlur(backdrop: LayerBackdrop?): Modifier {
     if (backdrop == null) return this
     val blendColor = MiuixTheme.colorScheme.surface.copy(alpha = 0.8f)
     return this.then(
@@ -517,6 +517,10 @@ fun PixoFloatingBar(
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             scope.launch { pressProgress.animateTo(1f, pressIn) }
+                            // 按下即跟手：胶囊立刻跳到手指落点的槽位（同档位点击也归位）
+                            if (tabWidthPx > 0f) {
+                                scope.launch { pillIndex.snapTo(indexAt(down.position.x).toFloat()) }
+                            }
                             var dragTotal = 0f
                             var dragging = false
                             while (true) {
@@ -527,11 +531,9 @@ fun PixoFloatingBar(
                                     // 抬起立即切换：先切标签再并行播按压回弹，避免切换被回弹动画拖慢半拍
                                     val target = if (tapped) indexAt(down.position.x) else pillIndex.value.roundToInt().coerceIn(0, 1)
                                     onPageSelect(target)
-                                    if (!tapped && pillIndex.value != target.toFloat()) {
-                                        // 拖拽抬起需要胶囊自己吸附回槽位（选中态没变时外部不会触发回位动画）
-                                        scope.launch {
-                                            pillIndex.animateTo(target.toFloat(), sliderSpring)
-                                        }
+                                    // 胶囊自己吸附回槽位：同档位点击外部选中态不变，不会触发 LaunchedEffect 回位
+                                    scope.launch {
+                                        pillIndex.animateTo(target.toFloat(), sliderSpring)
                                     }
                                     scope.launch {
                                         pressProgress.animateTo(0f, pressOut)
@@ -577,12 +579,14 @@ fun PixoFloatingBar(
                         icon = MiuixIcons.Home,
                         label = Str.nav_home(),
                         scale = pressedScale(),
+                        showLabel = false,
                     )
                     PixoFloatingBarItem(
                         selected = true,
                         icon = MiuixIcons.Settings,
                         label = Str.nav_settings(),
                         scale = pressedScale(),
+                        showLabel = false,
                     )
                 }
             }
@@ -674,6 +678,7 @@ private fun RowScope.PixoFloatingBarItem(
     icon: ImageVector,
     label: String,
     scale: Float,
+    showLabel: Boolean = true,
 ) {
     val scheme = MiuixTheme.colorScheme
     val contentColor = if (selected) scheme.primary else scheme.onSurfaceVariantSummary
@@ -695,10 +700,12 @@ private fun RowScope.PixoFloatingBarItem(
             tint = contentColor,
             modifier = Modifier.size(22.dp),
         )
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            color = contentColor,
-        )
+        if (showLabel) {
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                color = contentColor,
+            )
+        }
     }
 }

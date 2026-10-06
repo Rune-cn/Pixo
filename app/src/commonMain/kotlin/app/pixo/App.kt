@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -33,6 +35,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigationevent.NavigationEventInfo
@@ -76,15 +81,23 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.VerticalScrollBar
+import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
+import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
 import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarDisplayMode
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
@@ -118,6 +131,9 @@ internal object Downloads
 
 @Serializable
 internal object About
+
+@Serializable
+internal data class AboutDoc(val title: String, val content: String)
 
 @Serializable
 internal object DebugSettings
@@ -366,6 +382,19 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     ) {
                         AboutScreen(
                             onBack = { navController.popBackStack() },
+                            onOpenDoc = { title, content -> navController.navigate(AboutDoc(title, content)) },
+                        )
+                    }
+                    composable<AboutDoc>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) { entry ->
+                        AboutDocScreen(
+                            title = entry.toRoute<AboutDoc>().title,
+                            content = entry.toRoute<AboutDoc>().content,
+                            onBack = { navController.popBackStack() },
                         )
                     }
                     composable<AppearanceSettings>(
@@ -602,6 +631,8 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                     .onSizeChanged {
                                         barHeight = with(density) { it.height.toDp() }
                                     },
+                                // 对齐 Legado 默认“自动”模式：选中图标上移、取消选中回落，文字只在选中时淡入
+                                mode = NavigationBarDisplayMode.IconWithSelectedLabel,
                             ) {
                                 NavigationBarItem(
                                     selected = mainPagerState.selectedPage == 0,
@@ -1026,27 +1057,84 @@ private fun formatBytes(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-/** 关于页：仿 Legado-with-MD3 的 Miuix 关于界面（渐变背景 + 浮动 Logo + 卡片列表）。 */
+/** 关于页：按 legado-with-MD3 的 MiuixAboutScreen 结构复刻（沉浸式滚动顶栏 + 背景光效 + 浮动 Logo + 卡片列表）。 */
+@OptIn(ExperimentalScrollBarApi::class)
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
-    var doc by remember { mutableStateOf<Pair<String, String>?>(null) }
-    if (doc != null) {
-        DocViewerScreen(title = doc!!.first, content = doc!!.second, onBack = { doc = null })
-        return
-    }
+fun AboutScreen(
+    onBack: () -> Unit,
+    onOpenDoc: (String, String) -> Unit,
+) {
+    val topAppBarScrollBehavior = MiuixScrollBehavior()
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
-    val headerHeight = 270.dp
+
+    // 滚动进度：以透明 logoSpacer 的实际高度为分母（对齐 Legado）
     val scrollProgress by remember {
         derivedStateOf {
-            if (lazyListState.firstVisibleItemIndex > 0) 1f
-            else {
-                with(density) {
-                    (lazyListState.firstVisibleItemScrollOffset.toFloat() / headerHeight.toPx()).coerceIn(0f, 1f)
+            when {
+                lazyListState.firstVisibleItemIndex > 0 -> 1f
+                else -> {
+                    val spacer =
+                        lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "logoSpacer" }
+                    if (spacer != null && spacer.size > 0) {
+                        (lazyListState.firstVisibleItemScrollOffset.toFloat() / spacer.size).coerceIn(0f, 1f)
+                    } else 0f
                 }
             }
         }
     }
+
+    val backdrop = rememberPixoBlurBackdrop()
+    val blurActive = backdrop != null && scrollProgress == 1f
+
+    Scaffold(
+        topBar = {
+            SmallTopAppBar(
+                title = Str.about(),
+                scrollBehavior = topAppBarScrollBehavior,
+                // 未滚完：透明顶栏让背景光效透出来；滚到底：有模糊就全透明玻璃，否则纯色
+                color = if (blurActive) Color.Transparent
+                else if (scrollProgress == 1f) MiuixTheme.colorScheme.surface
+                else Color.Transparent,
+                // 标题随滚动淡入（对齐 Legado：0.35~1.0 区间）
+                titleColor = MiuixTheme.colorScheme.onSurface.copy(
+                    alpha = ((scrollProgress - 0.35f) / 0.65f).coerceIn(0f, 1f),
+                ),
+                modifier = if (blurActive) Modifier.pixoTopBarBlur(backdrop) else Modifier,
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        Box(
+            Modifier
+                .fillMaxSize()
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
+        ) {
+            AboutContent(
+                padding = innerPadding,
+                topAppBarScrollBehavior = topAppBarScrollBehavior,
+                lazyListState = lazyListState,
+                scrollProgress = scrollProgress,
+                onOpenDoc = onOpenDoc,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalScrollBarApi::class)
+@Composable
+private fun AboutContent(
+    padding: PaddingValues,
+    topAppBarScrollBehavior: ScrollBehavior,
+    lazyListState: LazyListState,
+    scrollProgress: Float,
+    onOpenDoc: (String, String) -> Unit,
+) {
+    val density = LocalDensity.current
     val sPrivacy = Str.privacy_policy()
     val sPrivacyContent = Str.privacy_policy_content()
     val sLicense = Str.license()
@@ -1054,101 +1142,171 @@ fun AboutScreen(onBack: () -> Unit) {
     val sDisclaimer = Str.disclaimer()
     val sDisclaimerContent = Str.disclaimer_content()
 
-    val scrollBehavior = MiuixScrollBehavior()
-    PixoSubScreen(title = Str.about(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding)) {
-            // 顶部品牌色渐变背景（随滚动被内容覆盖，仿 Legado BgEffectBackground）
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(headerHeight + 100.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            0f to MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                            0.55f to MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                            1f to Color.Transparent,
+    val scrollPadding = PaddingValues(
+        top = padding.calculateTopPadding(),
+        start = padding.calculateLeftPadding(LayoutDirection.Ltr) + 16.dp,
+        end = padding.calculateRightPadding(LayoutDirection.Ltr) + 16.dp,
+    )
+    val logoPadding = PaddingValues(
+        top = padding.calculateTopPadding() + 40.dp,
+        start = padding.calculateLeftPadding(LayoutDirection.Ltr) + 24.dp,
+        end = padding.calculateRightPadding(LayoutDirection.Ltr) + 24.dp,
+    )
+    var logoHeightDp by remember { mutableStateOf(300.dp) }
+
+    // 分三段淡出：版本号 → 项目名 → Logo（对齐 Legado 的分段进度）
+    val versionCodeProgress = ((scrollProgress - 0.05f) / 0.15f).coerceIn(0f, 1f)
+    val projectNameProgress = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
+    val iconProgress = ((scrollProgress - 0.35f) / 0.15f).coerceIn(0f, 1f)
+
+    Box(Modifier.fillMaxSize()) {
+        // 背景光效：整页对角双色渐变（Legado BgEffectBackground 的静态近似），随滚动整体淡出
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = 1f - scrollProgress }
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                            MiuixTheme.colorScheme.secondaryContainer.copy(alpha = 0.28f),
+                            MiuixTheme.colorScheme.surface,
                         ),
+                        start = Offset.Zero,
+                        end = Offset.Infinite,
                     ),
-            )
-            LazyColumn(
-                state = lazyListState,
-                modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item(key = "logoSpacer") { Spacer(Modifier.height(headerHeight + 48.dp)) }
-                item {
-                    Card(Modifier.fillMaxWidth()) {
-                        ArrowPreference(
-                            title = Str.open_source(),
-                            endActions = {
-                                Text(
-                                    "GitHub",
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                )
-                            },
-                            onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo") },
-                        )
-                    }
-                }
-                item {
-                    Card(Modifier.fillMaxWidth()) {
-                        ArrowPreference(title = sPrivacy, onClick = { doc = sPrivacy to sPrivacyContent })
-                        ArrowPreference(title = sLicense, onClick = { doc = sLicense to sLicenseContent })
-                        ArrowPreference(title = sDisclaimer, onClick = { doc = sDisclaimer to sDisclaimerContent })
-                    }
-                }
-            }
-            // 浮动 Logo：随滚动上浮、缩小、淡出（顶栏标题随之显现）
-            Column(
-                Modifier
-                    .align(Alignment.TopCenter)
+                ),
+        )
+        // 浮动 Logo 区：叠在内容上方，随滚动上浮、分段淡出缩小
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    top = logoPadding.calculateTopPadding() + 52.dp,
+                    start = logoPadding.calculateLeftPadding(LayoutDirection.Ltr),
+                    end = logoPadding.calculateRightPadding(LayoutDirection.Ltr),
+                )
+                .onSizeChanged { size ->
+                    with(density) { logoHeightDp = size.height.toDp() }
+                },
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Logo：88dp 白底圆角方牌
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(88.dp)
                     .graphicsLayer {
-                        alpha = 1f - scrollProgress
-                        scaleX = 1f - scrollProgress * 0.05f
-                        scaleY = 1f - scrollProgress * 0.05f
-                        translationY = -scrollProgress * 40f
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally,
+                        clip = true
+                        shape = RoundedCornerShape(24.dp)
+                        alpha = 1f - iconProgress
+                        scaleX = 1f - iconProgress * 0.05f
+                        scaleY = 1f - iconProgress * 0.05f
+                    }
+                    .background(Color.White),
             ) {
-                Spacer(Modifier.height(24.dp))
+                Text(
+                    "P",
+                    color = MiuixTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 44.sp,
+                )
+            }
+            Text(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 5.dp)
+                    .graphicsLayer {
+                        alpha = 1f - projectNameProgress
+                        scaleX = 1f - projectNameProgress * 0.05f
+                        scaleY = 1f - projectNameProgress * 0.05f
+                    },
+                text = "Pixo",
+                color = MiuixTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Bold,
+                fontSize = 35.sp,
+            )
+            Text(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        alpha = 1f - versionCodeProgress
+                        scaleX = 1f - versionCodeProgress * 0.05f
+                        scaleY = 1f - versionCodeProgress * 0.05f
+                    },
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                text = appVersionName(),
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        // 滚动内容：透明占位（匹配 Logo 高度）+ 卡片列表
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
+            contentPadding = PaddingValues(
+                top = scrollPadding.calculateTopPadding(),
+                start = scrollPadding.calculateLeftPadding(LayoutDirection.Ltr),
+                end = scrollPadding.calculateRightPadding(LayoutDirection.Ltr),
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item(key = "logoSpacer") {
                 Box(
                     Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.White),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "P",
-                        color = MiuixTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 44.sp,
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Pixo",
-                    color = MiuixTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 32.sp,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    appVersionName(),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    textAlign = TextAlign.Center,
+                        .fillMaxWidth()
+                        .height(
+                            logoHeightDp + 52.dp + logoPadding.calculateTopPadding() -
+                                scrollPadding.calculateTopPadding() + 126.dp,
+                        ),
                 )
             }
+            item(key = "openSource") {
+                Card(Modifier.fillMaxWidth()) {
+                    ArrowPreference(
+                        title = Str.open_source(),
+                        endActions = {
+                            ValueText("GitHub")
+                        },
+                        onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo") },
+                    )
+                }
+            }
+            item(key = "docs") {
+                Card(Modifier.fillMaxWidth()) {
+                    ArrowPreference(
+                        title = sPrivacy,
+                        onClick = { onOpenDoc(sPrivacy, sPrivacyContent) },
+                    )
+                    ArrowPreference(
+                        title = sLicense,
+                        onClick = { onOpenDoc(sLicense, sLicenseContent) },
+                    )
+                    ArrowPreference(
+                        title = sDisclaimer,
+                        onClick = { onOpenDoc(sDisclaimer, sDisclaimerContent) },
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(12.dp)) }
         }
+
+        // 滚动条（对齐 Legado 的 VerticalScrollBar）
+        VerticalScrollBar(
+            adapter = rememberScrollBarAdapter(lazyListState),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
+            trackPadding = scrollPadding,
+        )
     }
 }
 
-/** 关于页文档子页：隐私政策 / 许可证 / 免责声明全文滚动阅读（仿 Legado 的 Markdown 查看页）。 */
+/** 文档子页（隐私政策 / 许可证 / 免责声明）：独立路由 push 打开，替代原先在页内整页替换。 */
 @Composable
-private fun DocViewerScreen(title: String, content: String, onBack: () -> Unit) {
+private fun AboutDocScreen(title: String, content: String, onBack: () -> Unit) {
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = title, onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         LazyColumn(
@@ -1164,6 +1322,16 @@ private fun DocViewerScreen(title: String, content: String, onBack: () -> Unit) 
             }
         }
     }
+}
+
+/** 关于页右侧值文本：与列表项等高的主题次要色（对齐 Legado ValueText）。 */
+@Composable
+private fun ValueText(text: String) {
+    Text(
+        text = text,
+        fontSize = MiuixTheme.textStyles.body2.fontSize,
+        color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+    )
 }
 
 /** 外观设置页：语言 / 主题 / 悬浮底栏 / 预见式返回。 */
