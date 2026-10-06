@@ -27,6 +27,8 @@ kotlin {
             implementation("top.yukonga.miuix.kmp:miuix-icons:0.9.4")
             implementation("io.coil-kt.coil3:coil-compose:3.6.3")
             implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
+            // 成熟的 KMP Markdown 渲染器：mikepenz 出品，JetBrains markdown 解析器（GFM），支持链接/表格/告警块
+            implementation("com.mikepenz:multiplatform-markdown-renderer:0.45.0")
             // 灯箱图片缩放（双指捏合/拖动/双击）：成熟的 telephoto zoomable（KMP，纯手势，不依赖具体图片加载器）
             implementation("me.saket.telephoto:zoomable:0.19.0")
             implementation("com.squareup.okhttp3:okhttp:5.5.0")

@@ -1114,9 +1114,9 @@ fun AboutScreen(onBack: () -> Unit) {
             )
         }
     }
-    // 文档控制台：从底部滑出的终端式 Markdown 面板
+    // 文档弹窗：Miuix 原生 WindowBottomSheet（从下往上滑出）渲染 Markdown
     consoleDoc?.let { (title, content) ->
-        DocConsoleSheet(
+        DocSheet(
             title = title,
             content = content,
             onDismiss = { consoleDoc = null },
