@@ -1,15 +1,19 @@
 package app.pixo
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -48,6 +52,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -77,10 +83,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.floor
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
@@ -102,7 +112,12 @@ import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -1119,6 +1134,7 @@ fun AboutScreen(
                 topAppBarScrollBehavior = topAppBarScrollBehavior,
                 lazyListState = lazyListState,
                 scrollProgress = scrollProgress,
+                backdrop = backdrop,
                 onOpenDoc = onOpenDoc,
             )
         }
@@ -1132,6 +1148,7 @@ private fun AboutContent(
     topAppBarScrollBehavior: ScrollBehavior,
     lazyListState: LazyListState,
     scrollProgress: Float,
+    backdrop: LayerBackdrop?,
     onOpenDoc: (String, String) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -1159,24 +1176,80 @@ private fun AboutContent(
     val projectNameProgress = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
     val iconProgress = ((scrollProgress - 0.35f) / 0.15f).coerceIn(0f, 1f)
 
+    // 玻璃卡片：与 Legado 一致——有模糊背景源时卡片透明 + 磨砂采样；否则回退普通卡片底色
+    val cardModifier = if (backdrop != null) {
+        Modifier.textureBlur(
+            backdrop = backdrop,
+            shape = RoundedCornerShape(16.dp),
+            blurRadius = 60f,
+            noiseCoefficient = BlurDefaults.NoiseCoefficient,
+            colors = BlurColors(
+                blendColors = listOf(
+                    BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f)),
+                ),
+            ),
+        )
+    } else {
+        Modifier
+    }
+    val cardColors = if (backdrop != null) {
+        CardDefaults.defaultColors(Color.Transparent, Color.Transparent)
+    } else {
+        CardDefaults.defaultColors()
+    }
+
     Box(Modifier.fillMaxSize()) {
-        // 背景光效：整页对角双色渐变（Legado BgEffectBackground 的静态近似），随滚动整体淡出
-        Box(
+        // 背景光效：仿 Legado BgEffectBackground——三个主题容器色按阶段循环流动的双色斑，
+        // 随滚动整体淡出；滚动到卡片区后让位给顶栏毛玻璃
+        val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+        val blobA = MiuixTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.5f)
+        val blobB = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.45f else 0.4f)
+        val blobC = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.4f else 0.35f)
+        val colorStage = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            // 循环推进色阶：先停留再 spring 过渡（对齐 Legado 的 colorInterpPeriod 节奏）
+            while (isActive) {
+                val target = floor(colorStage.value) + 1f
+                delay(1500L)
+                colorStage.animateTo(target, spring(dampingRatio = 0.9f, stiffness = 35f))
+            }
+        }
+        val stageFloat = (colorStage.value % 3f + 3f) % 3f
+        val stageIndex = floor(stageFloat).toInt()
+        val frac = stageFloat - floor(stageFloat)
+        val palettes = listOf(
+            listOf(blobA, blobB),
+            listOf(blobB, blobC),
+            listOf(blobC, blobA),
+        )
+        val colorA = lerp(palettes[stageIndex][0], palettes[stageIndex][1], frac)
+        val colorB = lerp(palettes[(stageIndex + 1) % 3][0], palettes[(stageIndex + 1) % 3][1], frac)
+        BoxWithConstraints(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = 1f - scrollProgress }
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            MiuixTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                            MiuixTheme.colorScheme.secondaryContainer.copy(alpha = 0.28f),
-                            MiuixTheme.colorScheme.surface,
-                        ),
-                        start = Offset.Zero,
-                        end = Offset.Infinite,
-                    ),
-                ),
-        )
+                .graphicsLayer { alpha = 1f - scrollProgress },
+        ) {
+            val w = with(LocalDensity.current) { maxWidth.toPx() }
+            val h = with(LocalDensity.current) { maxHeight.toPx() }
+            val brushA = remember(w, h, colorA) {
+                Brush.radialGradient(
+                    colors = listOf(colorA, colorA.copy(alpha = 0f)),
+                    center = Offset(w * 0.15f, h * 0.18f),
+                    radius = w * 0.85f,
+                )
+            }
+            val brushB = remember(w, h, colorB) {
+                Brush.radialGradient(
+                    colors = listOf(colorB, colorB.copy(alpha = 0f)),
+                    center = Offset(w * 0.92f, h * 0.95f),
+                    radius = w * 0.8f,
+                )
+            }
+            Canvas(Modifier.fillMaxSize()) {
+                drawCircle(brushA, radius = w * 0.85f, center = Offset(w * 0.15f, h * 0.18f))
+                drawCircle(brushB, radius = w * 0.8f, center = Offset(w * 0.92f, h * 0.95f))
+            }
+        }
         // 浮动 Logo 区：叠在内容上方，随滚动上浮、分段淡出缩小
         Column(
             modifier = Modifier
@@ -1264,7 +1337,10 @@ private fun AboutContent(
                 )
             }
             item(key = "openSource") {
-                Card(Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = cardModifier.fillMaxWidth(),
+                    colors = cardColors,
+                ) {
                     ArrowPreference(
                         title = Str.open_source(),
                         endActions = {
@@ -1275,7 +1351,10 @@ private fun AboutContent(
                 }
             }
             item(key = "docs") {
-                Card(Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = cardModifier.fillMaxWidth(),
+                    colors = cardColors,
+                ) {
                     ArrowPreference(
                         title = sPrivacy,
                         onClick = { onOpenDoc(sPrivacy, sPrivacyContent) },

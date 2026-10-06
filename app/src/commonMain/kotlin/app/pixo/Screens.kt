@@ -1121,8 +1121,10 @@ private fun IllustDetail(
             for (index in selectedPages.toSortedSet()) {
                 val page = pages.getOrNull(index) ?: continue
                 try {
-                    PixivApi.downloadImage(page.original.ifBlank { page.url }, fileNameFor(page, index))
-                    ok++
+                    // writeDownloadFile 写失败返回 null（不抛异常），必须以返回值统计，
+                    // 否则 SAF 目录失效时会“假成功”
+                    val saved = PixivApi.downloadImage(page.original.ifBlank { page.url }, fileNameFor(page, index))
+                    if (saved != null) ok++ else fail++
                 } catch (e: Exception) {
                     logError("Pixo", "download page $index failed", e)
                     fail++

@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -395,9 +394,6 @@ fun PixoFloatingBar(
     val pillWidthPx = tabWidthPx - indicatorPadding * 2f
     val pillIndex = remember { Animatable(selectedIndex.toFloat().coerceIn(0f, 1f)) }
     val pressProgress = remember { Animatable(0f) }
-    // 幽灵层取样：layerBackdrop 记录“全部标签内容”的副本，供胶囊玻璃采样（InstallerX tabsBackdrop）
-    val tabsBackdrop = rememberLayerBackdrop()
-    val combinedBackdrop = if (glassOn) rememberCombinedBackdrop(backdrop!!, tabsBackdrop) else null
 
     // 外部选中变化（路由/落定变化）→ 胶囊弹簧滑到对应槽位
     LaunchedEffect(selectedIndex) {
@@ -439,10 +435,10 @@ fun PixoFloatingBar(
         else -> Modifier.background(scheme.surfaceContainer, containerShape)
     }
 
-    val indicatorBackground = if (glassOn && combinedBackdrop != null) {
-        // 胶囊玻璃 = 应用背景 + 幽灵标签内容 合并取样：按压时内容像在玻璃里“撑出来”
+    val indicatorBackground = if (glassOn) {
+        // 胶囊玻璃只采样应用背景：按压时透镜折射背景，椭圆里不出现第二个图标/文字
         Modifier.drawBackdrop(
-            backdrop = combinedBackdrop,
+            backdrop = backdrop,
             shape = { pillShape },
             effects = {
                 // 按压进度驱动透镜：深度折射 + 0.5 色散，像手指把玻璃压凹
@@ -560,37 +556,6 @@ fun PixoFloatingBar(
                     .height(64.dp),
             )
 
-            // 2) 液态玻璃幽灵层：屏幕上不可见，但 layerBackdrop 记录标签内容副本；
-            //    胶囊取样 = 应用背景 + 幽灵内容，按压时激活标签像在玻璃里撑出来
-            if (glassOn) {
-                Row(
-                    modifier = Modifier
-                        .clearAndSetSemantics {}
-                        .alpha(0f)
-                        .layerBackdrop(tabsBackdrop)
-                        .then(glowModifier)
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .padding(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    PixoFloatingBarItem(
-                        selected = true,
-                        icon = MiuixIcons.Home,
-                        label = Str.nav_home(),
-                        scale = pressedScale(),
-                        showLabel = false,
-                    )
-                    PixoFloatingBarItem(
-                        selected = true,
-                        icon = MiuixIcons.Settings,
-                        label = Str.nav_settings(),
-                        scale = pressedScale(),
-                        showLabel = false,
-                    )
-                }
-            }
-
             // 3) 滑动胶囊指示器：与容器平级、可自由溢出（不受容器显示大小限制），
             //    按压放大 1.39 倍明显撑出容器；内容画在其上，所以文字始终清晰。
             //    放大时绕槽位中心（标签/图标中心）缩放：首页/账号两侧弹出量完全对称
@@ -678,7 +643,6 @@ private fun RowScope.PixoFloatingBarItem(
     icon: ImageVector,
     label: String,
     scale: Float,
-    showLabel: Boolean = true,
 ) {
     val scheme = MiuixTheme.colorScheme
     val contentColor = if (selected) scheme.primary else scheme.onSurfaceVariantSummary
@@ -700,12 +664,10 @@ private fun RowScope.PixoFloatingBarItem(
             tint = contentColor,
             modifier = Modifier.size(22.dp),
         )
-        if (showLabel) {
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                color = contentColor,
-            )
-        }
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = contentColor,
+        )
     }
 }

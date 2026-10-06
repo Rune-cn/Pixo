@@ -269,47 +269,52 @@ private fun mimeTypeFor(fileName: String): String = when (fileName.substringAfte
     else -> "application/octet-stream"
 }
 
+/** 默认目录 Pictures/Pixo：API 29+ 走 MediaStore（无需任何权限）。 */
+private suspend fun writeDefaultDir(fileName: String, bytes: ByteArray): String? {
+    if (Build.VERSION.SDK_INT >= 29) {
+        val resolver = androidAppContext.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(fileName))
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Pixo")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: throw IllegalStateException("MediaStore insert returned null")
+        try {
+            val out = resolver.openOutputStream(uri)
+                ?: throw IllegalStateException("openOutputStream returned null")
+            out.use { it.write(bytes) }
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            return "Pictures/Pixo/$fileName"
+        } catch (e: Exception) {
+            try { resolver.delete(uri, null, null) } catch (_: Exception) {}
+            throw e
+        }
+    } else {
+        // 旧系统：写公共 Pictures/Pixo 目录（需要存储权限）
+        val dirFile = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+            "Pixo",
+        )
+        dirFile.mkdirs()
+        val f = File(dirFile, fileName)
+        f.writeBytes(bytes)
+        return f.absolutePath
+    }
+}
+
 actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String? =
     kotlinx.coroutines.withContext(ioDispatcher) {
         try {
             val dir = AppPrefs.downloadDir
             if (dir.isBlank()) {
-                // 默认目录 Pictures/Pixo：API 29+ 走 MediaStore（无需任何权限）
-                if (Build.VERSION.SDK_INT >= 29) {
-                    val resolver = androidAppContext.contentResolver
-                    val values = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(fileName))
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Pixo")
-                        put(MediaStore.MediaColumns.IS_PENDING, 1)
-                    }
-                    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                        ?: throw IllegalStateException("MediaStore insert returned null")
-                    try {
-                        val out = resolver.openOutputStream(uri)
-                            ?: throw IllegalStateException("openOutputStream returned null")
-                        out.use { it.write(bytes) }
-                        values.clear()
-                        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                        resolver.update(uri, values, null, null)
-                        return@withContext "Pictures/Pixo/$fileName"
-                    } catch (e: Exception) {
-                        try { resolver.delete(uri, null, null) } catch (_: Exception) {}
-                        throw e
-                    }
-                } else {
-                    // 旧系统：写公共 Pictures/Pixo 目录（需要存储权限）
-                    val dirFile = File(
-                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-                        "Pixo",
-                    )
-                    dirFile.mkdirs()
-                    val f = File(dirFile, fileName)
-                    f.writeBytes(bytes)
-                    return@withContext f.absolutePath
-                }
-            } else {
-                // 用户自选目录（SAF）：只写这里，失败直接返回 null，不做其它兜底
+                return@withContext writeDefaultDir(fileName, bytes)
+            }
+            // 用户自选目录（SAF）：优先写这里
+            try {
                 val uri = Uri.parse(dir)
                 val resolver = androidAppContext.contentResolver
                 val doc = DocumentsContract.createDocument(resolver, uri, mimeTypeFor(fileName), fileName)
@@ -318,6 +323,18 @@ actual suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String
                     ?: throw IllegalStateException("SAF openOutputStream returned null")
                 out.use { it.write(bytes) }
                 return@withContext doc.toString()
+            } catch (e: Exception) {
+                // 目录 URI 失效（SD 卡移除 / 路径不合法，如 Invalid URI）或持久化权限丢失：
+                // 清掉失效目录并回退默认 MediaStore 目录，避免后续每次下载都失败
+                if (e is IllegalArgumentException || e is SecurityException ||
+                    e is java.io.FileNotFoundException
+                ) {
+                    Log.w("Pixo", "download dir invalid, fallback to default: ${e.message}")
+                    AppPrefs.downloadDir = ""
+                    val saved = writeDefaultDir(fileName, bytes)
+                    if (saved != null) return@withContext saved
+                }
+                throw e
             }
         } catch (e: Exception) {
             logError("Pixo", "write download fail", e)
@@ -384,6 +401,11 @@ actual suspend fun listDownloadedImages(): List<DownloadedImage> =
             out.sortByDescending { it.name }
             out
         } catch (e: Exception) {
+            // 目录 URI 失效（SD 卡移除 / 路径不合法）：清掉失效目录，让下载页回退默认目录
+            if (e is IllegalArgumentException || e is SecurityException) {
+                Log.w("Pixo", "download dir invalid, cleared: ${e.message}")
+                AppPrefs.downloadDir = ""
+            }
             logError("Pixo", "list downloaded images fail", e)
             emptyList()
         }
@@ -405,11 +427,12 @@ actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit 
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
+                AppPrefs.downloadDir = uri.toString()
+                onPicked(uri.toString())
             } catch (e: Exception) {
+                // 拿不到持久化权限的目录不保存：重启后必然失效，反而让所有下载失败
                 logError("Pixo", "persist download dir permission failed", e)
             }
-            AppPrefs.downloadDir = uri.toString()
-            onPicked(uri.toString())
         }
     }
     return { launcher.launch(null) }
