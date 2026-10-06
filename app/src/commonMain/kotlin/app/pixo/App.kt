@@ -117,6 +117,7 @@ import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -1176,80 +1177,29 @@ private fun AboutContent(
     val projectNameProgress = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
     val iconProgress = ((scrollProgress - 0.35f) / 0.15f).coerceIn(0f, 1f)
 
-    // 玻璃卡片：与 Legado 一致——有模糊背景源时卡片透明 + 磨砂采样；否则回退普通卡片底色
-    val cardModifier = if (backdrop != null) {
-        Modifier.textureBlur(
-            backdrop = backdrop,
-            shape = RoundedCornerShape(16.dp),
-            blurRadius = 60f,
-            noiseCoefficient = BlurDefaults.NoiseCoefficient,
-            colors = BlurColors(
-                blendColors = listOf(
-                    BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f)),
-                ),
+    // 玻璃卡片：与 Legado 一致——卡片透明 + 磨砂采样“背景专用 backdrop”（只含背景光效，
+    // 绝不能采样包住卡片自己的内容盒 backdrop，否则渲染树每帧自嵌套加深、RenderThread 栈溢出）
+    val bgSurface = MiuixTheme.colorScheme.surface
+    val bgBackdrop = rememberLayerBackdrop {
+        drawRect(bgSurface)
+        drawContent()
+    }
+    val cardModifier = Modifier.textureBlur(
+        backdrop = bgBackdrop,
+        shape = RoundedCornerShape(16.dp),
+        blurRadius = 60f,
+        noiseCoefficient = BlurDefaults.NoiseCoefficient,
+        colors = BlurColors(
+            blendColors = listOf(
+                BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f)),
             ),
-        )
-    } else {
-        Modifier
-    }
-    val cardColors = if (backdrop != null) {
-        CardDefaults.defaultColors(Color.Transparent, Color.Transparent)
-    } else {
-        CardDefaults.defaultColors()
-    }
+        ),
+    )
+    val cardColors = CardDefaults.defaultColors(Color.Transparent, Color.Transparent)
 
     Box(Modifier.fillMaxSize()) {
-        // 背景光效：仿 Legado BgEffectBackground——三个主题容器色按阶段循环流动的双色斑，
-        // 随滚动整体淡出；滚动到卡片区后让位给顶栏毛玻璃
-        val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-        val blobA = MiuixTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.5f)
-        val blobB = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.45f else 0.4f)
-        val blobC = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.4f else 0.35f)
-        val colorStage = remember { Animatable(0f) }
-        LaunchedEffect(Unit) {
-            // 循环推进色阶：先停留再 spring 过渡（对齐 Legado 的 colorInterpPeriod 节奏）
-            while (isActive) {
-                val target = floor(colorStage.value) + 1f
-                delay(1500L)
-                colorStage.animateTo(target, spring(dampingRatio = 0.9f, stiffness = 35f))
-            }
-        }
-        val stageFloat = (colorStage.value % 3f + 3f) % 3f
-        val stageIndex = floor(stageFloat).toInt()
-        val frac = stageFloat - floor(stageFloat)
-        val palettes = listOf(
-            listOf(blobA, blobB),
-            listOf(blobB, blobC),
-            listOf(blobC, blobA),
-        )
-        val colorA = lerp(palettes[stageIndex][0], palettes[stageIndex][1], frac)
-        val colorB = lerp(palettes[(stageIndex + 1) % 3][0], palettes[(stageIndex + 1) % 3][1], frac)
-        BoxWithConstraints(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = 1f - scrollProgress },
-        ) {
-            val w = with(LocalDensity.current) { maxWidth.toPx() }
-            val h = with(LocalDensity.current) { maxHeight.toPx() }
-            val brushA = remember(w, h, colorA) {
-                Brush.radialGradient(
-                    colors = listOf(colorA, colorA.copy(alpha = 0f)),
-                    center = Offset(w * 0.15f, h * 0.18f),
-                    radius = w * 0.85f,
-                )
-            }
-            val brushB = remember(w, h, colorB) {
-                Brush.radialGradient(
-                    colors = listOf(colorB, colorB.copy(alpha = 0f)),
-                    center = Offset(w * 0.92f, h * 0.95f),
-                    radius = w * 0.8f,
-                )
-            }
-            Canvas(Modifier.fillMaxSize()) {
-                drawCircle(brushA, radius = w * 0.85f, center = Offset(w * 0.15f, h * 0.18f))
-                drawCircle(brushB, radius = w * 0.8f, center = Offset(w * 0.92f, h * 0.95f))
-            }
-        }
+        // 背景光效：独立组件（动画状态只影响背景自身，不带动整页重组）
+        AboutBgEffect(scrollProgress = scrollProgress, backdrop = bgBackdrop)
         // 浮动 Logo 区：叠在内容上方，随滚动上浮、分段淡出缩小
         Column(
             modifier = Modifier
@@ -1380,6 +1330,63 @@ private fun AboutContent(
                 .fillMaxHeight(),
             trackPadding = scrollPadding,
         )
+    }
+}
+
+/** 关于页背景光效：仿 Legado BgEffectBackground——三个主题容器色按阶段循环流动的双色斑。
+ * [backdrop] 是“背景专用”采样源（挂在背景节点上，只含背景光效，不含卡片/内容），
+ * 玻璃卡片从这里取样，避免采样包含卡片自身的内容盒导致渲染树自递归。 */
+@Composable
+private fun AboutBgEffect(scrollProgress: Float, backdrop: LayerBackdrop) {
+    val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    val blobA = MiuixTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.55f else 0.5f)
+    val blobB = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.45f else 0.4f)
+    val blobC = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.4f else 0.35f)
+    val colorStage = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        // 循环推进色阶：先停留再 spring 过渡（对齐 Legado 的 colorInterpPeriod 节奏）
+        while (isActive) {
+            val target = floor(colorStage.value) + 1f
+            delay(1500L)
+            colorStage.animateTo(target, spring(dampingRatio = 0.9f, stiffness = 35f))
+        }
+    }
+    val stageFloat = (colorStage.value % 3f + 3f) % 3f
+    val stageIndex = floor(stageFloat).toInt()
+    val frac = stageFloat - floor(stageFloat)
+    val palettes = listOf(
+        listOf(blobA, blobB),
+        listOf(blobB, blobC),
+        listOf(blobC, blobA),
+    )
+    val colorA = lerp(palettes[stageIndex][0], palettes[stageIndex][1], frac)
+    val colorB = lerp(palettes[(stageIndex + 1) % 3][0], palettes[(stageIndex + 1) % 3][1], frac)
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .layerBackdrop(backdrop)
+            .graphicsLayer { alpha = 1f - scrollProgress },
+    ) {
+        val w = with(LocalDensity.current) { maxWidth.toPx() }
+        val h = with(LocalDensity.current) { maxHeight.toPx() }
+        val brushA = remember(w, h, colorA) {
+            Brush.radialGradient(
+                colors = listOf(colorA, colorA.copy(alpha = 0f)),
+                center = Offset(w * 0.15f, h * 0.18f),
+                radius = w * 0.85f,
+            )
+        }
+        val brushB = remember(w, h, colorB) {
+            Brush.radialGradient(
+                colors = listOf(colorB, colorB.copy(alpha = 0f)),
+                center = Offset(w * 0.92f, h * 0.95f),
+                radius = w * 0.8f,
+            )
+        }
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(brushA, radius = w * 0.85f, center = Offset(w * 0.15f, h * 0.18f))
+            drawCircle(brushB, radius = w * 0.8f, center = Offset(w * 0.92f, h * 0.95f))
+        }
     }
 }
 
