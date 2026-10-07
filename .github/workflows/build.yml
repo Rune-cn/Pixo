@@ -114,8 +114,9 @@ jobs:
             "$KS_PASS" "$KS_ALIAS" "$KEY_PASS" > keystore.properties
           ./gradlew :app:assembleRelease --no-daemon --stacktrace
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
           echo "== 签名校验 =="
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$APK"
+          "$APKSIGNER" verify --print-certs "$APK"
 
       - name: Upload release APK
         if: always()
