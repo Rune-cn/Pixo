@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MiuixApp"
+rootProject.name = "Pixo"
 include(":app")

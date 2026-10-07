@@ -65,14 +65,20 @@ android {
     }
 
     signingConfigs {
+        // keystore.properties 与密钥库文件均不入库（见 .gitignore）。
+        // 本地有该文件时才填充 release 签名；CI / 无签名环境下创建空配置，
+        // 使 debug 构建（自带调试签名）可在无 keystore 时正常配置与出包。
         create("release") {
-            val props = rootProject.file("keystore.properties").readLines()
-                .map { it.split("=", limit = 2) }
-                .associate { it[0] to it[1] }
-            storeFile = file(props.getValue("storeFile"))
-            storePassword = props.getValue("storePassword")
-            keyAlias = props.getValue("keyAlias")
-            keyPassword = props.getValue("keyPassword")
+            val ksFile = rootProject.file("keystore.properties")
+            if (ksFile.exists()) {
+                val props = ksFile.readLines()
+                    .mapNotNull { line -> line.split("=", limit = 2).takeIf { it.size == 2 } }
+                    .associate { it[0] to it[1] }
+                storeFile = file(props.getValue("storeFile"))
+                storePassword = props.getValue("storePassword")
+                keyAlias = props.getValue("keyAlias")
+                keyPassword = props.getValue("keyPassword")
+            }
         }
     }
 
