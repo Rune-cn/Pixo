@@ -74,3 +74,53 @@ jobs:
 
       - name: Compile Android Kotlin
         run: ./gradlew :app:compileDebugKotlinAndroid --no-daemon --stacktrace
+
+  # 正式签名包：密钥经仓库 Secrets 注入（PIXO_KEYSTORE_BASE64 / PIXO_KEYSTORE_PASSWORD /
+  # PIXO_KEY_ALIAS / PIXO_KEY_PASSWORD），未配置时跳过 release 构建
+  release:
+    name: Android Release APK (signed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build & verify signed release APK
+        env:
+          KS_B64: ${{ secrets.PIXO_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.PIXO_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.PIXO_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.PIXO_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::warning::未配置签名密钥 Secrets，跳过 release 构建（仅 debug 出包）"
+            exit 0
+          fi
+          echo "$KS_B64" | base64 -d > pixo-keystore.jks
+          printf 'storeFile=../pixo-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KS_PASS" "$KS_ALIAS" "$KEY_PASS" > keystore.properties
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          echo "== 签名校验 =="
+          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$APK"
+
+      - name: Upload release APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixo-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
