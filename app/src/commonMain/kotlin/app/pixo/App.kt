@@ -213,7 +213,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
         }
     }
 
-    // 主标签页：单个 Pager 承载首页/设置页（对齐示例应用），路由只代表「是否在标签根页」。
+    // 主标签页：单个 Pager 承载首页/设置页，路由只代表「是否在标签根页」。
     // 选中态立即更新 + EaseInOut tween 快速切换，见 MainPagerState。
     val mainPagerState = rememberMainPagerState()
     // 子页面「去设置」请求：先回到标签根，再让 Pager 落到设置页
@@ -268,7 +268,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                 val density = LocalDensity.current
                 val backRoute = current?.route
                 val isAtRoot = backRoute == "app.pixo.Home"
-                // 标签根页且停在设置页：返回手势应先回落首页标签（对齐示例应用 MainScreenBackHandler）
+                // 标签根页且停在设置页：返回手势应先回落首页标签
                 val atRootOnSecondTab = isAtRoot && mainPagerState.selectedPage != 0
                 val barBackdrop = rememberPixoBlurBackdrop()
                 Box(
@@ -610,7 +610,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                 )
                 } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
                   // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出
-                // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出（参考 InstallerX 主题切换动画）
+                // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出
                 if (isTabPage) {
                     AnimatedVisibility(
                         visible = !floatingBar,
@@ -624,7 +624,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                     .onSizeChanged {
                                         barHeight = with(density) { it.height.toDp() }
                                     },
-                                // 对齐 Legado 默认“自动”模式：选中图标上移、取消选中回落，文字只在选中时淡入
+                                // 默认“自动”模式：选中图标上移、取消选中回落，文字只在选中时淡入
                                 mode = NavigationBarDisplayMode.IconWithSelectedLabel,
                             ) {
                                 NavigationBarItem(
@@ -647,11 +647,15 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
                         exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
                     ) {
-                        PixoFloatingBar(
-                            backdrop = barBackdrop,
-                            liquidGlass = liquidGlass,
+                        FloatingBottomBar(
+                            items = listOf(
+                                FloatingBottomBarItem(MiuixIcons.Home, Str.nav_home()),
+                                FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
+                            ),
                             selectedIndex = mainPagerState.selectedPage,
-                            onPageSelect = { index -> mainPagerState.animateToPage(index) },
+                            onSelected = { index -> mainPagerState.animateToPage(index) },
+                            backdrop = barBackdrop,
+                            mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
                             onSizeChanged = { barHeight = it },
                         )
                     }
@@ -663,7 +667,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
 }
 
 /**
- * 标签页容器：首页与账号页由同一个 HorizontalPager 承载（对齐示例应用），
+ * 标签页容器：首页与账号页由同一个 HorizontalPager 承载，
  * 左右滑动/悬浮底栏/普通底栏都在页内切换，绝不触发路由跳转；
  * PagerState 提升到 App 层，跨子页面保留在页滚动位。
  */
@@ -688,7 +692,7 @@ private fun MainTabsHost(
     onOpenFollows: (Long, String) -> Unit,
     onOpenWebLogin: () -> Unit,
 ) {
-    // 手动滑动落定后同步悬浮底栏高亮（对齐示例应用 syncPage 范式）
+    // 手动滑动落定后同步悬浮底栏高亮
     LaunchedEffect(mainPagerState.pagerState.currentPage) { mainPagerState.syncPage() }
     // 子页面「去设置」：回到标签根后把 Pager 落到设置页
     LaunchedEffect(pendingTabPage) {
@@ -1050,7 +1054,7 @@ private fun formatBytes(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-/** 关于页：按 legado-with-MD3 的 MiuixAboutScreen 结构复刻（沉浸式滚动顶栏 + 背景光效 + 浮动 Logo + 卡片列表）。 */
+/** 关于页：MiuixAboutScreen 风格（沉浸式滚动顶栏 + 背景光效 + 浮动 Logo + 卡片列表）。 */
 @OptIn(ExperimentalScrollBarApi::class)
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
@@ -1059,7 +1063,7 @@ fun AboutScreen(onBack: () -> Unit) {
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
 
-    // 滚动进度：以透明 logoSpacer 的实际高度为分母（对齐 Legado）
+    // 滚动进度：以透明 logoSpacer 的实际高度为分母
     val scrollProgress by remember {
         derivedStateOf {
             when {
@@ -1087,7 +1091,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 color = if (blurActive) Color.Transparent
                 else if (scrollProgress == 1f) MiuixTheme.colorScheme.surface
                 else Color.Transparent,
-                // 标题随滚动淡入（对齐 Legado：0.35~1.0 区间）
+                // 标题随滚动淡入（0.35~1.0 区间）
                 titleColor = MiuixTheme.colorScheme.onSurface.copy(
                     alpha = ((scrollProgress - 0.35f) / 0.65f).coerceIn(0f, 1f),
                 ),
@@ -1153,7 +1157,7 @@ private fun AboutContent(
     )
     var logoHeightDp by remember { mutableStateOf(300.dp) }
 
-    // 分三段淡出：版本号 → 项目名 → Logo（对齐 Legado 的分段进度）
+    // 分三段淡出：版本号 → 项目名 → Logo
     val versionCodeProgress = ((scrollProgress - 0.05f) / 0.15f).coerceIn(0f, 1f)
     val projectNameProgress = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
     val iconProgress = ((scrollProgress - 0.35f) / 0.15f).coerceIn(0f, 1f)
@@ -1277,7 +1281,7 @@ private fun AboutContent(
             item { Spacer(Modifier.height(12.dp)) }
         }
 
-        // 滚动条（对齐 Legado 的 VerticalScrollBar）
+        // 滚动条
         VerticalScrollBar(
             adapter = rememberScrollBarAdapter(lazyListState),
             modifier = Modifier
@@ -1288,7 +1292,7 @@ private fun AboutContent(
     }
 }
 
-/** 关于页背景光效：仿 Legado BgEffectBackground——三个主题容器色按阶段循环流动的双色斑。 */
+/** 关于页背景光效：三个主题容器色按阶段循环流动的双色斑。 */
 @Composable
 private fun AboutBgEffect(scrollProgress: Float) {
     val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
@@ -1298,7 +1302,7 @@ private fun AboutBgEffect(scrollProgress: Float) {
     val blobC = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.18f else 0.14f)
     val colorStage = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        // 循环推进色阶：先停留再 spring 过渡（对齐 Legado 的 colorInterpPeriod 节奏）
+        // 循环推进色阶：先停留再 spring 过渡
         while (isActive) {
             val target = floor(colorStage.value) + 1f
             delay(1500L)
@@ -1343,7 +1347,7 @@ private fun AboutBgEffect(scrollProgress: Float) {
     }
 }
 
-/** 关于页右侧值文本：与列表项等高的主题次要色（对齐 Legado ValueText）。 */
+/** 关于页右侧值文本：与列表项等高的主题次要色。 */
 @Composable
 private fun ValueText(text: String) {
     Text(

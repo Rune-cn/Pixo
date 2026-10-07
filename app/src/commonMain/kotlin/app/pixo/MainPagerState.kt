@@ -18,10 +18,10 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
 /**
- * 主标签页驱动（对齐 InstallerX-Revived 的 MainPagerState 范式）：
+ * 主标签页驱动：
  * - 点按/拖拽落定后选中态立即更新，底栏高亮即时反馈；
  * - 切页动画用 EaseInOut tween（相邻页 200ms、每多跨一页 +100ms），
- *   比 Pager 默认弹簧动画更跟手，观感接近示例应用；
+ *   比 Pager 默认弹簧动画更跟手；
  * - 新请求会打断上一次动画，被打断/失败时选中态回落到实际页码。
  */
 class MainPagerState(

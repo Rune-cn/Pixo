@@ -1,7 +1,6 @@
 package app.pixo
 
-// 从 InstallerX Revived（com.rosan.installer.ui.library.liquid）移植的液态玻璃配方，
-// 原始出处 Kyant0/AndroidLiquidGlass (Apache-2.0)。
+// 液态玻璃配方。
 
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.runtime.Composable
@@ -40,7 +39,7 @@ import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.runtimeShaderEffect
 
 /**
- * 对齐 InstallerX 的 `vibrancy()`：把玻璃里透出的内容饱和度拉高，呈现“更鲜艳的玻璃”。
+ * 提升玻璃里透出内容的饱和度，呈现“更鲜艳的玻璃”。
  * 在 [BackdropEffectScope] 中调用，作用于整块玻璃的采样层。
  */
 fun BackdropEffectScope.vibrancy() {
@@ -52,7 +51,7 @@ fun BackdropEffectScope.vibrancy() {
 }
 
 /**
- * 圆角矩形折射透镜（InstallerX 同款，AGSL RuntimeShader）。
+ * 圆角矩形折射透镜（AGSL RuntimeShader）。
  *
  * @param refractionHeight 边缘折射过渡带高度（px）
  * @param refractionAmount 折射位移量（px）
@@ -267,7 +266,7 @@ half4 main(float2 coord) {
 """
 
 /**
- * 内阴影参数（InstallerX 同款）。
+ * 内阴影参数。
  * 悬浮底栏的玻璃“厚边”靠它压出来：radius 与按压进度联动，
  * 按下时边缘向内收一圈黑，模拟玻璃被手指压出厚度。
  */
@@ -395,7 +394,7 @@ private val ShadowMaskPaint: Paint = Paint().apply {
 
 /**
  * 组合 Backdrop：先画 [first] 再画 [second]。
- * InstallerX 用它把「透明激活层（选中态内容）」叠在页面背景上，
+ * 把「透明激活层（选中态内容）」叠在页面背景上，
  * 让指示器透镜采样到含选中内容的玻璃。
  */
 @Stable
