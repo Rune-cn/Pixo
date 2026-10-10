@@ -93,9 +93,18 @@ object PixivApi {
         commentId: Long,
         appNextUrl: String? = null,
         webPage: Int = 1,
-    ): PixivReplyPage =
-        if (AppPrefs.cookie.isNotBlank()) WebPixivApi.fetchCommentReplies(kind, id, commentId, webPage)
-        else AppPixivApi.fetchCommentReplies(kind, id, commentId, appNextUrl)
+    ): PixivReplyPage {
+        // 网页端点可靠（roots/replies 同走会话 Cookie）；异常（如被风控 403/会话失效）时退回
+        // App API `/v1/{kind}/comment/replies`（其对部分评论返回 404，仅作兜底），并记录日志。
+        if (AppPrefs.cookie.isNotBlank()) {
+            try {
+                return WebPixivApi.fetchCommentReplies(kind, id, commentId, webPage)
+            } catch (e: Exception) {
+                logError("WebApi", "fetchCommentReplies web failed, fallback to app api", e)
+            }
+        }
+        return AppPixivApi.fetchCommentReplies(kind, id, commentId, appNextUrl)
+    }
 
     /** 发表评论/追评：[parentCommentId] > 0 时为回复某个评论。 */
     /** 相关作品：Token 模式走 App API `/v1/illust/recommended`，否则网页 `/ajax/illust/{id}/recommend/init`。 */
