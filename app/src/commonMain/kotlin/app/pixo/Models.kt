@@ -1,6 +1,7 @@
 package app.pixo
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 /** 设置备份（数据页导出 / 导入用，仅偏好设置，不含任何登录凭据）。 */
 @Serializable
