@@ -113,6 +113,29 @@ actual object AppPrefs {
             prefs.putString("tag_block_patterns", value)
         }
 }
+    actual var webdavUrl: String
+        get() = prefs.getString("webdav_url", "")
+        set(value) {
+            prefs.putString("webdav_url", value)
+        }
+
+    actual var webdavUser: String
+        get() = prefs.getString("webdav_user", "")
+        set(value) {
+            prefs.putString("webdav_user", value)
+        }
+
+    actual var webdavPassword: String
+        get() = prefs.getString("webdav_password", "")
+        set(value) {
+            prefs.putString("webdav_password", value)
+        }
+
+    actual var history: String
+        get() = prefs.getString("history", "")
+        set(value) {
+            prefs.putString("history", value)
+        }
 
 actual object LocalAppLocale {
     private var default: Locale? = null

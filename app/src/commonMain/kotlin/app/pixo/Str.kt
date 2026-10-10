@@ -199,4 +199,19 @@ internal expect object Str {
     @Composable fun tag_block_summary(): String
     @Composable fun tag_block_save(): String
     @Composable fun tag_block_hint(): String
+    @Composable fun settings_section_block(): String
+    @Composable fun webdav_desc(): String
+    @Composable fun webdav_url(): String
+    @Composable fun webdav_user(): String
+    @Composable fun webdav_password(): String
+    @Composable fun webdav_backup(): String
+    @Composable fun webdav_restore(): String
+    @Composable fun webdav_success(): String
+    @Composable fun webdav_restored(): String
+    @Composable fun webdav_failed(): String
+    @Composable fun webdav_empty(): String
+    @Composable fun history_title(): String
+    @Composable fun history_empty(): String
+    @Composable fun history_clear(): String
+    @Composable fun history_cleared(): String
 }

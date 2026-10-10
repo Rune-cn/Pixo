@@ -199,5 +199,20 @@
     <string name="tag_block_hint">匹配作品任一标签即过滤，忽略大小写。示例：
 R-18
 furry.*</string>
+    <string name="settings_section_block">屏蔽</string>
+    <string name="webdav_desc">将设置偏好备份到 WebDAV 服务器（pixo-settings.json）</string>
+    <string name="webdav_url">服务器地址</string>
+    <string name="webdav_user">用户名</string>
+    <string name="webdav_password">密码</string>
+    <string name="webdav_backup">备份到 WebDAV</string>
+    <string name="webdav_restore">从 WebDAV 恢复</string>
+    <string name="webdav_success">备份成功</string>
+    <string name="webdav_restored">已从 WebDAV 恢复</string>
+    <string name="webdav_failed">WebDAV 操作失败</string>
+    <string name="webdav_empty">请先填写服务器地址</string>
+    <string name="history_title">历史</string>
+    <string name="history_empty">暂无本地浏览历史</string>
+    <string name="history_clear">清空历史</string>
+    <string name="history_cleared">历史已清空</string>
 </resources>
 

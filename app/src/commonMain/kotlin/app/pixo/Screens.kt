@@ -1046,6 +1046,8 @@ private fun IllustDetail(
             FeedCache.illustPages[workId] = p
             detail = d
             pages = p
+            // 记录本地浏览历史（插画/漫画，缩略图取第一页）
+            HistoryStore.add(HistoryItem(workId, "illust", d.title, p.firstOrNull()?.url.orEmpty(), System.currentTimeMillis()))
             // ugoira 动图：详情命中 illustType=2 时取帧元数据，失败不影响正文
             if (d.illustType == 2) {
                 try {
@@ -2306,6 +2308,8 @@ private fun NovelDetail(
             val d = PixivApi.fetchNovelDetail(workId)
             FeedCache.novelDetail[workId] = d
             detail = d
+            // 记录本地浏览历史（小说）
+            HistoryStore.add(HistoryItem(workId, "novel", d.title, "", System.currentTimeMillis()))
         } catch (e: Exception) {
             error = e.friendlyMessage()
             logError("Pixo", "load failed", e)

@@ -198,6 +198,21 @@
     <string name="tag_block_hint">A work is filtered if any tag matches. Case-insensitive. Examples:
 R-18
 furry.*</string>
+    <string name="settings_section_block">Blocking</string>
+    <string name="webdav_desc">Back up preferences to a WebDAV server (pixo-settings.json)</string>
+    <string name="webdav_url">Server URL</string>
+    <string name="webdav_user">Username</string>
+    <string name="webdav_password">Password</string>
+    <string name="webdav_backup">Backup to WebDAV</string>
+    <string name="webdav_restore">Restore from WebDAV</string>
+    <string name="webdav_success">Backup succeeded</string>
+    <string name="webdav_restored">Restored from WebDAV</string>
+    <string name="webdav_failed">WebDAV operation failed</string>
+    <string name="webdav_empty">Enter the server URL first</string>
+    <string name="history_title">History</string>
+    <string name="history_empty">No local browsing history</string>
+    <string name="history_clear">Clear history</string>
+    <string name="history_cleared">History cleared</string>
 </resources>
 
 

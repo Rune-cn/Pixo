@@ -156,6 +156,9 @@ internal object DataSettings
 internal object Downloads
 
 @Serializable
+internal object History
+
+@Serializable
 internal object About
 
 @Serializable
@@ -254,6 +257,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     val openWebLogin: () -> Unit = { navController.navigate(WebLogin) }
     val openAppSettings: () -> Unit = { navController.navigate(AppSettings) }
     val openDownloads: () -> Unit = { navController.navigate(Downloads) }
+    val openHistory: () -> Unit = { navController.navigate(History) }
     val openAbout: () -> Unit = { navController.navigate(About) }
     val controller = remember(themeMode, dynamicColor) {
         if (dynamicColor && !isDesktop) {
@@ -344,6 +348,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenDetail = openDetail,
                             onOpenBookmarks = openBookmarks,
                             onOpenAppSettings = openAppSettings,
+                            onOpenHistory = openHistory,
                             onOpenDownloads = openDownloads,
                             onOpenAbout = openAbout,
                             onOpenUser = openUser,
@@ -404,6 +409,17 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         popExitTransition = { miuixPopExit() },
                     ) {
                         DownloadsScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable<History>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        HistoryScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
+                        )
                     }
                     composable<About>(
                         enterTransition = { miuixPushEnter() },
@@ -703,6 +719,7 @@ private fun MainTabsHost(
     onPendingTabHandled: () -> Unit,
     onGoSettingsTab: () -> Unit,
     onOpenAppSettings: () -> Unit,
+    onOpenHistory: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenRanking: (String, String) -> Unit,
@@ -750,6 +767,7 @@ private fun MainTabsHost(
                 onOpenUser = onOpenUser,
                 onOpenFollows = onOpenFollows,
                 onOpenAppSettings = onOpenAppSettings,
+                onOpenHistory = onOpenHistory,
                 onOpenDownloads = onOpenDownloads,
                 onOpenAbout = onOpenAbout,
                 bottomPadding = bottomPadding,
@@ -764,6 +782,7 @@ fun SettingsPage(
     onOpenUser: (Long) -> Unit,
     onOpenFollows: (Long, String) -> Unit,
     onOpenAppSettings: () -> Unit,
+    onOpenHistory: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenAbout: () -> Unit,
     bottomPadding: Dp = 0.dp,
@@ -853,6 +872,10 @@ fun SettingsPage(
                         onClick = onOpenAppSettings,
                     )
                     ArrowPreference(
+                        title = Str.history_title(),
+                        onClick = onOpenHistory,
+                    )
+                    ArrowPreference(
                         title = Str.download(),
                         onClick = onOpenDownloads,
                     )
@@ -909,6 +932,14 @@ fun DataPage(onBack: () -> Unit) {
     val sImportSuccess = Str.import_success()
     val sImportFailed = Str.import_failed()
     val sCacheCleared = Str.cache_cleared()
+    val sWebdavSuccess = Str.webdav_success()
+    val sWebdavRestored = Str.webdav_restored()
+    val sWebdavFailed = Str.webdav_failed()
+    var webdavUrl by remember { mutableStateOf(AppPrefs.webdavUrl) }
+    var webdavUser by remember { mutableStateOf(AppPrefs.webdavUser) }
+    var webdavPass by remember { mutableStateOf(AppPrefs.webdavPassword) }
+    var webdavBusy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val pickFolder = rememberDownloadFolderPicker { dir -> downloadDir = dir }
     val exportFile = rememberExportSettingsFile { ok ->
         toast = if (ok) sExportSuccess else sExportFailed
@@ -967,6 +998,81 @@ fun DataPage(onBack: () -> Unit) {
                         )
                     }
                 }
+                item { SettingsSectionHeader("WebDAV") }
+                item {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        Column(
+                            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = Str.webdav_desc(),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                            TextField(
+                                value = webdavUrl,
+                                onValueChange = {
+                                    webdavUrl = it
+                                    AppPrefs.webdavUrl = it
+                                },
+                                label = Str.webdav_url(),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TextField(
+                                value = webdavUser,
+                                onValueChange = {
+                                    webdavUser = it
+                                    AppPrefs.webdavUser = it
+                                },
+                                label = Str.webdav_user(),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TextField(
+                                value = webdavPass,
+                                onValueChange = {
+                                    webdavPass = it
+                                    AppPrefs.webdavPassword = it
+                                },
+                                label = Str.webdav_password(),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            webdavBusy = true
+                                            val ok = WebDavApi.backup(exportSettingsJson())
+                                            toast = if (ok) sWebdavSuccess else sWebdavFailed
+                                            webdavBusy = false
+                                        }
+                                    },
+                                    enabled = !webdavBusy,
+                                    modifier = Modifier.weight(1f),
+                                ) { Text(Str.webdav_backup()) }
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            webdavBusy = true
+                                            val json = WebDavApi.restore()
+                                            toast = if (json != null && importSettingsJson(json)) sWebdavRestored else sWebdavFailed
+                                            webdavBusy = false
+                                        }
+                                    },
+                                    enabled = !webdavBusy,
+                                    modifier = Modifier.weight(1f),
+                                ) { Text(Str.webdav_restore()) }
+                            }
+                        }
+                    }
+                }
             }
             BottomToast(toast)
         }
@@ -981,6 +1087,80 @@ private fun SettingEntryRow(title: String, onClick: () -> Unit) {
 
 /** 下载页：展示已下载目录里的图片（默认 Pictures/Pixo 或自选 SAF 目录）。 */
 @Composable
+/** 历史页：本地看过的作品（插画/小说），点按进入详情页。 */
+@Composable
+fun HistoryScreen(onBack: () -> Unit, onOpenDetail: (Long, String) -> Unit) {
+    var items by remember { mutableStateOf(HistoryStore.load()) }
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.history_title(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = innerPadding,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            overscrollEffect = null,
+        ) {
+            if (items.isEmpty()) {
+                item {
+                    Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(Str.history_empty(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    }
+                }
+            } else {
+                items(items, key = { "${it.kind}:${it.id}" }) { entry ->
+                    HistoryRow(entry) { onOpenDetail(entry.id, entry.kind) }
+                }
+                item {
+                    Card(Modifier.fillMaxWidth().clickable {
+                        HistoryStore.clear()
+                        items = emptyList()
+                    }) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.Center) {
+                            Text(Str.history_clear(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRow(entry: HistoryItem, onClick: () -> Unit) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (entry.thumb.isNotBlank()) {
+                    val ctx = LocalPlatformContext.current
+                    AsyncImage(
+                        model = remember(entry.thumb) { ImageRequest.Builder(ctx).data(entry.thumb).crossfade(true).build() },
+                        contentDescription = entry.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Icon(MiuixIcons.Notes, contentDescription = null, tint = MiuixTheme.colorScheme.onSurfaceVariantSummary, modifier = Modifier.size(24.dp))
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(entry.title.ifBlank { "#${entry.id}" }, style = MiuixTheme.textStyles.body1, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "#${entry.id} · ${if (entry.kind == "novel") "novel" else "illust"}",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+        }
+    }
+}
+
 fun DownloadsScreen(onBack: () -> Unit) {
     var images by remember { mutableStateOf<List<DownloadedImage>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1636,6 +1816,15 @@ fun ContentPage(
                         checked = ugoiraConfirm,
                         onCheckedChange = { onUgoiraConfirmChange(it) },
                     )
+                }
+            }
+            item { SettingsSectionHeader(Str.settings_section_block()) }
+            item {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
                     ArrowPreference(
                         title = Str.tag_block(),
                         summary = Str.tag_block_summary(),

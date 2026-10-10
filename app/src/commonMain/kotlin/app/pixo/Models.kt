@@ -13,6 +13,10 @@ data class SettingsBackup(
     val liquidGlass: Boolean = true,
     val downloadDir: String = "",
     val ugoiraConfirm: Boolean = true,
+    val tagBlockPatterns: String = "",
+    val webdavUrl: String = "",
+    val webdavUser: String = "",
+    val webdavPassword: String = "",
 )
 
 /** 插画/漫画列表条目。 */
@@ -197,5 +201,35 @@ object TagBlock {
                 runCatching { Regex(p, RegexOption.IGNORE_CASE).containsMatchIn(tag) }.getOrDefault(false)
             }
         }
+    }
+}
+
+/** 本地浏览历史条目（kind：illust / novel）。 */
+@Serializable
+data class HistoryItem(
+    val id: Long,
+    val kind: String,
+    val title: String,
+    val thumb: String,
+    val time: Long,
+)
+
+/** 本地浏览历史：最近 200 条，JSON 持久化在 [AppPrefs.history]。 */
+object HistoryStore {
+    private const val MAX = 200
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    fun load(): List<HistoryItem> = runCatching {
+        json.decodeFromString<List<HistoryItem>>(AppPrefs.history)
+    }.getOrDefault(emptyList())
+
+    fun add(item: HistoryItem) {
+        val list = load().filterNot { it.id == item.id && it.kind == item.kind }
+        val next = (listOf(item) + list).take(MAX)
+        AppPrefs.history = runCatching { json.encodeToString(next) }.getOrDefault("")
+    }
+
+    fun clear() {
+        AppPrefs.history = ""
     }
 }

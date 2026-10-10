@@ -41,6 +41,12 @@ expect object AppPrefs {
     var ugoiraConfirm: Boolean
     /** 标签屏蔽规则：每行一条正则，匹配到作品的任一标签即过滤。 */
     var tagBlockPatterns: String
+    /** WebDAV 备份服务器地址 / 用户名 / 密码。 */
+    var webdavUrl: String
+    var webdavUser: String
+    var webdavPassword: String
+    /** 本地观看历史（JSON 序列化）。 */
+    var history: String
 }
 
 expect object LocalAppLocale {
@@ -173,6 +179,10 @@ fun exportSettingsJson(): String = runCatching {
             liquidGlass = AppPrefs.liquidGlass,
             downloadDir = AppPrefs.downloadDir,
             ugoiraConfirm = AppPrefs.ugoiraConfirm,
+            tagBlockPatterns = AppPrefs.tagBlockPatterns,
+            webdavUrl = AppPrefs.webdavUrl,
+            webdavUser = AppPrefs.webdavUser,
+            webdavPassword = AppPrefs.webdavPassword,
         ),
     )
 }.getOrDefault("")
@@ -188,6 +198,10 @@ fun importSettingsJson(json: String): Boolean = runCatching {
     AppPrefs.liquidGlass = b.liquidGlass
     AppPrefs.downloadDir = b.downloadDir
     AppPrefs.ugoiraConfirm = b.ugoiraConfirm
+    AppPrefs.tagBlockPatterns = b.tagBlockPatterns
+    AppPrefs.webdavUrl = b.webdavUrl
+    AppPrefs.webdavUser = b.webdavUser
+    AppPrefs.webdavPassword = b.webdavPassword
     PixivApi.refreshClient()
     refreshNetworkConfig()
     applyAppLanguage(b.language)
