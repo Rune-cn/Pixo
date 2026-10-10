@@ -112,7 +112,7 @@ actual object AppPrefs {
         set(value) {
             prefs.putString("tag_block_patterns", value)
         }
-}
+
     actual var webdavUrl: String
         get() = prefs.getString("webdav_url", "")
         set(value) {
@@ -136,6 +136,7 @@ actual object AppPrefs {
         set(value) {
             prefs.putString("history", value)
         }
+}
 
 actual object LocalAppLocale {
     private var default: Locale? = null
