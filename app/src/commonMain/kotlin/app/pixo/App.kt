@@ -11,12 +11,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,7 +21,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -46,6 +39,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -102,7 +97,6 @@ import kotlin.math.floor
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownArrowEndAction
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
@@ -1423,8 +1417,8 @@ private fun SettingsSectionHeader(text: String) {
 }
 
 /**
- * 下拉选择行（受控展开）：展开时由本组件接管返回键，先关闭浮层（预见式返回），
- * 而不是弹走整个设置页。
+ * 下拉选择行（沿用原版 OverlayDropdownPreference）：展开时由本组件接管返回键，
+ * 通过重建偏好项复位其内部展开态来关闭浮层（预见式返回），不弹走设置页。
  */
 @Composable
 private fun PixoDropdownPreference(
@@ -1435,79 +1429,28 @@ private fun PixoDropdownPreference(
     onSelectedIndexChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scheme = MiuixTheme.colorScheme
-    val density = LocalDensity.current
-    var expanded by remember { mutableStateOf(false) }
-    var anchorWidth by remember { mutableStateOf(0) }
+    var dropdownOpen by remember { mutableStateOf(false) }
+    var closeSignal by remember { mutableIntStateOf(0) }
     val navEventState = rememberNavigationEventState(NavigationEventInfo.None)
-    // 浮层打开时，返回手势由本组件接管 → 关闭浮层（后注册的 handler 优先于外层页面返回）
+    // 浮层打开时，返回手势由本组件接管：重建偏好项使其内部展开态复位 → 浮层关闭
     NavigationBackHandler(
         state = navEventState,
-        isBackEnabled = expanded,
-        onBackCompleted = { expanded = false },
+        isBackEnabled = dropdownOpen,
+        onBackCompleted = {
+            dropdownOpen = false
+            closeSignal++
+        },
     )
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .onGloballyPositioned { anchorWidth = it.size.width }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                color = scheme.onSurface,
-            )
-            if (summary.isNotBlank()) {
-                Text(
-                    text = summary,
-                    fontSize = 13.sp,
-                    color = scheme.onSurfaceVariantSummary,
-                )
-            }
-        }
-        DropdownArrowEndAction(actionColor = scheme.onSurfaceVariantSummary)
-    }
-    if (expanded) {
-        Popup(
-            popupPositionProvider = object : PopupPositionProvider {
-                override fun calculatePosition(
-                    anchorBounds: IntRect,
-                    windowSize: IntSize,
-                    layoutDirection: LayoutDirection,
-                    popupContentSize: IntSize,
-                ): IntOffset {
-                    val y = anchorBounds.bottom.coerceAtMost(
-                        (windowSize.height - popupContentSize.height).coerceAtLeast(0),
-                    )
-                    return IntOffset(anchorBounds.left, y)
-                }
-            },
-            onDismissRequest = { expanded = false },
-        ) {
-            Card(Modifier.width(with(density) { anchorWidth.toDp() })) {
-                Column {
-                    options.forEachIndexed { i, option ->
-                        val selected = i == selectedIndex
-                        Text(
-                            text = option,
-                            fontSize = 15.sp,
-                            color = if (selected) scheme.primary else scheme.onSurface,
-                            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onSelectedIndexChange(i)
-                                    expanded = false
-                                }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                        )
-                    }
-                }
-            }
-        }
+    key(closeSignal) {
+        OverlayDropdownPreference(
+            items = options,
+            selectedIndex = selectedIndex,
+            title = title,
+            summary = summary,
+            onSelectedIndexChange = onSelectedIndexChange,
+            onExpandedChange = { dropdownOpen = it },
+            modifier = modifier,
+        )
     }
 }
 
