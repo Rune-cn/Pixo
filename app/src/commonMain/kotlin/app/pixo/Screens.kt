@@ -1022,6 +1022,7 @@ private fun IllustDetail(
     val sDownloadFailed = Str.download_failed()
     // 预取带占位数字的完成文案（协程内不能用 @Composable 资源访问）
     val sDownloadDoneFormat = Str.download_done(123456).replace("123456", "%s")
+    val sTagBlockedFormat = Str.tag_blocked("%s")
 
     LaunchedEffect(workId, retryKey) {
         // 已缓存则直接使用，避免重复加载
@@ -1250,7 +1251,7 @@ private fun IllustDetail(
                             if (add !in cur) {
                                 AppPrefs.tagBlockPatterns = (cur + add).joinToString("\n")
                             }
-                            feedback = Str.tag_blocked(tagText)
+                            feedback = sTagBlockedFormat.replace("%s", tagText)
                             tagAction = null
                         }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_tag()) }
                         Button(onClick = { tagAction = null }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
@@ -2288,6 +2289,7 @@ private fun NovelDetail(
     var feedback by remember { mutableStateOf<String?>(null) }
     var bookmarkBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val sTagBlockedFormat = Str.tag_blocked("%s")
 
     val sBookmarkedPublic = Str.bookmarked_public()
     val sBookmarkedPrivate = Str.bookmarked_private()
@@ -2390,7 +2392,7 @@ private fun NovelDetail(
                             if (add !in cur) {
                                 AppPrefs.tagBlockPatterns = (cur + add).joinToString("\n")
                             }
-                            feedback = Str.tag_blocked(tagText)
+                            feedback = sTagBlockedFormat.replace("%s", tagText)
                             tagAction = null
                         }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_tag()) }
                         Button(onClick = { tagAction = null }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
