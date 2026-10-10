@@ -109,8 +109,18 @@ object PixivApi {
     /** 发表评论/追评：[parentCommentId] > 0 时为回复某个评论。 */
     /** 相关作品：Token 模式走 App API `/v1/illust/recommended`，否则网页 `/ajax/illust/{id}/recommend/init`。 */
     suspend fun fetchRelatedWorks(workId: Long): List<PixivWork> =
-        if (PixivAuth.isTokenMode) AppPixivApi.fetchRelatedWorks(workId)
-        else WebPixivApi.fetchRelatedWorks(workId)
+        try {
+            // 优先网页 `/ajax/illust/{id}/recommend/init`：需会话 Cookie，R-18 与普通作品都正常返回；
+            // App API 的 access_token 有有效期，过期后 `/v1/illust/recommended` 直接 400 invalid_grant。
+            if (AppPrefs.cookie.isNotBlank()) {
+                WebPixivApi.fetchRelatedWorks(workId)
+            } else {
+                AppPixivApi.fetchRelatedWorks(workId)
+            }
+        } catch (e: Exception) {
+            logError("WebApi", "fetchRelatedWorks web failed, fallback to app api", e)
+            AppPixivApi.fetchRelatedWorks(workId)
+        }
 
     suspend fun addComment(kind: String, id: Long, text: String, parentCommentId: Long = 0) =
         // 写评论：Token 模式走 App API（POST /v1/*/comment/add），否则网页 CSRF
