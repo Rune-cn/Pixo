@@ -139,6 +139,8 @@ data class PixivComment(
     val avatar: String,
     val content: String,
     val date: String,
+    /** 表情章 id（content 为空时存在；渲染为 s.pximg.net generated-stamps 图片）。 */
+    val stampId: String? = null,
     /** 追评（一级评论卡片内已嵌入的前几条）。 */
     val replies: List<PixivComment> = emptyList(),
     /** 是否还有更多追评（需要单独拉取）。 */

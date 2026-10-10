@@ -353,6 +353,10 @@ object WebPixivApi {
             "https://www.pixiv.net/ajax/illusts/comments/replies?comment_id=$commentId&page=$page"
         }
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
+        // Pixiv 的"末页"标志：page 超出末尾时返回 error:true + 空 body，应视为没有更多而不是失败
+        if (root.str("error") == "true" && root.str("message").isBlank()) {
+            return PixivReplyPage(replies = emptyList(), hasMore = false)
+        }
         throwIfWebError(root, "追评获取失败")
         val body = root.obj("body")
         val arr = body?.arr("comments")
@@ -370,10 +374,12 @@ object WebPixivApi {
         )
     }
 
-    /** 解析单条评论（网页端 roots/replies 同构：一级评论内嵌前几条 replies + hasReplies 标记）。 */
+    /** 解析单条评论（网页端 roots/replies 同构：一级评论内嵌前几条 replies + hasReplies 标记）。
+     *  纯表情章评论（content 为空但有 stampId）也保留，渲染成图片而不是丢弃。 */
     private fun parseComment(o: JsonObject): PixivComment? {
         val content = o.str("comment").ifBlank { o.str("userComment") }
-        if (content.isBlank()) return null
+        val stampId = o.str("stampId").ifBlank { null }
+        if (content.isBlank() && stampId == null) return null
         val replies = buildList {
             val arr = o.arr("replies")
             if (arr != null) for (el in arr) {
@@ -391,6 +397,7 @@ object WebPixivApi {
             avatar = o.str("img").ifBlank { o.str("profileImageUrl") },
             content = content,
             date = o.str("commentDate"),
+            stampId = stampId,
             replies = replies,
             hasReplies = o.str("hasReplies") == "true",
         )

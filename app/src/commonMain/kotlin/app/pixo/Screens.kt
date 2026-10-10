@@ -2195,7 +2195,23 @@ private fun ReplyCard(
                 Text(it, style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             }
         }
-        Text(c.content, style = MiuixTheme.textStyles.footnote2)
+        if (c.content.isNotBlank()) {
+            Text(c.content, style = MiuixTheme.textStyles.footnote2)
+        } else if (c.stampId != null) {
+            // 纯表情章回复：渲染 pixiv 生成章图片
+            val ctx = LocalPlatformContext.current
+            AsyncImage(
+                model = remember(c.stampId) {
+                    ImageRequest.Builder(ctx)
+                        .data("https://s.pximg.net/common/images/stamp/generated-stamps/${c.stampId}_s.jpg")
+                        .crossfade(true)
+                        .build()
+                },
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(64.dp),
+            )
+        }
         // 卡片下点击回复，唤起回复输入框
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Text(

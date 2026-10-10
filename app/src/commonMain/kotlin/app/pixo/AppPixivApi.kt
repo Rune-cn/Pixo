@@ -241,7 +241,8 @@ object AppPixivApi {
                 if (arr != null) for (el in arr) {
                     val o = el as? JsonObject ?: continue
                     val content = o.str("comment")
-                    if (content.isBlank()) continue
+                    val stampId = o.str("stamp_id").ifBlank { null }
+                    if (content.isBlank() && stampId == null) continue
                     val u = o.obj("user")
                     add(
                         PixivComment(
@@ -251,6 +252,7 @@ object AppPixivApi {
                             avatar = u?.obj("profile_image_urls")?.str("medium").orEmpty(),
                             content = content,
                             date = o.str("date"),
+                            stampId = stampId,
                             hasReplies = o.str("has_replies") == "true",
                         ),
                     )
