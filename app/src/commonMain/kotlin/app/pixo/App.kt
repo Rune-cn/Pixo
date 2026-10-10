@@ -1474,7 +1474,7 @@ private fun PixoDropdownPreference(
                 )
             }
         }
-        DropdownArrowEndAction(color = scheme.onSurfaceVariantSummary)
+        DropdownArrowEndAction(actionColor = scheme.onSurfaceVariantSummary)
     }
     OverlayDropdownPopup(
         entry = DropdownEntry(items = items),
