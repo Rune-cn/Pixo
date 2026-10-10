@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -313,7 +314,7 @@ fun FloatingBottomBar(
         else -> Modifier.clip(containerShape).background(colors.containerColor, containerShape)
     }
 
-    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Box(
             modifier = Modifier
                 .padding(start = 16.dp, top = 10.dp, end = 16.dp, bottom = 14.dp)
@@ -353,9 +354,6 @@ fun FloatingBottomBar(
                             val down = awaitFirstDown(requireUnconsumed = false)
                             scope.launch { pressProgress.animateTo(1f, pressIn) }
                             glowCenterX = down.position.x
-                            if (tabWidthPx > 0f) {
-                                scope.launch { pillIndex.snapTo(indexAt(down.position.x).toFloat()) }
-                            }
                             var dragTotal = 0f
                             var dragging = false
                             while (true) {
