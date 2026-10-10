@@ -214,5 +214,7 @@ furry.*</string>
     <string name="history_empty">暂无本地浏览历史</string>
     <string name="history_clear">清空历史</string>
     <string name="history_cleared">历史已清空</string>
+    <string name="follow_new">关注新作</string>
+    <string name="follow_empty">关注的画师还没有新作品</string>
 </resources>
 

@@ -203,6 +203,8 @@ furry.*</string>
     <string name="history_empty">No local browsing history</string>
     <string name="history_clear">Clear history</string>
     <string name="history_cleared">History cleared</string>
+    <string name="follow_new">Following new works</string>
+    <string name="follow_empty">Nothing new from artists you follow yet</string>
 </resources>
 
 

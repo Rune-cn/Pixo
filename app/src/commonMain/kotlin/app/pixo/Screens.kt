@@ -180,6 +180,7 @@ fun HomePage(
     onOpenSearch: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenBookmarks: (String) -> Unit,
+    onOpenFollow: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenUser: (Long) -> Unit,
     bottomPadding: Dp = 0.dp,
@@ -278,7 +279,7 @@ fun HomePage(
                 contentPadding = PaddingValues(top = frame.calculateTopPadding(), bottom = bottomPadding),
             ) {
             item {
-                HomeEntries(onOpenRanking, onOpenNovelRanking, onOpenDiscover, onOpenRecommended, onOpenSearch, onOpenBookmarks)
+                HomeEntries(onOpenRanking, onOpenNovelRanking, onOpenDiscover, onOpenRecommended, onOpenSearch, onOpenBookmarks, onOpenFollow)
             }
             item { SmallTitle(text = Str.home_title()) }
             when {
@@ -324,6 +325,7 @@ private fun HomeEntries(
     onOpenRecommended: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenBookmarks: (String) -> Unit,
+    onOpenFollow: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -336,6 +338,7 @@ private fun HomeEntries(
             EntryCard(MiuixIcons.Search, Str.search()) { onOpenSearch() }
             EntryCard(MiuixIcons.All, Str.manga_ranking()) { onOpenRanking("daily", "manga") }
             EntryCard(MiuixIcons.Favorites, Str.bookmarks()) { onOpenBookmarks("show") }
+            EntryCard(MiuixIcons.Promotions, Str.follow_new()) { onOpenFollow() }
         }
     }
 }
@@ -1765,6 +1768,81 @@ private fun TextTagChip(tag: String, translation: String = "", onClick: () -> Un
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+        }
+    }
+}
+
+/**
+/** 关注新作页：已关注画师的最新作品（网页 feed，分页加载）。 */
+@Composable
+fun FollowScreen(
+    onBack: () -> Unit,
+    onOpenDetail: (Long, String) -> Unit,
+    onOpenUser: (Long) -> Unit,
+) {
+    var items by remember { mutableStateOf<List<PixivWork>?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(true) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var retryKey by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(retryKey) {
+        if (items != null) return@LaunchedEffect
+        error = null
+        try {
+            val list = PixivApi.fetchFollowLatest(1)
+            items = list
+            hasMore = list.size >= 60
+        } catch (e: Exception) {
+            error = e.friendlyMessage()
+        }
+    }
+
+    fun loadMore() {
+        if (loadingMore || !hasMore) return
+        loadingMore = true
+        scope.launch {
+            try {
+                val more = PixivApi.fetchFollowLatest(page + 1)
+                items = items.orEmpty() + more
+                page++
+                hasMore = more.size >= 60
+            } catch (_: Exception) {
+                // 静默失败：下拉重试即可
+            }
+            loadingMore = false
+        }
+    }
+
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.follow_new(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = innerPadding,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            overscrollEffect = null,
+        ) {
+            when {
+                items == null && error != null -> item {
+                    ErrorState(error ?: "", onRetry = { retryKey++ })
+                }
+                items == null -> item { LoadingState() }
+                items.orEmpty().isEmpty() -> item {
+                    Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(Str.follow_empty(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    }
+                }
+                else -> {
+                    items(items!!, key = { it.id }) { work ->
+                        PixivWorkRow(work, onClick = { onOpenDetail(work.id, "illust") }, onOpenUser = onOpenUser)
+                    }
+                    item {
+                        EndItem(loadingMore, hasMore, onRetry = { loadMore() })
+                    }
+                }
             }
         }
     }

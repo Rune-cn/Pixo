@@ -165,6 +165,9 @@ internal object Downloads
 internal object History
 
 @Serializable
+internal object Follow
+
+@Serializable
 internal object About
 
 @Serializable
@@ -264,6 +267,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     val openAppSettings: () -> Unit = { navController.navigate(AppSettings) }
     val openDownloads: () -> Unit = { navController.navigate(Downloads) }
     val openHistory: () -> Unit = { navController.navigate(History) }
+    val openFollow: () -> Unit = { navController.navigate(Follow) }
     val openAbout: () -> Unit = { navController.navigate(About) }
     val controller = remember(themeMode, dynamicColor) {
         if (dynamicColor && !isDesktop) {
@@ -353,6 +357,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenSearch = openSearch,
                             onOpenDetail = openDetail,
                             onOpenBookmarks = openBookmarks,
+                            onOpenFollow = openFollow,
                             onOpenAppSettings = openAppSettings,
                             onOpenHistory = openHistory,
                             onOpenDownloads = openDownloads,
@@ -425,6 +430,18 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         HistoryScreen(
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
+                        )
+                    }
+                    composable<Follow>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        FollowScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
+                            onOpenUser = { navController.navigate(User(it)) },
                         )
                     }
                     composable<About>(
@@ -735,6 +752,7 @@ private fun MainTabsHost(
     onOpenSearch: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenBookmarks: (String) -> Unit,
+    onOpenFollow: () -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenFollows: (Long, String) -> Unit,
     onOpenWebLogin: () -> Unit,
@@ -763,6 +781,7 @@ private fun MainTabsHost(
                 onOpenSearch = onOpenSearch,
                 onOpenDetail = onOpenDetail,
                 onOpenBookmarks = onOpenBookmarks,
+                onOpenFollow = onOpenFollow,
                 onOpenSettings = onGoSettingsTab,
                 onOpenUser = onOpenUser,
                 bottomPadding = bottomPadding,

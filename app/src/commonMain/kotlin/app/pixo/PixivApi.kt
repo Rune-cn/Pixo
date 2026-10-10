@@ -122,6 +122,10 @@ object PixivApi {
             AppPixivApi.fetchRelatedWorks(workId)
         }
 
+    /** 关注新作：网页 `/ajax/follow_latest/illust`（需会话 Cookie）。 */
+    suspend fun fetchFollowLatest(page: Int = 1): List<PixivWork> =
+        WebPixivApi.fetchFollowLatest(page)
+
     suspend fun addComment(kind: String, id: Long, text: String, parentCommentId: Long = 0) =
         // 写评论：Token 模式走 App API（POST /v1/*/comment/add），否则网页 CSRF
         if (PixivAuth.isTokenMode) AppPixivApi.addComment(kind, id, text, parentCommentId)

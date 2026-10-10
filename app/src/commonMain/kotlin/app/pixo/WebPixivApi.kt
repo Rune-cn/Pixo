@@ -88,6 +88,28 @@ object WebPixivApi {
         }
     }
 
+    /** 关注新作（网页 `/ajax/follow_latest/illust`，需会话 Cookie；第 2 页起带 p 参数）。 */
+    suspend fun fetchFollowLatest(page: Int = 1): List<PixivWork> {
+        val suffix = if (page <= 1) "" else "&p=$page"
+        val url = "https://www.pixiv.net/ajax/follow_latest/illust?lang=zh$suffix"
+        val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
+        val thumbnails = root.obj("body")?.obj("thumbnails")
+        return parseWorks(thumbnails?.arr("illust")) { item ->
+            PixivWork(
+                id = item.lng("id"),
+                title = item.str("title"),
+                author = item.str("userName"),
+                authorId = item.lng("userId"),
+                avatar = item.str("profileImageUrl"),
+                thumb = item.str("url"),
+                illustType = item.int("illustType"),
+                pageCount = item.int("pageCount").coerceAtLeast(1),
+                xRestrict = item.int("xRestrict"),
+                tags = stringTags(item),
+            )
+        }
+    }
+
     suspend fun searchArtworks(word: String, page: Int = 1): List<PixivWork> {
         val encoded = URLEncoder.encode(word, "UTF-8")
         val url = "https://www.pixiv.net/ajax/search/artworks/$encoded" +
