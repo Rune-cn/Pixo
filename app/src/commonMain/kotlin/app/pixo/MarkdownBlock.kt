@@ -91,10 +91,16 @@ fun MarkdownBlock(
             outlineVariant = scheme.dividerLine,
         )
     }
+    // 阅读基准样式：主题正文色 + 16sp，避免 BasicText 默认色过亮/字号过小
+    val baseStyle = remember(scheme) {
+        TextStyle(color = scheme.onSurface, fontSize = 16.sp, lineHeight = 24.sp)
+    }
     val tree = remember(content) { markdownParser.buildMarkdownTreeFromString(content) }
-    Column(modifier = modifier) {
-        tree.children.forEach { child ->
-            MarkdownNode(node = child, content = content, colors = colors)
+    CompositionLocalProvider(LocalMdTextStyle provides baseStyle) {
+        Column(modifier = modifier) {
+            tree.children.forEach { child ->
+                MarkdownNode(node = child, content = content, colors = colors)
+            }
         }
     }
 }
