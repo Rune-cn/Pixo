@@ -476,12 +476,13 @@ actual fun rememberDownloadFolderPicker(onPicked: (String) -> Unit): () -> Unit 
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
-                AppPrefs.downloadDir = uri.toString()
-                onPicked(uri.toString())
             } catch (e: Exception) {
-                // 拿不到持久化权限的目录不保存：重启后必然失效，反而让所有下载失败
+                // 个别厂商（vivo/OPPO 等）对部分卷的持久化授权会抛异常：
+                // 仍保存本轮会话可用的目录；下次启动若失效则下载会提示，重新选择即可
                 logError("Pixo", "persist download dir permission failed", e)
             }
+            AppPrefs.downloadDir = uri.toString()
+            onPicked(uri.toString())
         }
     }
     return { launcher.launch(null) }

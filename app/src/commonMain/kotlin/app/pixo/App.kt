@@ -962,7 +962,7 @@ fun DataPage(onBack: () -> Unit) {
                     ) {
                         ArrowPreference(
                             title = Str.download_folder(),
-                            summary = downloadDir.ifBlank { "Pictures/Pixo" },
+                            summary = downloadDirLabel(downloadDir),
                             onClick = { pickFolder() },
                         )
                     }
@@ -1424,6 +1424,19 @@ private fun ValueText(text: String) {
         fontSize = MiuixTheme.textStyles.body2.fontSize,
         color = MiuixTheme.colorScheme.onSurfaceVariantActions,
     )
+}
+
+/** 下载目录的可读显示：SAF tree URI → 路径；空 → 默认 Pictures/Pixo。 */
+private fun downloadDirLabel(dir: String): String {
+    if (dir.isBlank()) return "Pictures/Pixo"
+    val i = dir.lastIndexOf("tree/")
+    if (i >= 0) {
+        val docId = dir.substring(i + 5)
+            .replace("%3A", ":").replace("%2F", "/")
+            .removePrefix("primary:").removePrefix("home:")
+        return docId.ifBlank { dir }
+    }
+    return dir
 }
 
 /** 设置分区标题：小号 + 中等字重 + 次要色（分区标记）。 */
