@@ -1955,7 +1955,6 @@ fun CommentsScreen(
 }
 
 /** 一级评论卡片：整卡长按复制文字；深色追评区内嵌卡片里，点「查看追评」展开、可对一级评论回复。 */
-@Composable
 
 /** 追评 UI 状态：提升到评论区持有（LazyColumn 滚出视口会销毁 item，状态在外层才不丢失、不收起）。 */
 private data class ReplyUiState(
@@ -1969,6 +1968,7 @@ private data class ReplyUiState(
     val error: String? = null,
 )
 
+@Composable
 private fun RootCommentCard(
     c: PixivComment,
     kind: String,
