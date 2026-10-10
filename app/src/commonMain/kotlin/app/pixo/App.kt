@@ -11,6 +11,12 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -96,9 +102,6 @@ import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownArrowEndAction
-import top.yukonga.miuix.kmp.basic.DropdownDefaults
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
@@ -128,7 +131,6 @@ import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -1433,7 +1435,9 @@ private fun PixoDropdownPreference(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MiuixTheme.colorScheme
+    val density = LocalDensity.current
     var expanded by remember { mutableStateOf(false) }
+    var anchorWidth by remember { mutableStateOf(0) }
     val navEventState = rememberNavigationEventState(NavigationEventInfo.None)
     // 浮层打开时，返回手势由本组件接管 → 关闭浮层（后注册的 handler 优先于外层页面返回）
     NavigationBackHandler(
@@ -1441,22 +1445,11 @@ private fun PixoDropdownPreference(
         isBackEnabled = expanded,
         onBackCompleted = { expanded = false },
     )
-    val items = remember(options, selectedIndex) {
-        options.mapIndexed { i, option ->
-            DropdownItem(
-                text = option,
-                selected = i == selectedIndex,
-                onClick = {
-                    onSelectedIndexChange(i)
-                    expanded = false
-                },
-            )
-        }
-    }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable { expanded = true }
+            .onGloballyPositioned { anchorWidth = it.size.width }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1476,14 +1469,45 @@ private fun PixoDropdownPreference(
         }
         DropdownArrowEndAction(actionColor = scheme.onSurfaceVariantSummary)
     }
-    OverlayDropdownPopup(
-        entry = DropdownEntry(items = items),
-        expanded = expanded,
-        onDismissRequest = { expanded = false },
-        onDismissFinished = {},
-        maxHeight = 400.dp,
-        colors = DropdownDefaults.dropdownColors(),
-    )
+    if (expanded) {
+        Popup(
+            popupPositionProvider = object : PopupPositionProvider {
+                override fun calculatePosition(
+                    anchorBounds: IntRect,
+                    windowSize: IntSize,
+                    layoutDirection: LayoutDirection,
+                    popupContentSize: IntSize,
+                ): IntOffset {
+                    val y = anchorBounds.bottom.coerceAtMost(
+                        (windowSize.height - popupContentSize.height).coerceAtLeast(0),
+                    )
+                    return IntOffset(anchorBounds.left, y)
+                }
+            },
+            onDismissRequest = { expanded = false },
+        ) {
+            Card(Modifier.width(with(density) { anchorWidth.toDp() })) {
+                Column {
+                    options.forEachIndexed { i, option ->
+                        val selected = i == selectedIndex
+                        Text(
+                            text = option,
+                            fontSize = 15.sp,
+                            color = if (selected) scheme.primary else scheme.onSurface,
+                            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectedIndexChange(i)
+                                    expanded = false
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** 外观设置页：语言 / 主题 / 动态取色 / 悬浮底栏 / 液态玻璃。 */
