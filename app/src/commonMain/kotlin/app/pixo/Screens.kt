@@ -1687,13 +1687,23 @@ private fun RelatedWorksRow(
         }
     }
     val list = works
-    if (list == null || list.isEmpty()) return
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Text(
             text = Str.related_works(),
             style = MiuixTheme.textStyles.title3,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
+        if (list == null || list.isEmpty()) {
+            // 加载中或加载失败：给出占位，避免"相关推荐区凭空消失"
+            Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    text = if (list == null) Str.related_loading() else Str.related_empty(),
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+            return@Column
+        }
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 12.dp),

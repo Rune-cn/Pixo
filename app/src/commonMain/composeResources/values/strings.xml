@@ -215,6 +215,8 @@ furry.*</string>
     <string name="history_cleared">History cleared</string>
     <string name="follow_new">Following new works</string>
     <string name="follow_empty">Nothing new from artists you follow yet</string>
+    <string name="related_loading">Loading…</string>
+    <string name="related_empty">No related works</string>
 </resources>
 
 

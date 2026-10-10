@@ -216,4 +216,6 @@ internal expect object Str {
     @Composable fun history_cleared(): String
     @Composable fun follow_new(): String
     @Composable fun follow_empty(): String
+    @Composable fun related_loading(): String
+    @Composable fun related_empty(): String
 }

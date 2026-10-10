@@ -213,4 +213,6 @@ internal actual object Str {
     @Composable actual fun history_cleared(): String = stringResource(Res.string.history_cleared)
     @Composable actual fun follow_new(): String = stringResource(Res.string.follow_new)
     @Composable actual fun follow_empty(): String = stringResource(Res.string.follow_empty)
+    @Composable actual fun related_loading(): String = stringResource(Res.string.related_loading)
+    @Composable actual fun related_empty(): String = stringResource(Res.string.related_empty)
 }

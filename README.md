@@ -124,9 +124,7 @@ CI 签名配置（GitHub Secrets）：`PIXO_KEYSTORE_BASE64` / `PIXO_KEYSTORE_PA
 
 ## 登录方式（设置 → 登录）
 
-1. **Token 登录**：粘贴 Pixiv OAuth Refresh Token，应用自动换取并刷新 Access Token。
-2. **网页登录**：Android 内嵌登录页，成功后保存会话 Cookie 与用户 ID。
-3. **Cookie 粘贴**：桌面端或内嵌页不可用时，浏览器登录后粘贴 Cookie。
+**网页登录**：Android 内嵌登录页，登录成功后自动保存会话 Cookie 与用户 ID，即可浏览 / 评论 / 收藏 / 关注等全部功能。
 
 ## 许可证
 

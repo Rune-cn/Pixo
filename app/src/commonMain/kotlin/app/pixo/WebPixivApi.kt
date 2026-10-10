@@ -72,7 +72,7 @@ object WebPixivApi {
         val url = "https://www.pixiv.net/ajax/illust/$workId/recommend/init?lang=zh&limit=18"
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
         val body = root.obj("body")
-        return parseWorks(body?.arr("illusts")) { item ->
+        return parseWorks(body?.arr("illusts"), filterBlocked = false) { item ->
             PixivWork(
                 id = item.lng("id"),
                 title = item.str("title"),
@@ -965,7 +965,7 @@ object WebPixivApi {
         throw IOException("无法获取 CSRF token，请重新登录并刷新 Cookie")
     }
 
-    private fun parseWorks(arr: JsonArray?, mapper: (JsonObject) -> PixivWork): List<PixivWork> =
+    private fun parseWorks(arr: JsonArray?, mapper: (JsonObject) -> PixivWork, filterBlocked: Boolean = true): List<PixivWork> =
         buildList {
             if (arr == null) return@buildList
             for (el in arr) {
@@ -975,7 +975,7 @@ object WebPixivApi {
                     // 跳过异常条目
                 }
             }
-        }.filterNot { TagBlock.isBlocked(it.tags) }
+        }.let { if (filterBlocked) it.filterNot { TagBlock.isBlocked(it.tags) } else it }
 
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList
