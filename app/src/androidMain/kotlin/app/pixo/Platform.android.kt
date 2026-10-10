@@ -243,31 +243,26 @@ actual fun openUrlInBrowser(url: String) {
     LogBuffer.add("openUrlInBrowser: $url")
     try {
         val uri = android.net.Uri.parse(url)
-        // 用系统“默认浏览器”主选择器直达浏览器，绕过本应用注册的 pixiv 网页深链过滤器
-        val intent = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_BROWSER)
-        intent.data = uri
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            androidAppContext.startActivity(intent)
-            return
-        } catch (e: Exception) {
-            LogBuffer.add("openUrlInBrowser: default browser failed (${e.message}), fallback to VIEW")
+        // Google 规范：仅放行 http/https（防自定义 scheme 注入），ACTION_VIEW 系统浏览器打开
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") return
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        // 兜底：ACTION_VIEW 解析浏览器候选，排除自身深链
-        val fallback = Intent(Intent.ACTION_VIEW, uri)
-        fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // 解析浏览器候选并排除本应用自身（绕开 pixiv 网页深链过滤器导致“再次回到应用内”）
         val candidates = androidAppContext.packageManager.queryIntentActivities(
-            fallback,
+            intent,
             android.content.pm.PackageManager.MATCH_ALL,
         )
         val target = candidates.firstOrNull { it.activityInfo.packageName != androidAppContext.packageName }
         if (target != null) {
-            fallback.setClassName(target.activityInfo.packageName, target.activityInfo.name)
-            androidAppContext.startActivity(fallback)
+            intent.setClassName(target.activityInfo.packageName, target.activityInfo.name)
+            androidAppContext.startActivity(intent)
         } else {
-            val chooser = Intent.createChooser(fallback, "打开链接")
-            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            androidAppContext.startActivity(chooser)
+            Intent.createChooser(intent, null).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                androidAppContext.startActivity(this)
+            }
         }
     } catch (e: Exception) {
         LogBuffer.add("openUrlInBrowser: failed (${e.message})")

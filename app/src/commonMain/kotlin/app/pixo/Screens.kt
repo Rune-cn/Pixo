@@ -2076,6 +2076,32 @@ private data class ReplyUiState(
     val error: String? = null,
 )
 
+/** 表情章图片（s.pximg.net generated-stamps），加载失败/空白时透出占位文本，保证"有显示"。 */
+@Composable
+private fun CommentStamp(stampId: String) {
+    val ctx = LocalPlatformContext.current
+    Box(
+        Modifier
+            .size(64.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("#$stampId", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+        AsyncImage(
+            model = remember(stampId) {
+                ImageRequest.Builder(ctx)
+                    .data("https://s.pximg.net/common/images/stamp/generated-stamps/${stampId}_s.jpg")
+                    .crossfade(true)
+                    .build()
+            },
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
 @Composable
 private fun RootCommentCard(
     c: PixivComment,
@@ -2152,19 +2178,7 @@ private fun RootCommentCard(
                     if (c.content.isNotBlank()) {
                         Text(c.content, style = MiuixTheme.textStyles.body2)
                     } else if (c.stampId != null) {
-                        // 纯表情章评论：渲染 pixiv 生成章图片
-                        val ctx = LocalPlatformContext.current
-                        AsyncImage(
-                            model = remember(c.stampId) {
-                                ImageRequest.Builder(ctx)
-                                    .data("https://s.pximg.net/common/images/stamp/generated-stamps/${c.stampId}_s.jpg")
-                                    .crossfade(true)
-                                    .build()
-                            },
-                            contentDescription = null,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.size(64.dp),
-                        )
+                        CommentStamp(c.stampId)
                     }
                 }
             }
@@ -2322,19 +2336,7 @@ private fun ReplyCard(
         if (c.content.isNotBlank()) {
             Text(c.content, style = MiuixTheme.textStyles.footnote2)
         } else if (c.stampId != null) {
-            // 纯表情章回复：渲染 pixiv 生成章图片
-            val ctx = LocalPlatformContext.current
-            AsyncImage(
-                model = remember(c.stampId) {
-                    ImageRequest.Builder(ctx)
-                        .data("https://s.pximg.net/common/images/stamp/generated-stamps/${c.stampId}_s.jpg")
-                        .crossfade(true)
-                        .build()
-                },
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(64.dp),
-            )
+            CommentStamp(c.stampId)
         }
         // 卡片下点击回复，唤起回复输入框
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -3113,6 +3115,12 @@ fun UserScreen(
         }
 
     LaunchedEffect(userId, retryKey) {
+        // 全部数据已有缓存：直接返回，不置 loading、不重新拉取（避免退出详情返回时主页刷新闪烁）
+        val tokenMode = PixivAuth.isTokenMode
+        val willFetch = (user == null) ||
+            if (tokenMode) (illustItems == null || novelItems == null || mangaItems == null)
+            else (illustItems == null || novelItems == null)
+        if (retryKey == 0 && !willFetch) return@LaunchedEffect
         loading = true
         error = null
         try {
