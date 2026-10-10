@@ -1681,6 +1681,9 @@ fun CommentsScreen(
     var replyTarget by remember { mutableStateOf<Pair<Long, String>?>(null) }
     /** 评论/追评刷新标记：发评论后 +1，触发已展开的追评区重拉数据。 */
     var refreshTick by remember { mutableIntStateOf(0) }
+    val replyStates = remember { mutableStateOf(emptyMap<Long, ReplyUiState>()) }
+    var replyStatesMap by replyStates
+
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val sPosted = Str.comment_posted()
@@ -1781,6 +1784,8 @@ fun CommentsScreen(
                                         onCopy = { t -> copyMenu = t },
                                         onReply = { t -> replyTarget = t.id to t.user },
                                         refreshTick = refreshTick,
+                                        state = replyStatesMap[c.id] ?: ReplyUiState(),
+                                        onStateChange = { s -> replyStatesMap = replyStatesMap + (c.id to s) },
                                     )
                                 }
                             }
@@ -1865,6 +1870,19 @@ fun CommentsScreen(
 
 /** 一级评论卡片：整卡长按复制文字；深色追评区内嵌卡片里，点「查看追评」展开、可对一级评论回复。 */
 @Composable
+
+/** 追评 UI 状态：提升到评论区持有（LazyColumn 滚出视口会销毁 item，状态在外层才不丢失、不收起）。 */
+private data class ReplyUiState(
+    val expanded: Boolean = false,
+    val replies: List<PixivComment> = emptyList(),
+    val loading: Boolean = false,
+    val loadingMore: Boolean = false,
+    val hasMore: Boolean = false,
+    val appNextUrl: String? = null,
+    val webPage: Int = 0,
+    val error: String? = null,
+)
+
 private fun RootCommentCard(
     c: PixivComment,
     kind: String,
@@ -1873,40 +1891,42 @@ private fun RootCommentCard(
     onCopy: (String) -> Unit,
     onReply: (PixivComment) -> Unit,
     refreshTick: Int,
+    state: ReplyUiState,
+    onStateChange: (ReplyUiState) -> Unit,
 ) {
-    var expanded by remember(c.id) { mutableStateOf(false) }
-    var replies by remember(c.id) { mutableStateOf(c.replies) }
-    var loading by remember(c.id) { mutableStateOf(false) }
-    var loadingMore by remember(c.id) { mutableStateOf(false) }
-    var hasMore by remember(c.id) { mutableStateOf(c.hasReplies) }
-    var appNextUrl by remember(c.id) { mutableStateOf<String?>(null) }
-    var webPage by remember(c.id) { mutableIntStateOf(0) }
-    var error by remember(c.id) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     suspend fun loadPage() {
+        val next = state.copy(
+            loading = state.replies.isEmpty(),
+            loadingMore = state.replies.isNotEmpty(),
+            error = null,
+        )
+        onStateChange(next)
         try {
-            val res = PixivApi.fetchCommentReplies(kind, workId, c.id, appNextUrl, webPage + 1)
-            val seen = replies.mapTo(HashSet()) { it.id }
-            replies = replies + res.replies.filter { it.id !in seen }
-            hasMore = res.hasMore
-            appNextUrl = res.nextUrl
-            webPage++
-            error = null
+            val res = PixivApi.fetchCommentReplies(kind, workId, c.id, next.appNextUrl, next.webPage + 1)
+            val seen = next.replies.mapTo(HashSet()) { it.id }
+            onStateChange(
+                next.copy(
+                    replies = next.replies + res.replies.filter { it.id !in seen },
+                    hasMore = res.hasMore,
+                    appNextUrl = res.nextUrl,
+                    webPage = next.webPage + 1,
+                    loading = false,
+                    loadingMore = false,
+                ),
+            )
         } catch (e: Exception) {
-            error = e.friendlyMessage()
+            onStateChange(next.copy(loading = false, loadingMore = false, error = e.friendlyMessage()))
         }
     }
 
-    // 首次展开或发过新评论（refreshTick 变化）时拉取/刷新追评
-    LaunchedEffect(c.id, expanded, refreshTick) {
-        if (expanded && (c.hasReplies || c.replies.isNotEmpty())) {
-            if (refreshTick > 0 || replies.isEmpty()) {
-                appNextUrl = null
-                webPage = 0
-                loading = true
+    // 首次展开或发过新评论（refreshTick 变化）时拉取/刷新追评；
+    // 状态已提升到评论区持有，滚动出屏再回来不丢失、不收起。
+    LaunchedEffect(c.id, state.expanded, refreshTick) {
+        if (state.expanded && (c.hasReplies || c.replies.isNotEmpty())) {
+            if (refreshTick > 0 || state.replies.isEmpty()) {
                 loadPage()
-                loading = false
             }
         }
     }
@@ -1951,15 +1971,15 @@ private fun RootCommentCard(
                 )
             }
             // 深色追评区：追评卡片嵌在一级评论卡片里面（回复按钮下方），用更深颜色区分
-            if (c.hasReplies || c.replies.isNotEmpty() || expanded) {
-                if (!expanded) {
+            if (c.hasReplies || c.replies.isNotEmpty() || state.expanded) {
+                if (!state.expanded) {
                     // 收起态：深色条，点击展开
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(MiuixTheme.colorScheme.surfaceContainerHighest)
-                            .clickable { expanded = true }
+                            .clickable { onStateChange(state.copy(expanded = true)) }
                             .padding(vertical = 10.dp),
                         horizontalArrangement = Arrangement.Center,
                     ) {
@@ -1979,40 +1999,42 @@ private fun RootCommentCard(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         when {
-                            loading && replies.isEmpty() -> Box(Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                            state.loading && state.replies.isEmpty() -> Box(
+                                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 Text(Str.load_more(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                             }
-                            error != null && replies.isEmpty() -> Column(
+
+                            state.error != null && state.replies.isEmpty() -> Column(
                                 Modifier.fillMaxWidth().padding(vertical = 6.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                Text(error ?: "", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                Text(state.error ?: "", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                                 Text(
                                     text = Str.retry(),
                                     style = MiuixTheme.textStyles.footnote2,
                                     color = MiuixTheme.colorScheme.primary,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            error = null
-                                            loading = true
-                                            scope.launch {
-                                                loadPage()
-                                                loading = false
-                                            }
-                                        }
+                                        .clickable { scope.launch { loadPage() } }
                                         .padding(horizontal = 10.dp, vertical = 4.dp),
                                 )
                             }
-                            replies.isEmpty() -> Box(Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+
+                            state.replies.isEmpty() -> Box(
+                                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 Text(Str.no_replies(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                             }
+
                             else -> {
-                                replies.forEach { r ->
+                                state.replies.forEach { r ->
                                     ReplyCard(c = r, onOpenUser = onOpenUser, onCopy = { t -> onCopy(t) }, onReply = { onReply(r) })
                                 }
-                                if (loadingMore) {
+                                if (state.loadingMore) {
                                     Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
                                         Text(Str.load_more(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                                     }
@@ -2025,20 +2047,14 @@ private fun RootCommentCard(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (hasMore) {
+                            if (state.hasMore) {
                                 Text(
                                     text = Str.load_more_replies(),
                                     style = MiuixTheme.textStyles.footnote2,
                                     color = MiuixTheme.colorScheme.primary,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .clickable(enabled = !loadingMore) {
-                                            scope.launch {
-                                                loadingMore = true
-                                                loadPage()
-                                                loadingMore = false
-                                            }
-                                        }
+                                        .clickable(enabled = !state.loadingMore) { scope.launch { loadPage() } }
                                         .padding(horizontal = 8.dp, vertical = 4.dp),
                                 )
                             } else {
@@ -2050,7 +2066,7 @@ private fun RootCommentCard(
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .clickable { expanded = false }
+                                    .clickable { onStateChange(state.copy(expanded = false)) }
                                     .padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         }
