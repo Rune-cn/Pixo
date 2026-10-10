@@ -188,4 +188,5 @@ internal actual object Str {
     @Composable actual fun disclaimer(): String = stringResource(Res.string.disclaimer)
     @Composable actual fun disclaimer_content(): String = stringResource(Res.string.disclaimer_content)
     @Composable actual fun no_downloaded_images(): String = stringResource(Res.string.no_downloaded_images)
+    @Composable actual fun related_works(): String = stringResource(Res.string.related_works)
 }

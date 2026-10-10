@@ -188,6 +188,7 @@
     <string name="settings_section_storage">Storage</string>
     <string name="settings_section_logs">Logs</string>
     <string name="settings_section_login">Login info</string>
+    <string name="related_works">Related works</string>
 </resources>
 
 

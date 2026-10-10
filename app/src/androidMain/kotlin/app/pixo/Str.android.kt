@@ -188,4 +188,5 @@ internal actual object Str {
     @Composable actual fun disclaimer(): String = stringResource(app.pixo.R.string.disclaimer)
     @Composable actual fun disclaimer_content(): String = stringResource(app.pixo.R.string.disclaimer_content)
     @Composable actual fun no_downloaded_images(): String = stringResource(app.pixo.R.string.no_downloaded_images)
+    @Composable actual fun related_works(): String = stringResource(app.pixo.R.string.related_works)
 }

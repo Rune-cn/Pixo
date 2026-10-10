@@ -30,6 +30,37 @@ object AppPixivApi {
 
     // ---------- 插画 / 漫画列表 ----------
 
+    /** 相关作品（App API `/v1/illust/recommended`，需登录）。 */
+    suspend fun fetchRelatedWorks(workId: Long): List<PixivWork> {
+        val url = "$BASE/illust/recommended?illust_id=$workId"
+        val root = PixivHttp.getJson(PixivHttp.appApiHeaders().url(url))
+        val arr = root.arr("illusts")
+        return buildList {
+            if (arr != null) for (el in arr) {
+                val o = el as? JsonObject ?: continue
+                val user = o.obj("user")
+                add(
+                    PixivWork(
+                        id = o.lng("id"),
+                        title = o.str("title"),
+                        author = user?.str("name").orEmpty(),
+                        authorId = user?.lng("id") ?: 0,
+                        avatar = user?.obj("profile_image_urls")?.str("medium").orEmpty(),
+                        thumb = o.obj("image_urls")?.str("square_medium").orEmpty(),
+                        illustType = when (o.str("type")) {
+                            "ugoira" -> 2
+                            "manga" -> 1
+                            else -> 0
+                        },
+                        pageCount = o.int("page_count").coerceAtLeast(1),
+                        xRestrict = o.int("x_restrict"),
+                        tags = o.arr("tags")?.mapNotNull { (it as? JsonObject)?.str("name") } ?: emptyList(),
+                    ),
+                )
+            }
+        }
+    }
+
     suspend fun fetchRanking(mode: String, page: Int = 1): List<PixivWork> {
         val offset = (page - 1) * 50
         val root = PixivHttp.getJson(

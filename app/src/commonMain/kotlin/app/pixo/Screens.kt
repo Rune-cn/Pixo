@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -938,6 +939,7 @@ fun DetailScreen(
     onSearchTag: (String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenComments: (Long, String) -> Unit,
+    onOpenDetail: (Long, String) -> Unit,
 ) {
     // 顶栏「下载原图」触发信号：传给 IllustDetail，由它拿原图数据发起下载
     var downloadSignal by remember { mutableIntStateOf(0) }
@@ -978,7 +980,7 @@ fun DetailScreen(
         if (kind == "novel") {
             NovelDetail(workId, innerPadding, onSearchTag, onOpenUser, onOpenComments)
         } else {
-            IllustDetail(workId, innerPadding, onSearchTag, onOpenUser, onOpenComments, downloadSignal)
+            IllustDetail(workId, innerPadding, onSearchTag, onOpenUser, onOpenComments, downloadSignal, onOpenDetail)
         }
     }
 }
@@ -991,6 +993,7 @@ private fun IllustDetail(
     onOpenUser: (Long) -> Unit,
     onOpenComments: (Long, String) -> Unit,
     downloadSignal: Int = 0,
+    onOpenDetail: (Long, String) -> Unit = { _, _ -> },
 ) {
     val cachedDetail = remember(workId) { FeedCache.illustDetail[workId] }
     val cachedPages = remember(workId) { FeedCache.illustPages[workId] }
@@ -1226,6 +1229,12 @@ private fun IllustDetail(
                             onSearchTag = onSearchTag,
                             onOpenUser = onOpenUser,
                             onLongPressTag = { tag -> copiedTag = tag },
+                        )
+                    }
+                    item {
+                        RelatedWorksRow(
+                            workId = workId,
+                            onOpenDetail = onOpenDetail,
                         )
                     }
                 }
@@ -1641,6 +1650,82 @@ private fun BookmarkButtons(
 }
 
 @Composable
+/** 详情页「相关作品」横滑区：作品缩略卡 + 标题，点按打开新详情。 */
+@Composable
+private fun RelatedWorksRow(
+    workId: Long,
+    onOpenDetail: (Long, String) -> Unit,
+) {
+    var works by remember(workId) { mutableStateOf<List<PixivWork>?>(null) }
+    LaunchedEffect(workId) {
+        works = try {
+            PixivApi.fetchRelatedWorks(workId)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+    val list = works
+    if (list == null || list.isEmpty()) return
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Text(
+            text = Str.related_works(),
+            style = MiuixTheme.textStyles.title3,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+        ) {
+            items(list, key = { it.id }) { work ->
+                RelatedWorkCard(work, onClick = { onOpenDetail(work.id, "illust") })
+            }
+        }
+    }
+}
+
+@Composable
+private fun RelatedWorkCard(work: PixivWork, onClick: () -> Unit) {
+    val ctx = LocalPlatformContext.current
+    Column(
+        Modifier.width(116.dp).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(116.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            AsyncImage(
+                model = remember(work.thumb) { ImageRequest.Builder(ctx).data(work.thumb).crossfade(true).build() },
+                contentDescription = work.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (work.isR18) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text("R-18", style = MiuixTheme.textStyles.footnote2, color = Color.White)
+                }
+            }
+        }
+        Text(
+            text = work.title,
+            fontSize = 12.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
 private fun TextTagChip(tag: String, onClick: () -> Unit, onLongClick: () -> Unit) {
     Box(
         modifier = Modifier

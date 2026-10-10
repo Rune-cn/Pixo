@@ -191,4 +191,5 @@ internal expect object Str {
     @Composable fun disclaimer(): String
     @Composable fun disclaimer_content(): String
     @Composable fun no_downloaded_images(): String
+    @Composable fun related_works(): String
 }

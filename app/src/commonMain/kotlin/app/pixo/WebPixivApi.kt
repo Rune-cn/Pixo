@@ -67,6 +67,27 @@ object WebPixivApi {
         }
     }
 
+    /** 相关作品：网页 `/ajax/illust/{id}/recommend/init`（需会话 Cookie，limit 参数必带）。 */
+    suspend fun fetchRelatedWorks(workId: Long): List<PixivWork> {
+        val url = "https://www.pixiv.net/ajax/illust/$workId/recommend/init?lang=zh&limit=18"
+        val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
+        val body = root.obj("body")
+        return parseWorks(body?.arr("illusts")) { item ->
+            PixivWork(
+                id = item.lng("id"),
+                title = item.str("title"),
+                author = item.str("userName"),
+                authorId = item.lng("userId"),
+                avatar = item.str("profileImageUrl"),
+                thumb = item.str("url"),
+                illustType = item.int("illustType"),
+                pageCount = item.int("pageCount").coerceAtLeast(1),
+                xRestrict = item.int("xRestrict"),
+                tags = stringTags(item),
+            )
+        }
+    }
+
     suspend fun searchArtworks(word: String, page: Int = 1): List<PixivWork> {
         val encoded = URLEncoder.encode(word, "UTF-8")
         val url = "https://www.pixiv.net/ajax/search/artworks/$encoded" +
