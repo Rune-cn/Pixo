@@ -1175,7 +1175,7 @@ private fun IllustDetail(
                                 } else {
                                     val ctx = LocalPlatformContext.current
                                     AsyncImage(
-                                        model = ImageRequest.Builder(ctx).data(page.url).crossfade(true).build(),
+                                        model = remember(page.url) { ImageRequest.Builder(ctx).data(page.url).crossfade(true).build() },
                                         contentDescription = d?.title ?: "",
                                         contentScale = ContentScale.FillWidth,
                                         modifier = Modifier.fillMaxWidth(),
@@ -1200,7 +1200,7 @@ private fun IllustDetail(
                             } else {
                                 val ctx = LocalPlatformContext.current
                                 AsyncImage(
-                                    model = ImageRequest.Builder(ctx).data(page.url).crossfade(true).build(),
+                                    model = remember(page.url) { ImageRequest.Builder(ctx).data(page.url).crossfade(true).build() },
                                     contentDescription = d?.title ?: "",
                                     contentScale = ContentScale.FillWidth,
                                     modifier = Modifier.fillMaxWidth(),
@@ -1384,7 +1384,7 @@ private fun ImageLightbox(
                     )
                 } else {
                     AsyncImage(
-                        model = ImageRequest.Builder(ctx).data(page.original.ifBlank { page.url }).crossfade(true).build(),
+                        model = remember(page.original.ifBlank { page.url }) { ImageRequest.Builder(ctx).data(page.original.ifBlank { page.url }).crossfade(true).build() },
                         contentDescription = "illust",
                         contentScale = ContentScale.Fit,
                         modifier = zoomModifier,
@@ -1447,7 +1447,7 @@ private fun AvatarPreview(url: String, onClose: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
             AsyncImage(
-                model = ImageRequest.Builder(ctx).data(url).crossfade(true).build(),
+                model = remember(url) { ImageRequest.Builder(ctx).data(url).crossfade(true).build() },
                 contentDescription = Str.avatar_desc(),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -1533,7 +1533,7 @@ private fun UgoiraAsyncImage(
         )
     } else {
         AsyncImage(
-            model = ImageRequest.Builder(ctx).data(fallbackUrl).crossfade(true).build(),
+            model = remember(fallbackUrl) { ImageRequest.Builder(ctx).data(fallbackUrl).crossfade(true).build() },
             contentDescription = contentDescription,
             contentScale = contentScale,
             modifier = modifier,
@@ -2290,7 +2290,7 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
             Box {
                 val ctx = LocalPlatformContext.current
                 AsyncImage(
-                    model = ImageRequest.Builder(ctx).data(work.thumb).crossfade(true).build(),
+                    model = remember(work.thumb) { ImageRequest.Builder(ctx).data(work.thumb).crossfade(true).build() },
                     contentDescription = work.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
@@ -2363,7 +2363,7 @@ fun NovelRow(novel: PixivNovel, onClick: () -> Unit, onOpenUser: (Long) -> Unit 
             Box {
                 if (novel.cover.isNotBlank()) {
                     AsyncImage(
-                        model = ImageRequest.Builder(ctx).data(novel.cover).crossfade(true).build(),
+                        model = remember(novel.cover) { ImageRequest.Builder(ctx).data(novel.cover).crossfade(true).build() },
                         contentDescription = novel.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)),
@@ -2449,7 +2449,7 @@ fun AuthorAvatar(url: String, size: Dp, userId: Long, onOpenUser: (Long) -> Unit
     val ctx = LocalPlatformContext.current
     if (url.isNotBlank()) {
         AsyncImage(
-            model = ImageRequest.Builder(ctx).data(url).crossfade(true).build(),
+            model = remember(url) { ImageRequest.Builder(ctx).data(url).crossfade(true).build() },
             contentDescription = Str.avatar_desc(),
             contentScale = ContentScale.Crop,
             modifier = Modifier
