@@ -965,7 +965,7 @@ object WebPixivApi {
         throw IOException("无法获取 CSRF token，请重新登录并刷新 Cookie")
     }
 
-    private fun parseWorks(arr: JsonArray?, mapper: (JsonObject) -> PixivWork, filterBlocked: Boolean = true): List<PixivWork> =
+    private fun parseWorks(arr: JsonArray?, filterBlocked: Boolean = true, mapper: (JsonObject) -> PixivWork): List<PixivWork> =
         buildList {
             if (arr == null) return@buildList
             for (el in arr) {
