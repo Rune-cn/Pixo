@@ -823,7 +823,7 @@ fun SettingsPage(
                 }
             }
             item {
-                Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth()) {
                     ArrowPreference(
                         title = Str.settings_title(),
                         onClick = onOpenAppSettings,
@@ -860,11 +860,7 @@ fun AppSettingsPage(
             overscrollEffect = null,
         ) {
             item {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 4.dp),
-                ) {
+                Column(Modifier.padding(horizontal = 12.dp)) {
                     SettingEntryRow(Str.settings_appearance(), onClick = onOpenAppearance)
                     SettingEntryRow(Str.settings_content(), onClick = onOpenContent)
                     SettingEntryRow(Str.settings_data(), onClick = onOpenData)
@@ -902,12 +898,9 @@ fun DataPage(onBack: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 overscrollEffect = null,
             ) {
+                item { SettingsSectionHeader(Str.settings_section_data()) }
                 item {
-                    Card(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .padding(top = 4.dp),
-                    ) {
+                    Column(Modifier.padding(horizontal = 12.dp)) {
                         ArrowPreference(
                             title = Str.export_settings(),
                             summary = Str.export_settings_summary(),
@@ -928,12 +921,9 @@ fun DataPage(onBack: () -> Unit) {
                         )
                     }
                 }
+                item { SettingsSectionHeader(Str.settings_section_storage()) }
                 item {
-                    Card(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .padding(top = 4.dp),
-                    ) {
+                    Column(Modifier.padding(horizontal = 12.dp)) {
                         ArrowPreference(
                             title = Str.download_folder(),
                             summary = downloadDir.ifBlank { "Pictures/Pixo" },
@@ -1400,6 +1390,18 @@ private fun ValueText(text: String) {
     )
 }
 
+/** 设置分区标题：小号 + 中等字重 + 次要色（分区标记）。 */
+@Composable
+private fun SettingsSectionHeader(text: String) {
+    Text(
+        text = text,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp),
+    )
+}
+
 /** 外观设置页：语言 / 主题 / 动态取色 / 悬浮底栏 / 液态玻璃。 */
 @Composable
 fun AppearancePage(
@@ -1425,12 +1427,9 @@ fun AppearancePage(
             contentPadding = innerPadding,
             overscrollEffect = null,
         ) {
+            item { SettingsSectionHeader(Str.settings_section_general()) }
             item {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
+                Column(Modifier.padding(horizontal = 12.dp)) {
                     OverlayDropdownPreference(
                         items = languageOptions,
                         selectedIndex = languageValues.indexOf(language).coerceAtLeast(0),
@@ -1451,6 +1450,11 @@ fun AppearancePage(
                         checked = dynamicColor,
                         onCheckedChange = { onDynamicColorChange(it) },
                     )
+                }
+            }
+            item { SettingsSectionHeader(Str.settings_section_bottom_bar()) }
+            item {
+                Column(Modifier.padding(horizontal = 12.dp)) {
                     SwitchPreference(
                         title = Str.floating_bar(),
                         summary = Str.floating_bar_summary(),
@@ -1486,12 +1490,9 @@ fun ContentPage(
             contentPadding = innerPadding,
             overscrollEffect = null,
         ) {
+            item { SettingsSectionHeader(Str.settings_section_artwork()) }
             item {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
+                Column(Modifier.padding(horizontal = 12.dp)) {
                     SwitchPreference(
                         title = Str.ugoira_confirm(),
                         summary = Str.ugoira_confirm_summary(),
@@ -1535,12 +1536,9 @@ fun DebugPage(
             contentPadding = innerPadding,
             overscrollEffect = null,
         ) {
+            item { SettingsSectionHeader(Str.settings_section_logs()) }
             item {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
+                Column(Modifier.padding(horizontal = 12.dp)) {
                     SwitchPreference(
                         title = Str.debug_log(),
                         summary = Str.debug_log_summary(),
@@ -1552,15 +1550,12 @@ fun DebugPage(
                     )
                     SettingEntryRow(Str.view_logs(), onClick = onOpenLogs)
                     SettingEntryRow(Str.crash_log(), onClick = onOpenCrashLog)
-                    SettingEntryRow(Str.export_login_info(), onClick = { showExport = true })
                 }
             }
+            item { SettingsSectionHeader(Str.settings_section_login()) }
             item {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
+                Column(Modifier.padding(horizontal = 12.dp)) {
+                    SettingEntryRow(Str.export_login_info(), onClick = { showExport = true })
                     Text(
                         text = Str.export_login_summary(),
                         style = MiuixTheme.textStyles.footnote2,

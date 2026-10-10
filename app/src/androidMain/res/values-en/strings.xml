@@ -171,6 +171,13 @@
     <string name="no_downloaded_images">No downloaded images yet</string>
     <string name="check_update">Check for updates</string>
     <string name="feedback">Feedback</string>
+    <string name="settings_section_general">General</string>
+    <string name="settings_section_bottom_bar">Bottom bar</string>
+    <string name="settings_section_artwork">Artwork</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_section_storage">Storage</string>
+    <string name="settings_section_logs">Logs</string>
+    <string name="settings_section_login">Login info</string>
 </resources>
 
 

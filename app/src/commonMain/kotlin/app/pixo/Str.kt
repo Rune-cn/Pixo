@@ -174,6 +174,13 @@ internal expect object Str {
     @Composable fun following_public(): String
     @Composable fun following_private(): String
     @Composable fun about(): String
+    @Composable fun settings_section_general(): String
+    @Composable fun settings_section_bottom_bar(): String
+    @Composable fun settings_section_artwork(): String
+    @Composable fun settings_section_data(): String
+    @Composable fun settings_section_storage(): String
+    @Composable fun settings_section_logs(): String
+    @Composable fun settings_section_login(): String
     @Composable fun open_source(): String
     @Composable fun check_update(): String
     @Composable fun feedback(): String

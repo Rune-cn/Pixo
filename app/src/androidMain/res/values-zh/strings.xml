@@ -182,5 +182,12 @@
     <string name="no_downloaded_images">还没有下载的图片</string>
     <string name="check_update">检查更新</string>
     <string name="feedback">反馈与建议</string>
+    <string name="settings_section_general">通用</string>
+    <string name="settings_section_bottom_bar">底栏</string>
+    <string name="settings_section_artwork">作品</string>
+    <string name="settings_section_data">数据</string>
+    <string name="settings_section_storage">存储</string>
+    <string name="settings_section_logs">日志</string>
+    <string name="settings_section_login">登录信息</string>
 </resources>
 
