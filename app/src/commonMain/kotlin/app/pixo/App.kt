@@ -1154,7 +1154,7 @@ private fun AboutContent(
     val backdrop = rememberPixoBlurBackdrop()
     val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
 
-    // 玻璃卡片配色（亮/暗两套 token）
+    // 玻璃卡片配色（亮/暗两套）
     val cardBlend = remember(isDark) {
         if (isDark) {
             listOf(
@@ -1165,22 +1165,6 @@ private fun AboutContent(
             listOf(
                 BlendColorEntry(Color(0x340034F9), BlurBlendMode.Overlay),
                 BlendColorEntry(Color(0xB3FFFFFF), BlurBlendMode.HardLight),
-            )
-        }
-    }
-    // 玻璃项目名配色
-    val logoBlend = remember(isDark) {
-        if (isDark) {
-            listOf(
-                BlendColorEntry(Color(0xE6A1A1A1), BlurBlendMode.ColorDodge),
-                BlendColorEntry(Color(0x4DE6E6E6), BlurBlendMode.LinearLight),
-                BlendColorEntry(Color(0xFF1AF500), BlurBlendMode.Lab),
-            )
-        } else {
-            listOf(
-                BlendColorEntry(Color(0xCC4A4A4A), BlurBlendMode.ColorBurn),
-                BlendColorEntry(Color(0xFF4F4F4F), BlurBlendMode.LinearLight),
-                BlendColorEntry(Color(0xFF1AF200), BlurBlendMode.Lab),
             )
         }
     }
@@ -1259,7 +1243,7 @@ private fun AboutContent(
                     fontSize = 44.sp,
                 )
             }
-            // 项目名：玻璃文字
+            // 项目名
             Text(
                 modifier = Modifier
                     .padding(top = 12.dp, bottom = 5.dp)
@@ -1267,19 +1251,7 @@ private fun AboutContent(
                         alpha = 1f - projectNameProgress
                         scaleX = 1f - projectNameProgress * 0.05f
                         scaleY = 1f - projectNameProgress * 0.05f
-                    }
-                    .then(
-                        if (backdrop != null) {
-                            Modifier.textureBlur(
-                                backdrop = backdrop,
-                                shape = RoundedCornerShape(16.dp),
-                                blurRadius = 150f,
-                                colors = BlurColors(blendColors = logoBlend),
-                            )
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    },
                 text = "Pixo",
                 color = MiuixTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,
@@ -1335,6 +1307,13 @@ private fun AboutContent(
                         },
                         onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo") },
                     )
+                    ArrowPreference(
+                        title = Str.check_update(),
+                        endActions = {
+                            ValueText(appVersionName())
+                        },
+                        onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo/releases") },
+                    )
                 }
             }
             item(key = "docs") {
@@ -1353,6 +1332,20 @@ private fun AboutContent(
                     ArrowPreference(
                         title = sDisclaimer,
                         onClick = { onOpenDoc(sDisclaimer, sDisclaimerContent) },
+                    )
+                }
+            }
+            item(key = "feedback") {
+                Card(
+                    modifier = Modifier.fillMaxWidth().then(glassCard),
+                    colors = cardColors,
+                ) {
+                    ArrowPreference(
+                        title = Str.feedback(),
+                        endActions = {
+                            ValueText("Issues")
+                        },
+                        onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo/issues") },
                     )
                 }
             }

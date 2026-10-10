@@ -93,15 +93,6 @@ internal fun DocSheet(title: String, content: String, onDismiss: () -> Unit) {
         title = title,
         onDismissRequest = { show = false },
         onDismissFinished = onDismiss,
-        endAction = {
-            IconButton(onClick = { show = false }) {
-                Icon(
-                    imageVector = MiuixIcons.Close,
-                    contentDescription = "关闭",
-                    tint = scheme.onSurfaceVariantActions,
-                )
-            }
-        },
         insideMargin = DpSize(0.dp, 0.dp),
     ) {
         Column(

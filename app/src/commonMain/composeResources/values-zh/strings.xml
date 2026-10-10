@@ -179,5 +179,7 @@
     <string name="license">许可证</string>
     <string name="disclaimer">免责声明</string>
     <string name="no_downloaded_images">还没有下载的图片</string>
+    <string name="check_update">检查更新</string>
+    <string name="feedback">反馈与建议</string>
 </resources>
 

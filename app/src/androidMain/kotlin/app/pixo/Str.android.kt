@@ -172,6 +172,8 @@ internal actual object Str {
     @Composable actual fun following_private(): String = stringResource(app.pixo.R.string.following_private)
     @Composable actual fun about(): String = stringResource(app.pixo.R.string.about)
     @Composable actual fun open_source(): String = stringResource(app.pixo.R.string.open_source)
+    @Composable actual fun check_update(): String = stringResource(app.pixo.R.string.check_update)
+    @Composable actual fun feedback(): String = stringResource(app.pixo.R.string.feedback)
     @Composable actual fun privacy_policy(): String = stringResource(app.pixo.R.string.privacy_policy)
     @Composable actual fun privacy_policy_content(): String = stringResource(app.pixo.R.string.privacy_policy_content)
     @Composable actual fun license(): String = stringResource(app.pixo.R.string.license)

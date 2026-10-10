@@ -1,6 +1,6 @@
 package app.pixo
 
-// 关于页动态背景：OS3 风格流光着色器（AGSL RuntimeShader）。
+// 关于页动态背景：流光着色器（AGSL RuntimeShader）。
 // 不支持 RuntimeShader 的平台（桌面 / 低版本）自动降级为纯色，无副作用。
 
 import androidx.compose.animation.core.Animatable
@@ -47,15 +47,16 @@ object BgEffectConfig {
         val pointOffset: Float,
     )
 
-    private val C1_L = floatArrayOf(0.68f, 0.65f, 0.74f, 1.0f)
-    private val C2_L = floatArrayOf(0.92f, 0.62f, 0.73f, 1.0f)
-    private val C3_L = floatArrayOf(0.98f, 0.98f, 0.98f, 1.0f)
-    private val CM_L = floatArrayOf(0.85f, 0.80f, 0.90f, 1.0f)
+    // 应用浅蓝主色系（亮/暗两套）
+    private val C1_L = floatArrayOf(0.36f, 0.68f, 0.95f, 1.0f)
+    private val C2_L = floatArrayOf(0.58f, 0.85f, 1.00f, 1.0f)
+    private val C3_L = floatArrayOf(0.92f, 0.96f, 1.00f, 1.0f)
+    private val CM_L = floatArrayOf(0.50f, 0.78f, 0.97f, 1.0f)
 
-    private val C1_D = floatArrayOf(0.16f, 0.14f, 0.20f, 1.0f)
-    private val C2_D = floatArrayOf(0.49f, 0.17f, 0.29f, 1.0f)
-    private val C3_D = floatArrayOf(0.15f, 0.15f, 0.15f, 1.0f)
-    private val CM_D = floatArrayOf(0.25f, 0.15f, 0.28f, 1.0f)
+    private val C1_D = floatArrayOf(0.05f, 0.12f, 0.20f, 1.0f)
+    private val C2_D = floatArrayOf(0.10f, 0.36f, 0.58f, 1.0f)
+    private val C3_D = floatArrayOf(0.09f, 0.11f, 0.14f, 1.0f)
+    private val CM_D = floatArrayOf(0.10f, 0.22f, 0.36f, 1.0f)
 
     private fun colors(a: FloatArray, b: FloatArray, c: FloatArray, m: FloatArray) = floatArrayOf(
         a[0], a[1], a[2], a[3],
@@ -92,11 +93,11 @@ object BgEffectConfig {
     fun get(isDark: Boolean): Config = if (!isDark) LIGHT else DARK
 }
 
-/** OS3 流光着色器绘制器：缓存 uniform，避免每帧重复上传。 */
+/** 流光着色器绘制器：缓存 uniform，避免每帧重复上传。 */
 internal class BgEffectPainter {
 
     val runtimeShader by lazy {
-        RuntimeShader(OS3_BG_FRAG).apply {
+        RuntimeShader(BG_FRAG).apply {
             setFloatUniform("uTranslateY", 0f)
             setFloatUniform("uNoiseScale", 1.5f)
             setFloatUniform("uPointRadiusMulti", 1f)
@@ -417,7 +418,7 @@ fun BgEffectBackground(
     }
 }
 
-private const val OS3_BG_FRAG = """
+private const val BG_FRAG = """
     uniform vec2 uResolution;
     uniform float uAnimTime;
     uniform vec4 uBound;

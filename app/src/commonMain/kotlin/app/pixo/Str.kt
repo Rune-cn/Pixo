@@ -175,6 +175,8 @@ internal expect object Str {
     @Composable fun following_private(): String
     @Composable fun about(): String
     @Composable fun open_source(): String
+    @Composable fun check_update(): String
+    @Composable fun feedback(): String
     @Composable fun privacy_policy(): String
     @Composable fun privacy_policy_content(): String
     @Composable fun license(): String

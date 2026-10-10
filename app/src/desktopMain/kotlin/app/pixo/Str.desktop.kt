@@ -172,6 +172,8 @@ internal actual object Str {
     @Composable actual fun following_private(): String = stringResource(Res.string.following_private)
     @Composable actual fun about(): String = stringResource(Res.string.about)
     @Composable actual fun open_source(): String = stringResource(Res.string.open_source)
+    @Composable actual fun check_update(): String = stringResource(Res.string.check_update)
+    @Composable actual fun feedback(): String = stringResource(Res.string.feedback)
     @Composable actual fun privacy_policy(): String = stringResource(Res.string.privacy_policy)
     @Composable actual fun privacy_policy_content(): String = stringResource(Res.string.privacy_policy_content)
     @Composable actual fun license(): String = stringResource(Res.string.license)

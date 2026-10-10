@@ -179,6 +179,8 @@
     <string name="license">License</string>
     <string name="disclaimer">Disclaimer</string>
     <string name="no_downloaded_images">No downloaded images yet</string>
+    <string name="check_update">Check for updates</string>
+    <string name="feedback">Feedback</string>
 </resources>
 
 
