@@ -98,7 +98,7 @@ internal fun DocSheet(title: String, content: String, onDismiss: () -> Unit) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.78f)
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 30.dp),
         ) {

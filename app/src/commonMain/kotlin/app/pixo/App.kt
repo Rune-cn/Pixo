@@ -54,6 +54,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -1060,7 +1065,32 @@ private fun formatBytes(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-/** 关于页：MiuixAboutScreen 风格（沉浸式滚动顶栏 + 背景光效 + 浮动 Logo + 卡片列表）。 */
+/** 关于页 Logo：调色板图标（与启动图标一致的插画主题）。 */
+private val PaletteIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "Palette",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).apply {
+        addPath(
+            pathData = addPathNodes(
+                "M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25",
+            ),
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        )
+        addPath(
+            pathData = addPathNodes("M7.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"),
+            fill = SolidColor(Color.White),
+        )
+    }.build()
+}
+
+/** 关于页：沉浸式滚动顶栏 + 背景光效 + 浮动 Logo + 卡片列表。 */
 @OptIn(ExperimentalScrollBarApi::class)
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
@@ -1222,7 +1252,7 @@ private fun AboutContent(
                 },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Logo：88dp 白底圆角方牌
+            // Logo：88dp 主题色圆角方牌 + 调色板图标
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -1234,13 +1264,13 @@ private fun AboutContent(
                         scaleX = 1f - iconProgress * 0.05f
                         scaleY = 1f - iconProgress * 0.05f
                     }
-                    .background(Color.White),
+                    .background(MiuixTheme.colorScheme.primary),
             ) {
-                Text(
-                    "P",
-                    color = MiuixTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 44.sp,
+                Icon(
+                    imageVector = PaletteIcon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp),
                 )
             }
             // 项目名
@@ -1295,61 +1325,64 @@ private fun AboutContent(
                         ),
                 )
             }
-            item(key = "openSource") {
-                Card(
-                    modifier = Modifier.fillMaxWidth().then(glassCard),
-                    colors = cardColors,
+            // 内容列填满剩余高度：保证在任何屏幕上都可向下滚动到底
+            item(key = "about") {
+                Column(
+                    modifier = Modifier
+                        .fillParentMaxHeight()
+                        .padding(bottom = scrollPadding.calculateBottomPadding()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    ArrowPreference(
-                        title = Str.open_source(),
-                        endActions = {
-                            ValueText("GitHub")
-                        },
-                        onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo") },
-                    )
-                    ArrowPreference(
-                        title = Str.check_update(),
-                        endActions = {
-                            ValueText(appVersionName())
-                        },
-                        onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo/releases") },
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth().then(glassCard),
+                        colors = cardColors,
+                    ) {
+                        ArrowPreference(
+                            title = Str.open_source(),
+                            endActions = {
+                                ValueText("GitHub")
+                            },
+                            onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo") },
+                        )
+                        ArrowPreference(
+                            title = Str.check_update(),
+                            endActions = {
+                                ValueText(appVersionName())
+                            },
+                            onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo/releases") },
+                        )
+                    }
+                    Card(
+                        modifier = Modifier.fillMaxWidth().then(glassCard),
+                        colors = cardColors,
+                    ) {
+                        ArrowPreference(
+                            title = sPrivacy,
+                            onClick = { onOpenDoc(sPrivacy, sPrivacyContent) },
+                        )
+                        ArrowPreference(
+                            title = sLicense,
+                            onClick = { onOpenDoc(sLicense, sLicenseContent) },
+                        )
+                        ArrowPreference(
+                            title = sDisclaimer,
+                            onClick = { onOpenDoc(sDisclaimer, sDisclaimerContent) },
+                        )
+                    }
+                    Card(
+                        modifier = Modifier.fillMaxWidth().then(glassCard),
+                        colors = cardColors,
+                    ) {
+                        ArrowPreference(
+                            title = Str.feedback(),
+                            endActions = {
+                                ValueText("Issues")
+                            },
+                            onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo/issues") },
+                        )
+                    }
                 }
             }
-            item(key = "docs") {
-                Card(
-                    modifier = Modifier.fillMaxWidth().then(glassCard),
-                    colors = cardColors,
-                ) {
-                    ArrowPreference(
-                        title = sPrivacy,
-                        onClick = { onOpenDoc(sPrivacy, sPrivacyContent) },
-                    )
-                    ArrowPreference(
-                        title = sLicense,
-                        onClick = { onOpenDoc(sLicense, sLicenseContent) },
-                    )
-                    ArrowPreference(
-                        title = sDisclaimer,
-                        onClick = { onOpenDoc(sDisclaimer, sDisclaimerContent) },
-                    )
-                }
-            }
-            item(key = "feedback") {
-                Card(
-                    modifier = Modifier.fillMaxWidth().then(glassCard),
-                    colors = cardColors,
-                ) {
-                    ArrowPreference(
-                        title = Str.feedback(),
-                        endActions = {
-                            ValueText("Issues")
-                        },
-                        onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo/issues") },
-                    )
-                }
-            }
-            item { Spacer(Modifier.height(12.dp)) }
         }
 
         // 滚动条
