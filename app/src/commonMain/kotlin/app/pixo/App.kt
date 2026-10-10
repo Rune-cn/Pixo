@@ -207,7 +207,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var themeMode by rememberSaveable { mutableStateOf(ColorSchemeMode.System) }
     var dynamicColor by rememberSaveable { mutableStateOf(AppPrefs.dynamicColor) }
     var language by rememberSaveable { mutableStateOf(AppPrefs.language) }
-    var predictiveBack by rememberSaveable { mutableStateOf(AppPrefs.predictiveBack) }
     var floatingBar by rememberSaveable { mutableStateOf(AppPrefs.floatingBar) }
     var liquidGlass by rememberSaveable { mutableStateOf(AppPrefs.liquidGlass) }
     var ugoiraConfirm by rememberSaveable { mutableStateOf(AppPrefs.ugoiraConfirm) }
@@ -415,11 +414,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                 AppPrefs.dynamicColor = it
                             },
                             onThemeModeChange = { themeMode = it },
-                            predictiveBack = predictiveBack,
-                            onPredictiveBackChange = {
-                                predictiveBack = it
-                                AppPrefs.predictiveBack = it
-                            },
                             floatingBar = floatingBar,
                             onFloatingBarChange = {
                                 floatingBar = it
@@ -610,11 +604,11 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     }
                 }
                 val navEventState = rememberNavigationEventState(NavigationEventInfo.None)
-                // 预见式返回：开启时拦截系统返回手势，由 App 自行播放 MIUI 弹回动画（快速、效果一致）；
-                // 标签根页停在设置页时，返回手势先回落首页标签；关闭时返回走系统默认路径。
+                // 返回手势：拦截后由 App 播放 MIUI 弹回动画（快速、效果一致）；
+                // 标签根页停在设置页时，返回手势先回落首页标签。
                 NavigationBackHandler(
                     state = navEventState,
-                    isBackEnabled = predictiveBack && (atRootOnSecondTab || !isAtRoot),
+                    isBackEnabled = atRootOnSecondTab || !isAtRoot,
                     onBackCompleted = {
                         if (atRootOnSecondTab) mainPagerState.animateToPage(0) else navController.popBackStack()
                     },
@@ -1406,15 +1400,13 @@ private fun ValueText(text: String) {
     )
 }
 
-/** 外观设置页：语言 / 主题 / 悬浮底栏 / 预见式返回。 */
+/** 外观设置页：语言 / 主题 / 动态取色 / 悬浮底栏 / 液态玻璃。 */
 @Composable
 fun AppearancePage(
     themeMode: ColorSchemeMode,
     onThemeModeChange: (ColorSchemeMode) -> Unit,
     dynamicColor: Boolean,
     onDynamicColorChange: (Boolean) -> Unit,
-    predictiveBack: Boolean,
-    onPredictiveBackChange: (Boolean) -> Unit,
     floatingBar: Boolean,
     onFloatingBarChange: (Boolean) -> Unit,
     liquidGlass: Boolean,
@@ -1458,12 +1450,6 @@ fun AppearancePage(
                         summary = Str.dynamic_color_summary(),
                         checked = dynamicColor,
                         onCheckedChange = { onDynamicColorChange(it) },
-                    )
-                    SwitchPreference(
-                        title = Str.predictive_back(),
-                        summary = Str.predictive_back_summary(),
-                        checked = predictiveBack,
-                        onCheckedChange = { onPredictiveBackChange(it) },
                     )
                     SwitchPreference(
                         title = Str.floating_bar(),
