@@ -9,3 +9,8 @@
 -keep class top.yukonga.miuix.kmp.shader.** { *; }
 -keep class top.yukonga.miuix.kmp.squircle.** { *; }
 -keep class top.yukonga.miuix.kmp.animation.** { *; }
+
+# mikepenz Markdown 渲染器 + JetBrains Markdown 解析器：依赖反射/ServiceLoader，
+# R8 混淆/裁剪会破坏解析导致渲染失败（显示原始 Markdown 源码）。
+-keep class com.mikepenz.** { *; }
+-keep class org.intellij.markdown.** { *; }

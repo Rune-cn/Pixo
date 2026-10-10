@@ -28,6 +28,7 @@ import com.mikepenz.markdown.compose.Markdown
 import com.mikepenz.markdown.model.DefaultMarkdownColors
 import com.mikepenz.markdown.model.DefaultMarkdownTypography
 import com.mikepenz.markdown.model.markdownAlertColors
+import com.mikepenz.markdown.model.rememberMarkdownState
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -102,8 +103,9 @@ internal fun DocSheet(title: String, content: String, onDismiss: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 30.dp),
         ) {
+            val markdownState = rememberMarkdownState(content)
             Markdown(
-                content = content,
+                markdownState,
                 colors = colors,
                 typography = typography,
                 modifier = Modifier.fillMaxWidth(),
