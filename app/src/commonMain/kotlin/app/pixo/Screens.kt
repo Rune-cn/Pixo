@@ -1772,7 +1772,7 @@ fun CommentsScreen(
                                         }
                                     }
                                 }
-                                itemsIndexed(comments.orEmpty()) { _, c ->
+                                itemsIndexed(comments.orEmpty(), key = { _, c -> c.id }) { _, c ->
                                     RootCommentCard(
                                         c = c,
                                         kind = kind,

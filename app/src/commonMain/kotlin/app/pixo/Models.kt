@@ -172,3 +172,8 @@ data class DownloadedImage(
     val uri: String,
     val size: Long,
 )
+
+/** 会话用户信息缓存：避免重复拉取（如反复进出设置页时头像不闪、不重新加载）。 */
+object SessionCache {
+    var selfInfo: PixivUser? = null
+}

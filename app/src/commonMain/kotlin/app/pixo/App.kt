@@ -752,13 +752,18 @@ fun SettingsPage(
     bottomPadding: Dp = 0.dp,
 ) {
     var selfId by remember { mutableStateOf(AppPrefs.selfUserId) }
-    var selfInfo by remember { mutableStateOf<PixivUser?>(null) }
+    var selfInfo by remember {
+        mutableStateOf(
+            if (selfId > 0L) SessionCache.selfInfo?.takeIf { it.id == selfId } else null,
+        )
+    }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(selfId) {
         selfInfo = if (selfId > 0L) {
             try {
-                PixivApi.fetchUser(selfId)
+                SessionCache.selfInfo?.takeIf { it.id == selfId }
+                    ?: PixivApi.fetchUser(selfId).also { SessionCache.selfInfo = it }
             } catch (_: Exception) {
                 null
             }
