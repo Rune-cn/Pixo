@@ -150,15 +150,13 @@ jobs:
           mkdir -p dist-preview
           cp app/build/outputs/apk/release/*.apk "dist-preview/pixo-${version}-${SHA}-preview.apk"
 
-      - name: 发布预览版（Pre-release，只保留当前这一个）
+      - name: 发布预览版（Pre-release，幂等覆盖同名）
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 历史版本（正式版/旧预览版）全删除，只保留当前预览版
-          for TAG in $(gh release list --json tagName -q '.[].tagName'); do
-            [ "$TAG" != "$preview_tag" ] && gh release delete "$TAG" --yes --cleanup-tag || true
-          done
+          # 只覆盖同名预览版（不影响正式版 release）
+          gh release delete "$preview_tag" --yes --cleanup-tag || true
           gh release create "$preview_tag" dist-preview/*.apk \
             --title "Pixo 预览版 ${preview_tag#v}" \
             --notes "构建 commit：${GITHUB_SHA::7}，版本 = 当前版本 + 构建 commit。" \
