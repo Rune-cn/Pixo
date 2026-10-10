@@ -536,7 +536,7 @@ private fun AnnotatedString.Builder.appendMarkdownInline(
             }
         }
 
-        GFMElementTypes.INLINE_MATH -> {
+        node.type == GFMElementTypes.INLINE_MATH -> {
             withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 0.95.em)) {
                 append(node.getTextInNode(content))
             }
