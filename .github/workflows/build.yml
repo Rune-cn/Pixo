@@ -7,9 +7,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# 最小权限：仅读取代码，构建产物不回写仓库
+# 最小权限：构建产物不回写仓库；发布需要写 contents
 permissions:
-  contents: read
+  contents: write
 
 # 同分支新推送取消旧构建，省额度
 concurrency:
@@ -125,3 +125,44 @@ jobs:
           name: pixo-release-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: warn
+
+      # ===== 工作流自动发布 =====
+      # push 到 main 且 release 签名包构建成功后，自动发布/覆盖唯一版本 Release：
+      # 删除同名旧版（幂等覆盖）与其他所有旧版本，只保留当前这一个。
+      - name: 组合发布产物
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          VN=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | grep -oE '[0-9.]+')
+          echo "version=$VN" >> $GITHUB_ENV
+          mkdir -p dist
+          cp app/build/outputs/apk/release/*.apk "dist/pixo-${VN}-release.apk"
+
+      - name: 下载 debug APK（并入发布集）
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/download-artifact@v4
+        with:
+          name: pixo-debug-apk
+          path: dist
+          merge-multiple: true
+
+      - name: 发布 GitHub Release（自动）
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mv dist/*.apk "dist/pixo-${version}-debug.apk" 2>/dev/null || true
+          ls -la dist/
+          # 覆盖同名旧版
+          gh release delete "v${version}" --yes --cleanup-tag || true
+          # 只保留当前版本（历史版本全删除）
+          for TAG in $(gh release list --json tagName -q '.[].tagName'); do
+            [ "$TAG" != "v${version}" ] && gh release delete "$TAG" --yes --cleanup-tag || true
+          done
+          echo "## Pixo v${version}" > notes.md
+          echo "" >> notes.md
+          echo "- release 签名包（覆盖安装）：pixo-${version}-release.apk" >> notes.md
+          echo "- debug 包：pixo-${version}-debug.apk" >> notes.md
+          echo "- 构建：GitHub Actions 工作流自动完成（版本号/签名见 app/build.gradle.kts）" >> notes.md
+          gh release create "v${version}" dist/*.apk \
+            --title "Pixo v${version}" --notes-file notes.md
