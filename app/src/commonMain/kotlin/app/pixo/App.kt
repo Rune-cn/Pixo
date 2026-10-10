@@ -562,7 +562,10 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onSearchTag = { tag -> navController.navigate(Search(tag)) },
                             onOpenUser = { navController.navigate(User(it)) },
                             onOpenComments = { workId, kind -> navController.navigate(Comments(workId, kind)) },
-                            onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) { launchSingleTop = true } },
+                            onOpenDetail = { workId, kind ->
+                                // 相关作品：标准入栈（规范：navigate 入栈、返回 pop 栈顶回到上一个详情）
+                                navController.navigate(Detail(workId, kind))
+                            },
                         )
                     }
                     composable<Comments>(
