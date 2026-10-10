@@ -62,6 +62,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -1649,7 +1650,6 @@ private fun BookmarkButtons(
     }
 }
 
-@Composable
 /** 详情页「相关作品」横滑区：作品缩略卡 + 标题，点按打开新详情。 */
 @Composable
 private fun RelatedWorksRow(
@@ -1726,6 +1726,7 @@ private fun RelatedWorkCard(work: PixivWork, onClick: () -> Unit) {
     }
 }
 
+@Composable
 private fun TextTagChip(tag: String, onClick: () -> Unit, onLongClick: () -> Unit) {
     Box(
         modifier = Modifier
