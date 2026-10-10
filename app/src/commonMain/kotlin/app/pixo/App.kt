@@ -1085,12 +1085,10 @@ private fun SettingEntryRow(title: String, onClick: () -> Unit) {
     ArrowPreference(title = title, onClick = onClick)
 }
 
-/** 下载页：展示已下载目录里的图片（默认 Pictures/Pixo 或自选 SAF 目录）。 */
-@Composable
 /** 历史页：本地看过的作品（插画/小说），点按进入详情页。 */
 @Composable
 fun HistoryScreen(onBack: () -> Unit, onOpenDetail: (Long, String) -> Unit) {
-    var items by remember { mutableStateOf(HistoryStore.load()) }
+    var historyItems by remember { mutableStateOf(HistoryStore.load()) }
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.history_title(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         LazyColumn(
@@ -1099,20 +1097,20 @@ fun HistoryScreen(onBack: () -> Unit, onOpenDetail: (Long, String) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
             overscrollEffect = null,
         ) {
-            if (items.isEmpty()) {
+            if (historyItems.isEmpty()) {
                 item {
                     Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                         Text(Str.history_empty(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     }
                 }
             } else {
-                items(items, key = { "${it.kind}:${it.id}" }) { entry ->
+                items(historyItems, key = { "${it.kind}:${it.id}" }) { entry ->
                     HistoryRow(entry) { onOpenDetail(entry.id, entry.kind) }
                 }
                 item {
                     Card(Modifier.fillMaxWidth().clickable {
                         HistoryStore.clear()
-                        items = emptyList()
+                        historyItems = emptyList()
                     }) {
                         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.Center) {
                             Text(Str.history_clear(), style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.primary)
@@ -1161,6 +1159,7 @@ private fun HistoryRow(entry: HistoryItem, onClick: () -> Unit) {
     }
 }
 
+@Composable
 fun DownloadsScreen(onBack: () -> Unit) {
     var images by remember { mutableStateOf<List<DownloadedImage>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
