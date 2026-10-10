@@ -39,6 +39,8 @@ expect object AppPrefs {
     var downloadDir: String
     /** 动图（ugoira）播放前是否需要手动确认（避免详情页自动轮播造成闪烁）。 */
     var ugoiraConfirm: Boolean
+    /** 标签屏蔽规则：每行一条正则，匹配到作品的任一标签即过滤。 */
+    var tagBlockPatterns: String
 }
 
 expect object LocalAppLocale {

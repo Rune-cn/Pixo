@@ -189,4 +189,11 @@ internal actual object Str {
     @Composable actual fun disclaimer_content(): String = stringResource(app.pixo.R.string.disclaimer_content)
     @Composable actual fun no_downloaded_images(): String = stringResource(app.pixo.R.string.no_downloaded_images)
     @Composable actual fun related_works(): String = stringResource(app.pixo.R.string.related_works)
+    @Composable actual fun copy_tag(): String = stringResource(app.pixo.R.string.copy_tag)
+    @Composable actual fun block_tag(): String = stringResource(app.pixo.R.string.block_tag)
+    @Composable actual fun tag_blocked(tag: String): String = stringResource(app.pixo.R.string.tag_blocked, tag)
+    @Composable actual fun tag_block(): String = stringResource(app.pixo.R.string.tag_block)
+    @Composable actual fun tag_block_summary(): String = stringResource(app.pixo.R.string.tag_block_summary)
+    @Composable actual fun tag_block_save(): String = stringResource(app.pixo.R.string.tag_block_save)
+    @Composable actual fun tag_block_hint(): String = stringResource(app.pixo.R.string.tag_block_hint)
 }

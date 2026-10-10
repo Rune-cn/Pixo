@@ -106,6 +106,12 @@ actual object AppPrefs {
         set(value) {
             prefs.putBoolean("ugoira_confirm", value)
         }
+
+    actual var tagBlockPatterns: String
+        get() = prefs.getString("tag_block_patterns", "")
+        set(value) {
+            prefs.putString("tag_block_patterns", value)
+        }
 }
 
 actual object LocalAppLocale {

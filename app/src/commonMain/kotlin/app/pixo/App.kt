@@ -146,6 +146,9 @@ internal object AppearanceSettings
 internal object ContentSettings
 
 @Serializable
+internal object TagBlockSettings
+
+@Serializable
 internal object DataSettings
 
 @Serializable
@@ -373,8 +376,17 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                 ugoiraConfirm = it
                                 AppPrefs.ugoiraConfirm = it
                             },
+                            onOpenTagBlock = { navController.navigate(TagBlockSettings) },
                             onBack = { navController.popBackStack() },
                         )
+                    }
+                    composable<TagBlockSettings>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        TagBlockScreen(onBack = { navController.popBackStack() })
                     }
                     composable<DataSettings>(
                         enterTransition = { miuixPushEnter() },
@@ -1545,11 +1557,49 @@ fun AppearancePage(
     }
 }
 
+/** 标签屏蔽规则编辑页：每行一条正则，保存进 AppPrefs.tagBlockPatterns。 */
+@Composable
+fun TagBlockScreen(onBack: () -> Unit) {
+    var text by remember { mutableStateOf(AppPrefs.tagBlockPatterns) }
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.tag_block(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        Column(
+            Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = Str.tag_block_hint(),
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+            Card(Modifier.fillMaxWidth()) {
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    textStyle = MiuixTheme.textStyles.body2.copy(color = MiuixTheme.colorScheme.onSurface),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 180.dp)
+                        .padding(16.dp),
+                )
+            }
+            Button(
+                onClick = {
+                    AppPrefs.tagBlockPatterns = text
+                    onBack()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(Str.tag_block_save()) }
+        }
+    }
+}
+
 /** 内容设置页：作品浏览相关偏好（动图播放需确认等）。 */
 @Composable
 fun ContentPage(
     ugoiraConfirm: Boolean,
     onUgoiraConfirmChange: (Boolean) -> Unit,
+    onOpenTagBlock: () -> Unit,
     onBack: () -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -1571,6 +1621,11 @@ fun ContentPage(
                         summary = Str.ugoira_confirm_summary(),
                         checked = ugoiraConfirm,
                         onCheckedChange = { onUgoiraConfirmChange(it) },
+                    )
+                    ArrowPreference(
+                        title = Str.tag_block(),
+                        summary = Str.tag_block_summary(),
+                        onClick = onOpenTagBlock,
                     )
                 }
             }

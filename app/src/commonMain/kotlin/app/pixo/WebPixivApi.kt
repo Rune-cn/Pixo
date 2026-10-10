@@ -188,13 +188,13 @@ object WebPixivApi {
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url("https://www.pixiv.net/ajax/illust/$id"))
         val body = root.obj("body") ?: throw IOException("响应缺少 body")
         val authorId = body.lng("userId")
-        val tags = buildList {
+        // 标签与官方翻译（translation.en）下标对齐一起解析
+        val pairs = buildList {
             val arr = body.obj("tags")?.arr("tags")
-            if (arr != null) {
-                for (el in arr) {
-                    val tag = (el as? JsonObject)?.str("tag")?.trim()
-                    if (!tag.isNullOrEmpty()) add(tag)
-                }
+            if (arr != null) for (el in arr) {
+                val o = el as? JsonObject ?: continue
+                val tag = o.str("tag").trim()
+                if (tag.isNotEmpty()) add(tag to o.obj("translation")?.str("en").orEmpty())
             }
         }
         var avatar = body.str("profileImageUrl")
@@ -207,7 +207,8 @@ object WebPixivApi {
             author = body.str("userName"),
             authorId = authorId,
             avatar = avatar,
-            tags = tags,
+            tags = pairs.map { it.first },
+            tagTranslations = pairs.map { it.second },
             illustType = body.int("illustType"),
             bookmarkCount = body.int("bookmarkCount"),
             likeCount = body.int("likeCount"),
@@ -942,16 +943,17 @@ object WebPixivApi {
         throw IOException("无法获取 CSRF token，请重新登录并刷新 Cookie")
     }
 
-    private fun parseWorks(arr: JsonArray?, mapper: (JsonObject) -> PixivWork): List<PixivWork> = buildList {
-        if (arr == null) return@buildList
-        for (el in arr) {
-            try {
-                add(mapper(el as JsonObject))
-            } catch (_: Exception) {
-                // 跳过异常条目
+    private fun parseWorks(arr: JsonArray?, mapper: (JsonObject) -> PixivWork): List<PixivWork> =
+        buildList {
+            if (arr == null) return@buildList
+            for (el in arr) {
+                try {
+                    add(mapper(el as JsonObject))
+                } catch (_: Exception) {
+                    // 跳过异常条目
+                }
             }
-        }
-    }
+        }.filterNot { TagBlock.isBlocked(it.tags) }
 
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList

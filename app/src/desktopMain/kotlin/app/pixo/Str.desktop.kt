@@ -189,4 +189,11 @@ internal actual object Str {
     @Composable actual fun disclaimer_content(): String = stringResource(Res.string.disclaimer_content)
     @Composable actual fun no_downloaded_images(): String = stringResource(Res.string.no_downloaded_images)
     @Composable actual fun related_works(): String = stringResource(Res.string.related_works)
+    @Composable actual fun copy_tag(): String = stringResource(Res.string.copy_tag)
+    @Composable actual fun block_tag(): String = stringResource(Res.string.block_tag)
+    @Composable actual fun tag_blocked(tag: String): String = stringResource(Res.string.tag_blocked, tag)
+    @Composable actual fun tag_block(): String = stringResource(Res.string.tag_block)
+    @Composable actual fun tag_block_summary(): String = stringResource(Res.string.tag_block_summary)
+    @Composable actual fun tag_block_save(): String = stringResource(Res.string.tag_block_save)
+    @Composable actual fun tag_block_hint(): String = stringResource(Res.string.tag_block_hint)
 }

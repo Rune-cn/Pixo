@@ -192,4 +192,11 @@ internal expect object Str {
     @Composable fun disclaimer_content(): String
     @Composable fun no_downloaded_images(): String
     @Composable fun related_works(): String
+    @Composable fun copy_tag(): String
+    @Composable fun block_tag(): String
+    @Composable fun tag_blocked(tag: String): String
+    @Composable fun tag_block(): String
+    @Composable fun tag_block_summary(): String
+    @Composable fun tag_block_save(): String
+    @Composable fun tag_block_hint(): String
 }

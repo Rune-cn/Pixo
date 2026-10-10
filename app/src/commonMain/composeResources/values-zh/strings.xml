@@ -189,5 +189,14 @@
     <string name="settings_section_logs">日志</string>
     <string name="settings_section_login">登录信息</string>
     <string name="related_works">相关作品</string>
+    <string name="copy_tag">复制标签</string>
+    <string name="block_tag">屏蔽标签</string>
+    <string name="tag_blocked">已屏蔽标签：%1$s</string>
+    <string name="tag_block">标签屏蔽</string>
+    <string name="tag_block_summary">按标签正则过滤列表作品，每行一条</string>
+    <string name="tag_block_save">保存</string>
+    <string name="tag_block_hint">匹配作品任一标签即过滤，忽略大小写。示例：
+R-18
+furry.*</string>
 </resources>
 

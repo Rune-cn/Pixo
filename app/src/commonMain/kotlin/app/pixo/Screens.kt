@@ -1003,7 +1003,7 @@ private fun IllustDetail(
     var loading by remember { mutableStateOf(cachedDetail == null || cachedPages == null) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
-    var copiedTag by remember { mutableStateOf<String?>(null) }
+    var tagAction by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var bookmarkBusy by remember { mutableStateOf(false) }
     var lightboxIndex by remember { mutableIntStateOf(-1) }
@@ -1058,12 +1058,6 @@ private fun IllustDetail(
             logError("Pixo", "load failed", e)
         }
         loading = false
-    }
-    LaunchedEffect(copiedTag) {
-        if (copiedTag != null) {
-            delay(1200)
-            copiedTag = null
-        }
     }
 
     fun toggleBookmark(restrict: Int) {
@@ -1229,7 +1223,7 @@ private fun IllustDetail(
                             d = d,
                             onSearchTag = onSearchTag,
                             onOpenUser = onOpenUser,
-                            onLongPressTag = { tag -> copiedTag = tag },
+                            onLongPressTag = { tag -> tagAction = tag },
                         )
                     }
                     item {
@@ -1239,8 +1233,29 @@ private fun IllustDetail(
                         )
                     }
                 }
-                BottomToast(copiedTag?.let { Str.copied(it) })
                 BottomToast(feedback)
+                // 长按标签：选择复制或屏蔽（屏蔽的标签进入黑名单正则过滤）
+                OverlayDialog(show = tagAction != null, onDismissRequest = { tagAction = null }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val clipboard = LocalClipboardManager.current
+                        val tagText = tagAction.orEmpty()
+                        Text("#$tagText", style = MiuixTheme.textStyles.title3)
+                        Button(onClick = {
+                            clipboard.setText(AnnotatedString(tagText))
+                            tagAction = null
+                        }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_tag()) }
+                        Button(onClick = {
+                            val add = Regex.escape(tagText)
+                            val cur = AppPrefs.tagBlockPatterns.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                            if (add !in cur) {
+                                AppPrefs.tagBlockPatterns = (cur + add).joinToString("\n")
+                            }
+                            feedback = Str.tag_blocked(tagText)
+                            tagAction = null
+                        }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_tag()) }
+                        Button(onClick = { tagAction = null }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+                    }
+                }
             }
         }
 
@@ -1593,13 +1608,14 @@ private fun IllustInfo(
         Spacer(Modifier.height(10.dp))
         if (d?.tags?.isNotEmpty() == true) {
             Spacer(Modifier.height(10.dp))
-            val clipboard = LocalClipboardManager.current
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                d.tags.forEach { tag ->
-                    TextTagChip(tag = tag, onClick = { onSearchTag(tag) }, onLongClick = {
-                        clipboard.setText(AnnotatedString(tag))
-                        onLongPressTag(tag)
-                    })
+                d.tags.forEachIndexed { index, tag ->
+                    TextTagChip(
+                        tag = tag,
+                        translation = d.tagTranslations.getOrNull(index).orEmpty(),
+                        onClick = { onSearchTag(tag) },
+                        onLongClick = { onLongPressTag(tag) },
+                    )
                 }
             }
         }
@@ -1727,7 +1743,7 @@ private fun RelatedWorkCard(work: PixivWork, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TextTagChip(tag: String, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun TextTagChip(tag: String, translation: String = "", onClick: () -> Unit, onLongClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
@@ -1735,7 +1751,19 @@ private fun TextTagChip(tag: String, onClick: () -> Unit, onLongClick: () -> Uni
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
-        Text(text = "#$tag", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceContainer)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "#$tag", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceContainer)
+            if (translation.isNotBlank()) {
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = translation,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
@@ -2041,7 +2069,23 @@ private fun RootCommentCard(
                         }
                     }
                     Spacer(Modifier.height(4.dp))
-                    Text(c.content, style = MiuixTheme.textStyles.body2)
+                    if (c.content.isNotBlank()) {
+                        Text(c.content, style = MiuixTheme.textStyles.body2)
+                    } else if (c.stampId != null) {
+                        // 纯表情章评论：渲染 pixiv 生成章图片
+                        val ctx = LocalPlatformContext.current
+                        AsyncImage(
+                            model = remember(c.stampId) {
+                                ImageRequest.Builder(ctx)
+                                    .data("https://s.pximg.net/common/images/stamp/generated-stamps/${c.stampId}_s.jpg")
+                                    .crossfade(true)
+                                    .build()
+                            },
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(64.dp),
+                        )
+                    }
                 }
             }
             // 操作行：回复（对一级评论也能回复），追评卡片紧随其下
@@ -2240,7 +2284,7 @@ private fun NovelDetail(
     var loading by remember { mutableStateOf(cachedDetail == null) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
-    var copiedTag by remember { mutableStateOf<String?>(null) }
+    var tagAction by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var bookmarkBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -2265,12 +2309,6 @@ private fun NovelDetail(
             logError("Pixo", "load failed", e)
         }
         loading = false
-    }
-    LaunchedEffect(copiedTag) {
-        if (copiedTag != null) {
-            delay(1200)
-            copiedTag = null
-        }
     }
 
     fun toggleBookmark(restrict: Int) {
@@ -2321,8 +2359,7 @@ private fun NovelDetail(
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     d.tags.forEach { tag ->
                                         TextTagChip(tag = tag, onClick = { onSearchTag(tag) }, onLongClick = {
-                                            clipboard.setText(AnnotatedString(tag))
-                                            copiedTag = tag
+                                            tagAction = tag
                                         })
                                     }
                                 }
@@ -2336,8 +2373,29 @@ private fun NovelDetail(
                         }
                     }
                 }
-                BottomToast(copiedTag?.let { Str.copied(it) })
                 BottomToast(feedback)
+                // 长按标签：选择复制或屏蔽（屏蔽的标签进入黑名单正则过滤）
+                OverlayDialog(show = tagAction != null, onDismissRequest = { tagAction = null }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val clipboard = LocalClipboardManager.current
+                        val tagText = tagAction.orEmpty()
+                        Text("#$tagText", style = MiuixTheme.textStyles.title3)
+                        Button(onClick = {
+                            clipboard.setText(AnnotatedString(tagText))
+                            tagAction = null
+                        }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_tag()) }
+                        Button(onClick = {
+                            val add = Regex.escape(tagText)
+                            val cur = AppPrefs.tagBlockPatterns.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                            if (add !in cur) {
+                                AppPrefs.tagBlockPatterns = (cur + add).joinToString("\n")
+                            }
+                            feedback = Str.tag_blocked(tagText)
+                            tagAction = null
+                        }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_tag()) }
+                        Button(onClick = { tagAction = null }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+                    }
+                }
             }
         }
 

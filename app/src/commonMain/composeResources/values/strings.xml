@@ -189,6 +189,15 @@
     <string name="settings_section_logs">Logs</string>
     <string name="settings_section_login">Login info</string>
     <string name="related_works">Related works</string>
+    <string name="copy_tag">Copy tag</string>
+    <string name="block_tag">Block tag</string>
+    <string name="tag_blocked">Blocked tag: %1$s</string>
+    <string name="tag_block">Tag blocking</string>
+    <string name="tag_block_summary">Filter works by tag regex, one per line</string>
+    <string name="tag_block_save">Save</string>
+    <string name="tag_block_hint">A work is filtered if any tag matches. Case-insensitive. Examples:
+R-18
+furry.*</string>
 </resources>
 
 

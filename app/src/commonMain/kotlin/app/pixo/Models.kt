@@ -94,6 +94,8 @@ data class PixivIllustDetail(
     val authorId: Long,
     val avatar: String,
     val tags: List<String>,
+    /** 标签官方翻译（与 tags 下标对齐，无翻译为空串）。 */
+    val tagTranslations: List<String> = emptyList(),
     val illustType: Int,
     val bookmarkCount: Int,
     val likeCount: Int,
@@ -178,4 +180,22 @@ data class DownloadedImage(
 /** 会话用户信息缓存：避免重复拉取（如反复进出设置页时头像不闪、不重新加载）。 */
 object SessionCache {
     var selfInfo: PixivUser? = null
+}
+
+/** 标签屏蔽：`AppPrefs.tagBlockPatterns` 每行一条正则，命中作品任一标签即过滤。 */
+object TagBlock {
+    fun isBlocked(tags: List<String>): Boolean {
+        if (tags.isEmpty()) return false
+        val patterns = AppPrefs.tagBlockPatterns
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toList()
+        if (patterns.isEmpty()) return false
+        return tags.any { tag ->
+            patterns.any { p ->
+                runCatching { Regex(p, RegexOption.IGNORE_CASE).containsMatchIn(tag) }.getOrDefault(false)
+            }
+        }
+    }
 }
