@@ -95,6 +95,10 @@ import kotlin.math.floor
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownArrowEndAction
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
@@ -124,6 +128,7 @@ import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -823,7 +828,7 @@ fun SettingsPage(
                 }
             }
             item {
-                Column(Modifier.fillMaxWidth()) {
+                Card(Modifier.fillMaxWidth()) {
                     ArrowPreference(
                         title = Str.settings_title(),
                         onClick = onOpenAppSettings,
@@ -860,7 +865,11 @@ fun AppSettingsPage(
             overscrollEffect = null,
         ) {
             item {
-                Column(Modifier.padding(horizontal = 12.dp)) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 4.dp),
+                ) {
                     SettingEntryRow(Str.settings_appearance(), onClick = onOpenAppearance)
                     SettingEntryRow(Str.settings_content(), onClick = onOpenContent)
                     SettingEntryRow(Str.settings_data(), onClick = onOpenData)
@@ -900,7 +909,11 @@ fun DataPage(onBack: () -> Unit) {
             ) {
                 item { SettingsSectionHeader(Str.settings_section_data()) }
                 item {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
                         ArrowPreference(
                             title = Str.export_settings(),
                             summary = Str.export_settings_summary(),
@@ -923,7 +936,11 @@ fun DataPage(onBack: () -> Unit) {
                 }
                 item { SettingsSectionHeader(Str.settings_section_storage()) }
                 item {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
                         ArrowPreference(
                             title = Str.download_folder(),
                             summary = downloadDir.ifBlank { "Pictures/Pixo" },
@@ -1402,6 +1419,73 @@ private fun SettingsSectionHeader(text: String) {
     )
 }
 
+/**
+ * 下拉选择行（受控展开）：展开时由本组件接管返回键，先关闭浮层（预见式返回），
+ * 而不是弹走整个设置页。
+ */
+@Composable
+private fun PixoDropdownPreference(
+    title: String,
+    summary: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelectedIndexChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MiuixTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
+    val navEventState = rememberNavigationEventState(NavigationEventInfo.None)
+    // 浮层打开时，返回手势由本组件接管 → 关闭浮层（后注册的 handler 优先于外层页面返回）
+    NavigationBackHandler(
+        state = navEventState,
+        isBackEnabled = expanded,
+        onBackCompleted = { expanded = false },
+    )
+    val items = remember(options, selectedIndex) {
+        options.mapIndexed { i, option ->
+            DropdownItem(
+                text = option,
+                selected = i == selectedIndex,
+                onClick = {
+                    onSelectedIndexChange(i)
+                    expanded = false
+                },
+            )
+        }
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { expanded = true }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                color = scheme.onSurface,
+            )
+            if (summary.isNotBlank()) {
+                Text(
+                    text = summary,
+                    fontSize = 13.sp,
+                    color = scheme.onSurfaceVariantSummary,
+                )
+            }
+        }
+        DropdownArrowEndAction(color = scheme.onSurfaceVariantSummary)
+    }
+    OverlayDropdownPopup(
+        entry = DropdownEntry(items = items),
+        expanded = expanded,
+        onDismissRequest = { expanded = false },
+        onDismissFinished = {},
+        maxHeight = 400.dp,
+        colors = DropdownDefaults.dropdownColors(),
+    )
+}
+
 /** 外观设置页：语言 / 主题 / 动态取色 / 悬浮底栏 / 液态玻璃。 */
 @Composable
 fun AppearancePage(
@@ -1429,19 +1513,23 @@ fun AppearancePage(
         ) {
             item { SettingsSectionHeader(Str.settings_section_general()) }
             item {
-                Column(Modifier.padding(horizontal = 12.dp)) {
-                    OverlayDropdownPreference(
-                        items = languageOptions,
-                        selectedIndex = languageValues.indexOf(language).coerceAtLeast(0),
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
+                    PixoDropdownPreference(
                         title = Str.settings_language(),
                         summary = languageOptions[languageValues.indexOf(language).coerceAtLeast(0)],
+                        options = languageOptions,
+                        selectedIndex = languageValues.indexOf(language).coerceAtLeast(0),
                         onSelectedIndexChange = { onLanguageChange(languageValues[it]) },
                     )
-                    OverlayDropdownPreference(
-                        items = themeOptions,
-                        selectedIndex = themeModes.indexOf(themeMode).coerceAtLeast(0),
+                    PixoDropdownPreference(
                         title = Str.theme_mode(),
                         summary = themeOptions[themeModes.indexOf(themeMode).coerceAtLeast(0)],
+                        options = themeOptions,
+                        selectedIndex = themeModes.indexOf(themeMode).coerceAtLeast(0),
                         onSelectedIndexChange = { onThemeModeChange(themeModes[it]) },
                     )
                     SwitchPreference(
@@ -1454,7 +1542,11 @@ fun AppearancePage(
             }
             item { SettingsSectionHeader(Str.settings_section_bottom_bar()) }
             item {
-                Column(Modifier.padding(horizontal = 12.dp)) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
                     SwitchPreference(
                         title = Str.floating_bar(),
                         summary = Str.floating_bar_summary(),
@@ -1492,7 +1584,11 @@ fun ContentPage(
         ) {
             item { SettingsSectionHeader(Str.settings_section_artwork()) }
             item {
-                Column(Modifier.padding(horizontal = 12.dp)) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
                     SwitchPreference(
                         title = Str.ugoira_confirm(),
                         summary = Str.ugoira_confirm_summary(),
@@ -1538,7 +1634,11 @@ fun DebugPage(
         ) {
             item { SettingsSectionHeader(Str.settings_section_logs()) }
             item {
-                Column(Modifier.padding(horizontal = 12.dp)) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
                     SwitchPreference(
                         title = Str.debug_log(),
                         summary = Str.debug_log_summary(),
@@ -1554,7 +1654,11 @@ fun DebugPage(
             }
             item { SettingsSectionHeader(Str.settings_section_login()) }
             item {
-                Column(Modifier.padding(horizontal = 12.dp)) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
                     SettingEntryRow(Str.export_login_info(), onClick = { showExport = true })
                     Text(
                         text = Str.export_login_summary(),
