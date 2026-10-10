@@ -1773,7 +1773,6 @@ private fun TextTagChip(tag: String, translation: String = "", onClick: () -> Un
     }
 }
 
-/**
 /** 关注新作页：已关注画师的最新作品（网页 feed，分页加载）。 */
 @Composable
 fun FollowScreen(
