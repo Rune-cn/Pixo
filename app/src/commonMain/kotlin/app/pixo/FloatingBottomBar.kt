@@ -474,6 +474,10 @@ fun FloatingBottomBar(
                     Box(
                         modifier = Modifier
                             .graphicsLayer {
+                                val ps = pressProgress.value
+                                val s = lerpFloat(1f, PILL_PRESSED_SCALE, ps)
+                                scaleX = s
+                                scaleY = s
                                 val progress = pillIndex.value * tabWidthPx
                                 translationX = (if (isLtr) progress else -progress) + indicatorPaddingPx
                             }

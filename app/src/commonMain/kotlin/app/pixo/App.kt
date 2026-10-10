@@ -112,6 +112,12 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -1145,6 +1151,54 @@ private fun AboutContent(
     val sDisclaimer = Str.disclaimer()
     val sDisclaimerContent = Str.disclaimer_content()
 
+    val backdrop = rememberPixoBlurBackdrop()
+    val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+
+    // 玻璃卡片配色（亮/暗两套 token）
+    val cardBlend = remember(isDark) {
+        if (isDark) {
+            listOf(
+                BlendColorEntry(Color(0x4DA9A9A9), BlurBlendMode.Luminosity),
+                BlendColorEntry(Color(0x1A9C9C9C), BlurBlendMode.PlusDarker),
+            )
+        } else {
+            listOf(
+                BlendColorEntry(Color(0x340034F9), BlurBlendMode.Overlay),
+                BlendColorEntry(Color(0xB3FFFFFF), BlurBlendMode.HardLight),
+            )
+        }
+    }
+    // 玻璃项目名配色
+    val logoBlend = remember(isDark) {
+        if (isDark) {
+            listOf(
+                BlendColorEntry(Color(0xE6A1A1A1), BlurBlendMode.ColorDodge),
+                BlendColorEntry(Color(0x4DE6E6E6), BlurBlendMode.LinearLight),
+                BlendColorEntry(Color(0xFF1AF500), BlurBlendMode.Lab),
+            )
+        } else {
+            listOf(
+                BlendColorEntry(Color(0xCC4A4A4A), BlurBlendMode.ColorBurn),
+                BlendColorEntry(Color(0xFF4F4F4F), BlurBlendMode.LinearLight),
+                BlendColorEntry(Color(0xFF1AF200), BlurBlendMode.Lab),
+            )
+        }
+    }
+    val glassCard: Modifier = if (backdrop != null) {
+        Modifier.textureBlur(
+            backdrop = backdrop,
+            shape = RoundedCornerShape(16.dp),
+            blurRadius = 60f,
+            colors = BlurColors(blendColors = cardBlend),
+        )
+    } else {
+        Modifier
+    }
+    val cardColors = CardDefaults.defaultColors(
+        if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer,
+        Color.Transparent,
+    )
+
     val scrollPadding = PaddingValues(
         top = padding.calculateTopPadding(),
         start = padding.calculateLeftPadding(LayoutDirection.Ltr) + 16.dp,
@@ -1162,9 +1216,14 @@ private fun AboutContent(
     val projectNameProgress = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
     val iconProgress = ((scrollProgress - 0.35f) / 0.15f).coerceIn(0f, 1f)
 
-    Box(Modifier.fillMaxSize()) {
-        // 背景光效：独立组件（动画状态只影响背景自身，不带动整页重组）
-        AboutBgEffect(scrollProgress = scrollProgress)
+    // 流光背景容器：背景随滚动淡出，并被上层玻璃卡片采样
+    BgEffectBackground(
+        dynamicBackground = isRuntimeShaderSupported(),
+        modifier = Modifier.fillMaxSize(),
+        bgModifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier,
+        isFullSize = true,
+        alpha = { 1f - scrollProgress },
+    ) {
         // 浮动 Logo 区：叠在内容上方，随滚动上浮、分段淡出缩小
         Column(
             modifier = Modifier
@@ -1200,6 +1259,7 @@ private fun AboutContent(
                     fontSize = 44.sp,
                 )
             }
+            // 项目名：玻璃文字
             Text(
                 modifier = Modifier
                     .padding(top = 12.dp, bottom = 5.dp)
@@ -1207,7 +1267,19 @@ private fun AboutContent(
                         alpha = 1f - projectNameProgress
                         scaleX = 1f - projectNameProgress * 0.05f
                         scaleY = 1f - projectNameProgress * 0.05f
-                    },
+                    }
+                    .then(
+                        if (backdrop != null) {
+                            Modifier.textureBlur(
+                                backdrop = backdrop,
+                                shape = RoundedCornerShape(16.dp),
+                                blurRadius = 150f,
+                                colors = BlurColors(blendColors = logoBlend),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
                 text = "Pixo",
                 color = MiuixTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,
@@ -1228,7 +1300,7 @@ private fun AboutContent(
             )
         }
 
-        // 滚动内容：透明占位（匹配 Logo 高度）+ 卡片列表
+        // 滚动内容：透明占位（匹配 Logo 高度）+ 玻璃卡片列表
         LazyColumn(
             state = lazyListState,
             modifier = Modifier
@@ -1252,7 +1324,10 @@ private fun AboutContent(
                 )
             }
             item(key = "openSource") {
-                Card(Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().then(glassCard),
+                    colors = cardColors,
+                ) {
                     ArrowPreference(
                         title = Str.open_source(),
                         endActions = {
@@ -1263,7 +1338,10 @@ private fun AboutContent(
                 }
             }
             item(key = "docs") {
-                Card(Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().then(glassCard),
+                    colors = cardColors,
+                ) {
                     ArrowPreference(
                         title = sPrivacy,
                         onClick = { onOpenDoc(sPrivacy, sPrivacyContent) },
@@ -1289,61 +1367,6 @@ private fun AboutContent(
                 .fillMaxHeight(),
             trackPadding = scrollPadding,
         )
-    }
-}
-
-/** 关于页背景光效：三个主题容器色按阶段循环流动的双色斑。 */
-@Composable
-private fun AboutBgEffect(scrollProgress: Float) {
-    val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-    // 光斑透明度刻意压得很低：容器色本身饱和度高，alpha 一大整页就显得又深又脏
-    val blobA = MiuixTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.30f else 0.24f)
-    val blobB = MiuixTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.22f else 0.18f)
-    val blobC = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.18f else 0.14f)
-    val colorStage = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        // 循环推进色阶：先停留再 spring 过渡
-        while (isActive) {
-            val target = floor(colorStage.value) + 1f
-            delay(1500L)
-            colorStage.animateTo(target, spring(dampingRatio = 0.9f, stiffness = 35f))
-        }
-    }
-    val stageFloat = (colorStage.value % 3f + 3f) % 3f
-    val stageIndex = floor(stageFloat).toInt()
-    val frac = stageFloat - floor(stageFloat)
-    val palettes = listOf(
-        listOf(blobA, blobB),
-        listOf(blobB, blobC),
-        listOf(blobC, blobA),
-    )
-    val colorA = lerp(palettes[stageIndex][0], palettes[stageIndex][1], frac)
-    val colorB = lerp(palettes[(stageIndex + 1) % 3][0], palettes[(stageIndex + 1) % 3][1], frac)
-    BoxWithConstraints(
-        Modifier
-            .fillMaxSize()
-            .graphicsLayer { alpha = 1f - scrollProgress },
-    ) {
-        val w = with(LocalDensity.current) { maxWidth.toPx() }
-        val h = with(LocalDensity.current) { maxHeight.toPx() }
-        val brushA = remember(w, h, colorA) {
-            Brush.radialGradient(
-                colors = listOf(colorA, colorA.copy(alpha = 0f)),
-                center = Offset(w * 0.15f, h * 0.18f),
-                radius = w * 0.85f,
-            )
-        }
-        val brushB = remember(w, h, colorB) {
-            Brush.radialGradient(
-                colors = listOf(colorB, colorB.copy(alpha = 0f)),
-                center = Offset(w * 0.92f, h * 0.95f),
-                radius = w * 0.8f,
-            )
-        }
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(brushA, radius = w * 0.85f, center = Offset(w * 0.15f, h * 0.18f))
-            drawCircle(brushB, radius = w * 0.8f, center = Offset(w * 0.92f, h * 0.95f))
-        }
     }
 }
 
