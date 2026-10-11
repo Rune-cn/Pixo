@@ -2088,28 +2088,54 @@ private data class ReplyUiState(
 
 /** 表情章图片（s.pximg.net generated-stamps），加载失败/空白时透出占位文本，保证"有显示"。 */
 @Composable
+/** Pixiv 评论括号表情 `(love2)` 等 → Unicode 表情字符渲染（pixiv 不公开表情图 URL）。 */
+private object CommentEmoji {
+    private val MAP = mapOf(
+        "love" to "❤️", "love2" to "💗", "like" to "👍", "like2" to "❤️",
+        "good" to "✨", "joke" to "😜", "surprise" to "😲", "sad" to "😢",
+        "sad2" to "😞", "angry" to "😠", "angry2" to "😡", "cry" to "😭",
+        "cry2" to "😭", "tear" to "🥺", "laugh" to "😄", "laugh2" to "😂",
+        "smile" to "🙂", "smile2" to "🙃", "shock" to "😱", "wink" to "😉",
+        "cool" to "😎", "happy" to "😆", "embarrassed" to "😳", "sleepy" to "😴",
+        "heart" to "💛", "heart2" to "💖", "star" to "⭐", "sparkle" to "✨",
+        "musical_note" to "🎵", "fire" to "🔥", "clap" to "👏", "ok" to "👌",
+        "peace" to "✌️", "victory" to "✌️", "wave" to "👋", "bow" to "🙇",
+        "please" to "🙏", "sorry" to "😣", "thank_you" to "🙏", "hug" to "🤗",
+        "kiss" to "😘", "love_letter" to "💌", "blush" to "😊", "joyful" to "😄",
+        "funny" to "😂", "pity" to "😥", "thinking" to "🤔", "idea" to "💡",
+        "question" to "❓", "dizzy" to "😵", "sweat" to "😅",
+    )
+    private val pattern = Regex("\\(([a-zA-Z0-9_]+)\\)")
+
+    /** 把 `(xxx)` 表情替换为对应 Unicode 表情；未命中的原样保留。 */
+    fun render(text: String): AnnotatedString {
+        val builder = AnnotatedString.Builder()
+        var last = 0
+        for (m in pattern.findAll(text)) {
+            if (m.range.first > last) builder.append(text.substring(last, m.range.first))
+            val name = m.groupValues[1]
+            val emoji = MAP[name]
+            if (emoji != null) builder.append(emoji) else builder.append(m.value)
+            last = m.range.last + 1
+        }
+        if (last < text.length) builder.append(text.substring(last))
+        return builder.toAnnotatedString()
+    }
+}
+
 private fun CommentStamp(stampId: String) {
     val ctx = LocalPlatformContext.current
-    Box(
-        Modifier
-            .size(64.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text("#$stampId", style = MiuixTheme.textStyles.footnote2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-        AsyncImage(
-            model = remember(stampId) {
-                ImageRequest.Builder(ctx)
-                    .data("https://s.pximg.net/common/images/stamp/generated-stamps/${stampId}_s.jpg")
-                    .crossfade(true)
-                    .build()
-            },
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-        )
-    }
+    AsyncImage(
+        model = remember(stampId) {
+            ImageRequest.Builder(ctx)
+                .data("https://s.pximg.net/common/images/stamp/generated-stamps/${stampId}_s.jpg")
+                .crossfade(true)
+                .build()
+        },
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier.size(64.dp),
+    )
 }
 
 @Composable
@@ -2186,7 +2212,7 @@ private fun RootCommentCard(
                     }
                     Spacer(Modifier.height(4.dp))
                     if (c.content.isNotBlank()) {
-                        Text(c.content, style = MiuixTheme.textStyles.body2)
+                        Text(CommentEmoji.render(c.content), style = MiuixTheme.textStyles.body2)
                     } else if (c.stampId != null) {
                         CommentStamp(c.stampId)
                     }
@@ -2344,7 +2370,7 @@ private fun ReplyCard(
             }
         }
         if (c.content.isNotBlank()) {
-            Text(c.content, style = MiuixTheme.textStyles.footnote2)
+            Text(CommentEmoji.render(c.content), style = MiuixTheme.textStyles.footnote2)
         } else if (c.stampId != null) {
             CommentStamp(c.stampId)
         }
