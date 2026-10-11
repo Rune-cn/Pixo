@@ -154,8 +154,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          find dist -name '*.apk' -exec mv {} "dist/pixo-${version}-debug.apk" \; 2>/dev/null || true
           ls -la dist/
+          # release 已在「组合正式版产物」命名为 pixo-${version}-release.apk；
+          # debug 从 artifact 下载（app-debug.apk），重命名为 pixo-${version}-debug.apk
+          DBG=$(find dist -name 'app-debug.apk' | head -1)
+          if [ -n "$DBG" ]; then mv "$DBG" "dist/pixo-${version}-debug.apk"; fi
           gh release delete "v${version}" --yes --cleanup-tag || true
           gh release create "v${version}" dist/*.apk \
             --title "Pixo v${version}" \
