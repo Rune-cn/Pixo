@@ -126,15 +126,12 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: warn
 
-      # ===== 读取版本号（正式版 / 预览版共用）=====
+      # ===== 读取版本号 =====
       - name: 读取版本号
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           VN=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | grep -oE '[0-9.]+')
           echo "version=$VN" >> $GITHUB_ENV
-          # 预览版版本 = 正式版版本 + 1（正式版 1.0.9 → 预览版 1.1.0-<commit>）
-          PREV=$(echo "$VN" | awk -F. '{print $1"."$2"."($3+1)}')
-          echo "preview_version=$PREV" >> $GITHUB_ENV
 
       # ===== 正式版 Release（幂等覆盖同名，版本=versionName）=====
       - name: 组合正式版产物
@@ -163,32 +160,3 @@ jobs:
           gh release create "v${version}" dist/*.apk \
             --title "Pixo v${version}" \
             --notes "正式版：包含全部已发布更新（评论表情/追评/标签屏蔽/历史/WebDAV/关注新作/相关推荐等）。"
-
-      - name: 构建预览版 APK（注入 versionName=正式版版本+1-commit）
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          KS_B64: ${{ secrets.PIXO_KEYSTORE_BASE64 }}
-          KS_PASS: ${{ secrets.PIXO_KEYSTORE_PASSWORD }}
-          KS_ALIAS: ${{ secrets.PIXO_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.PIXO_KEY_PASSWORD }}
-        run: |
-          SHA=${GITHUB_SHA::7}
-          echo "preview_tag=v${preview_version}-${SHA}" >> $GITHUB_ENV
-          sed -i "s/versionName = \"[^\"]*\"/versionName = \"${preview_version}-${SHA}\"/" app/build.gradle.kts
-          printf 'storeFile=../pixo-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-            "$KS_PASS" "$KS_ALIAS" "$KEY_PASS" > keystore.properties
-          ./gradlew :app:assembleRelease --no-daemon
-          mkdir -p dist-preview
-          cp app/build/outputs/apk/release/*.apk "dist-preview/pixo-${preview_version}-${SHA}-preview.apk"
-
-      - name: 发布预览版（Pre-release，幂等覆盖同名）
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # 只覆盖同名预览版（不影响正式版 release）
-          gh release delete "$preview_tag" --yes --cleanup-tag || true
-          gh release create "$preview_tag" dist-preview/*.apk \
-            --title "Pixo 预览版 ${preview_tag#v}" \
-            --notes "构建 commit：${GITHUB_SHA::7}，版本 = 当前版本 + 构建 commit。" \
-            --prerelease
