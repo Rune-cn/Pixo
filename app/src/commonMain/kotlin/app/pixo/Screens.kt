@@ -2086,8 +2086,7 @@ private data class ReplyUiState(
     val error: String? = null,
 )
 
-/** 表情章图片（s.pximg.net generated-stamps），加载失败/空白时透出占位文本，保证"有显示"。 */
-@Composable
+/** 表情章图片（s.pximg.net generated-stamps）。 */
 /** Pixiv 评论括号表情 `(love2)` 等 → Unicode 表情字符渲染（pixiv 不公开表情图 URL）。 */
 private object CommentEmoji {
     private val MAP = mapOf(
@@ -2123,6 +2122,7 @@ private object CommentEmoji {
     }
 }
 
+@Composable
 private fun CommentStamp(stampId: String) {
     val ctx = LocalPlatformContext.current
     AsyncImage(
