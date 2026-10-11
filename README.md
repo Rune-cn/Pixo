@@ -14,8 +14,8 @@ Pixiv 第三方客户端，基于 Compose Multiplatform + Miuix（MIUI/HyperOS �
 
 - **`pixo-vX.Y.Z-<commit>-preview.apk`**：预览版签名包（版本 = 当前版本 + 构建 commit），可直接覆盖安装
 
-> 每次推送 `main` 后，GitHub Actions **自动构建并发布唯一一个预览版（Pre-release）**：
-> 版本号为当前版本 + 本次构建 commit（如 `1.0.8-3ad92dc`），旧版本自动清理，只保留最新。
+> 每次推送 `main` 后，GitHub Actions **自动构建并发布预览版（Pre-release）**：
+> 预览版版本 = **最新正式版 +1** + 本次构建 commit（如正式版 1.0.8 → 预览版 `1.0.9-3ad92dc`），同名覆盖。
 
 ## 功能特性
 
