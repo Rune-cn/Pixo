@@ -126,15 +126,43 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: warn
 
-      # ===== 预览版（Pre-release，唯一版本）：版本 = 当前版本 + 构建 commit =====
+      # ===== 读取版本号（正式版 / 预览版共用）=====
       - name: 读取版本号
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           VN=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | grep -oE '[0-9.]+')
           echo "version=$VN" >> $GITHUB_ENV
-          # 预览版版本 = 正式版版本 + 1（正式版 1.0.8 → 预览版 1.0.9-<commit>）
+          # 预览版版本 = 正式版版本 + 1（正式版 1.0.9 → 预览版 1.1.0-<commit>）
           PREV=$(echo "$VN" | awk -F. '{print $1"."$2"."($3+1)}')
           echo "preview_version=$PREV" >> $GITHUB_ENV
+
+      # ===== 正式版 Release（幂等覆盖同名，版本=versionName）=====
+      - name: 组合正式版产物
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/*.apk "dist/pixo-${version}-release.apk"
+
+      - name: 下载 debug APK（并入正式版）
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/download-artifact@v4
+        with:
+          name: pixo-debug-apk
+          path: dist
+          merge-multiple: true
+
+      - name: 发布正式版 Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          find dist -name '*.apk' -exec mv {} "dist/pixo-${version}-debug.apk" \; 2>/dev/null || true
+          ls -la dist/
+          gh release delete "v${version}" --yes --cleanup-tag || true
+          gh release create "v${version}" dist/*.apk \
+            --title "Pixo v${version}" \
+            --notes "正式版：包含全部已发布更新（评论表情/追评/标签屏蔽/历史/WebDAV/关注新作/相关推荐等）。"
 
       - name: 构建预览版 APK（注入 versionName=正式版版本+1-commit）
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
