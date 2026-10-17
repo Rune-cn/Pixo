@@ -302,6 +302,8 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                 // 标签根页且停在设置页：返回手势应先回落首页标签
                 val atRootOnSecondTab = isAtRoot && mainPagerState.selectedPage != 0
                 val barBackdrop = rememberPixoBlurBackdrop()
+                // 底栏高度传递给子页面框架（内容底部让出底栏区域，避免被常显底栏遮挡）
+                CompositionLocalProvider(LocalBarHeight provides barHeight) {
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -323,53 +325,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             },
                         ),
                 ) {
-                    AnimatedVisibility(
-                        visible = !floatingBar,
-                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
-                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
-                    ) {
-                        Box(Modifier.fillMaxSize()) {
-                            NavigationBar(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .onSizeChanged {
-                                        barHeight = with(density) { it.height.toDp() }
-                                    },
-                                // 默认“自动”模式：选中图标上移、取消选中回落，文字只在选中时淡入
-                                mode = NavigationBarDisplayMode.IconWithSelectedLabel,
-                            ) {
-                                NavigationBarItem(
-                                    selected = mainPagerState.selectedPage == 0,
-                                    onClick = { mainPagerState.animateToPage(0) },
-                                    icon = MiuixIcons.Home,
-                                    label = Str.nav_home(),
-                                )
-                                NavigationBarItem(
-                                    selected = mainPagerState.selectedPage == 1,
-                                    onClick = { mainPagerState.animateToPage(1) },
-                                    icon = MiuixIcons.Settings,
-                                    label = Str.nav_settings(),
-                                )
-                            }
-                        }
-                    }
-                    AnimatedVisibility(
-                        visible = floatingBar,
-                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
-                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
-                    ) {
-                        FloatingBottomBar(
-                            items = listOf(
-                                FloatingBottomBarItem(MiuixIcons.Home, Str.nav_home()),
-                                FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
-                            ),
-                            selectedIndex = mainPagerState.selectedPage,
-                            onSelected = { index -> mainPagerState.animateToPage(index) },
-                            backdrop = barBackdrop,
-                            mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
-                            onSizeChanged = { barHeight = it },
-                        )
-                    }
                     Box(
                         Modifier
                             .fillMaxSize()
@@ -737,9 +692,57 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     },
                 )
                 } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
+                    AnimatedVisibility(
+                        visible = !floatingBar,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
+                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
+                    ) {
+                        Box(Modifier.fillMaxSize()) {
+                            NavigationBar(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .onSizeChanged {
+                                        barHeight = with(density) { it.height.toDp() }
+                                    },
+                                // 默认“自动”模式：选中图标上移、取消选中回落，文字只在选中时淡入
+                                mode = NavigationBarDisplayMode.IconWithSelectedLabel,
+                            ) {
+                                NavigationBarItem(
+                                    selected = mainPagerState.selectedPage == 0,
+                                    onClick = { mainPagerState.animateToPage(0) },
+                                    icon = MiuixIcons.Home,
+                                    label = Str.nav_home(),
+                                )
+                                NavigationBarItem(
+                                    selected = mainPagerState.selectedPage == 1,
+                                    onClick = { mainPagerState.animateToPage(1) },
+                                    icon = MiuixIcons.Settings,
+                                    label = Str.nav_settings(),
+                                )
+                            }
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = floatingBar,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
+                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
+                    ) {
+                        FloatingBottomBar(
+                            items = listOf(
+                                FloatingBottomBarItem(MiuixIcons.Home, Str.nav_home()),
+                                FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
+                            ),
+                            selectedIndex = mainPagerState.selectedPage,
+                            onSelected = { index -> mainPagerState.animateToPage(index) },
+                            backdrop = barBackdrop,
+                            mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
+                            onSizeChanged = { barHeight = it },
+                        )
+                    }
                   // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出
                 // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出
             }
+                }
         }
     }
 }

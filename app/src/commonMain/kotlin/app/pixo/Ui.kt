@@ -47,6 +47,10 @@ import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+
+/** 底栏高度（App 根维护）：子页面内容底部让出底栏区域，避免被常显底栏遮挡。 */
+val LocalBarHeight = staticCompositionLocalOf { 0.dp }
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
@@ -258,6 +262,7 @@ fun PixoSubScreen(
         Box(
             Modifier
                 .fillMaxSize()
+                .padding(bottom = LocalBarHeight.current)
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
         ) {
             content(innerPadding)
@@ -279,8 +284,6 @@ fun PixoTabFrame(
 ) {
     val backdrop = rememberPixoBlurBackdrop()
     Scaffold(
-        // 容器透明：标签页内容底部由 bottomPadding 预留底栏区域（底栏在页面下层常显）
-        containerColor = Color.Transparent,
         topBar = {
             if (scrollBehavior != null) {
                 TopAppBar(
@@ -396,6 +399,20 @@ fun SwipeBackContainer(
                 }
             },
     ) {
+        // 返回预览层：跟手右滑时底层淡入「返回目标」占位（主题色渐变），随拖动进度增强
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = (offsetX / screenW).coerceIn(0f, 0.6f) }
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            MiuixTheme.colorScheme.surfaceContainerHigh,
+                            MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
+                        ),
+                    ),
+                ),
+        )
         Box(
             Modifier
                 .fillMaxSize()
