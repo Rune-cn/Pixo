@@ -150,14 +150,6 @@ jobs:
             cp "$apk" "dist/pixo-${version}-${abi}-release.apk"
           done
 
-      - name: 下载 debug APK（并入正式版）
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/download-artifact@v4
-        with:
-          name: pixo-debug-apk
-          path: dist
-          merge-multiple: true
-
       - name: 发布午夜版（仅定时构建）
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
@@ -177,7 +169,6 @@ jobs:
             abi=$(echo "$apk" | sed -E 's/.*pixo-[^-]+-(.*)-release\.apk$/\1/')
             mv "$apk" "dist/pixo-nightly-${DATE}-${abi}.apk"
           done
-          rm -f "dist/pixo-${version}-debug.apk" 2>/dev/null || true
           gh release delete "$TAG" --yes --cleanup-tag || true
           gh release create "$TAG" dist/*.apk \
             --title "Pixo 午夜版 ${DATE}" \
