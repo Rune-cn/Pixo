@@ -792,6 +792,28 @@ fun BookmarksScreen(
             refreshTexts = refreshTexts(),
             contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
         ) {
+            if (waterfall) {
+                StaggeredWorkGrid(
+                    works = list,
+                    onOpenDetail = { onOpenDetail(it, "illust") },
+                    onOpenUser = onOpenUser,
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = innerPadding,
+                    loadingMore = loadingMore,
+                    hasMore = hasMore,
+                    onLoadMore = { loadMore() },
+                    header = {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ModeChip("show", Str.bookmark_public_label(), currentRestrict) { currentRestrict = "show" }
+                            ModeChip("hide", Str.bookmark_private_label(), currentRestrict) { currentRestrict = "hide" }
+                        }
+                    },
+                    error = error,
+                    onRetry = { retryKey++ },
+                    loading = loading && list.isEmpty(),
+                    emptyHint = { EmptyHint() },
+                )
+            } else {
             LazyColumn(
                 state = listState,
                 contentPadding = innerPadding,
@@ -819,6 +841,7 @@ fun BookmarksScreen(
                 } else if (!loading && error == null) {
                     item { EmptyHint() }
                 }
+            }
             }
         }
     }
@@ -965,28 +988,6 @@ fun SearchScreen(
             refreshTexts = refreshTexts(),
             contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
         ) {
-            if (waterfall) {
-                StaggeredWorkGrid(
-                    works = list,
-                    onOpenDetail = { onOpenDetail(it, "illust") },
-                    onOpenUser = onOpenUser,
-                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
-                    contentPadding = innerPadding,
-                    loadingMore = loadingMore,
-                    hasMore = hasMore,
-                    onLoadMore = { loadMore() },
-                    header = {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ModeChip("show", Str.bookmark_public_label(), currentRestrict) { currentRestrict = "show" }
-                            ModeChip("hide", Str.bookmark_private_label(), currentRestrict) { currentRestrict = "hide" }
-                        }
-                    },
-                    error = error,
-                    onRetry = { retryKey++ },
-                    loading = loading && list.isEmpty(),
-                    emptyHint = { EmptyHint() },
-                )
-            } else {
             LazyColumn(
                 state = listState,
                 contentPadding = innerPadding,
@@ -1040,7 +1041,6 @@ fun SearchScreen(
                     }
                     item { EndItem(loadingMore, hasMore, onRetry = {}) }
                 }
-            }
             }
         }
     }
@@ -3238,9 +3238,6 @@ fun RecommendedScreen(
                         modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical()
                             .nestedScroll(scrollBehavior.nestedScrollConnection),
                         contentPadding = innerPadding,
-                        loadingMore = loadingMore,
-                        hasMore = hasMore,
-                        onLoadMore = { loadMore() },
                     )
                 } else {
                     LazyColumn(

@@ -40,6 +40,13 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.calculateVelocity
+import androidx.compose.foundation.gestures.VelocityTracker
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
@@ -58,8 +65,6 @@ import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.swipeback.SwipeBackHandler
-import top.yukonga.miuix.kmp.swipeback.SwipeBackHost
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -216,7 +221,7 @@ fun PixoSubScreen(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    SwipeBackHost {
+    SwipeBackContainer(onBack = onBack) {
     // 内嵌 WebView 等平台视图页面关掉 blur：毛玻璃层反复采样会把 WebView 拉进图形层导致界面抖动
     val backdrop = if (blur) rememberPixoBlurBackdrop() else null
     Scaffold(
@@ -258,7 +263,6 @@ fun PixoSubScreen(
             content(innerPadding)
         }
     }
-        SwipeBackHandler(isBackEnabled = true, onBackCompleted = onBack)
     }
 }
 
@@ -336,3 +340,69 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
 }
 
 
+
+/**
+ * 全屏右滑返回容器（miuix 0.9.4 未提供滑退组件，用基础 Compose 手势实现，KMP 通用）：
+ * 内容随手指右移跟手；松手时超过屏幕 35% 或快速右滑（>1500px/s）→ 滑出并触发 onBack，否则回弹。
+ * 属于"额外行为"包裹层，不替换任何 miuix 组件；与 App 级 NavigationBackHandler 返回规则联动。
+ */
+@Composable
+fun SwipeBackContainer(
+    onBack: () -> Unit,
+    enabled: Boolean = true,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var screenW by remember { mutableFloatStateOf(0f) }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onSizeChanged { screenW = it.width.toFloat() }
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var drag = 0f
+                    var consumed = false
+                    val velocityTracker = VelocityTracker()
+                    drag(down.id) { change ->
+                        val dx = change.position.x - down.position.x
+                        if (dx > 0f && !consumed) {
+                            drag = dx
+                            offsetX = drag
+                            change.consume()
+                            velocityTracker.addPosition(change.uptimeMillis, change.position)
+                        }
+                    }
+                    val velocity = velocityTracker.calculateVelocity().x
+                    val passed = drag > screenW * 0.35f || velocity > 1500f
+                    scope.launch {
+                        if (passed) {
+                            animate(
+                                initialValue = offsetX,
+                                targetValue = screenW,
+                                animationSpec = tween(200, easing = FastOutSlowInEasing),
+                            ) { v, _ -> offsetX = v }
+                            onBack()
+                        } else {
+                            animate(
+                                initialValue = offsetX,
+                                targetValue = 0f,
+                                animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow),
+                            ) { v, _ -> offsetX = v }
+                        }
+                    }
+                }
+            },
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .graphicsLayer { shadowElevation = 8f * (offsetX / screenW).coerceIn(0f, 1f) },
+        ) {
+            content()
+        }
+    }
+}
