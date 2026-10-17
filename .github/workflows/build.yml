@@ -131,20 +131,20 @@ jobs:
 
       # ===== 读取版本号 =====
       - name: 读取版本号
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           VN=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | grep -oE '[0-9.]+')
           echo "version=$VN" >> $GITHUB_ENV
 
       # ===== 正式版 Release（幂等覆盖同名，版本=versionName）=====
       - name: 组合正式版产物
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk "dist/pixo-${version}-release.apk"
 
       - name: 下载 debug APK（并入正式版）
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/download-artifact@v4
         with:
           name: pixo-debug-apk
@@ -152,7 +152,7 @@ jobs:
           merge-multiple: true
 
       - name: 发布午夜版（仅定时构建）
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
