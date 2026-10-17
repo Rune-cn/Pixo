@@ -1866,12 +1866,11 @@ private fun RelatedWorksRow(
             return@Column
         }
         StaggeredWorkGrid(
-            works = list,
+            works = list.take(4),
             onOpenDetail = { onOpenDetail(it, "illust") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 460.dp),
+            modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 12.dp),
+            userScrollEnabled = false,
         )
     }
 }
@@ -2762,7 +2761,6 @@ fun ModeChip(value: String, label: String, current: String, onClick: () -> Unit)
 
 @Composable
 fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Unit = {}) {
-    var showAuthorMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick),
     ) {
@@ -2814,12 +2812,7 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(work.title, style = MiuixTheme.textStyles.body1, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { showAuthorMenu = true }) {
-                        Icon(imageVector = MiuixIcons.More, contentDescription = Str.more_actions())
-                    }
-                }
+                Text(work.title, style = MiuixTheme.textStyles.body1, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AuthorAvatar(work.avatar, 16.dp, work.authorId, onOpenUser)
@@ -2833,22 +2826,6 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
                         modifier = Modifier.weight(1f),
                     )
                 }
-            }
-        }
-    }
-    if (showAuthorMenu) {
-        OverlayDialog(show = true, onDismissRequest = { showAuthorMenu = false }) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("#" + work.author, style = MiuixTheme.textStyles.title3)
-                Button(onClick = {
-                    val add = work.author
-                    val cur = AppPrefs.blockedAuthors.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-                    if (cur.none { it.equals(add, ignoreCase = true) }) {
-                        AppPrefs.blockedAuthors = (cur + add).joinToString("\n")
-                    }
-                    showAuthorMenu = false
-                }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_this_author()) }
-                Button(onClick = { showAuthorMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
             }
         }
     }

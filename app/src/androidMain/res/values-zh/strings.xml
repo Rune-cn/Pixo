@@ -231,5 +231,7 @@ furry.*</string>
     <string name="author_block">屏蔽人</string>
     <string name="author_block_hint">每行一个用户名或 ID（忽略大小写匹配）</string>
     <string name="block_this_author">屏蔽此人</string>
+    <string name="disable_swipe_back">禁用从左往右滑退出操作</string>
+    <string name="disable_swipe_back_summary">关闭后全屏右滑不再触发返回</string>
 </resources>
 

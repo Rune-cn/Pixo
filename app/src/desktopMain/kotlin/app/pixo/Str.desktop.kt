@@ -226,6 +226,8 @@ internal actual object Str {
     @Composable actual fun tag_block_keyword_hint(): String = stringResource(Res.string.tag_block_keyword_hint)
     @Composable actual fun tag_block_keyword_label(): String = stringResource(Res.string.tag_block_keyword_label)
     @Composable actual fun image_quality(): String = stringResource(Res.string.image_quality)
+    @Composable actual fun disable_swipe_back(): String = stringResource(Res.string.disable_swipe_back)
+    @Composable actual fun disable_swipe_back_summary(): String = stringResource(Res.string.disable_swipe_back_summary)
     @Composable actual fun quality_standard(): String = stringResource(Res.string.quality_standard)
     @Composable actual fun quality_high(): String = stringResource(Res.string.quality_high)
 }

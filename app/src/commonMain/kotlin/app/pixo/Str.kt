@@ -229,6 +229,8 @@ internal expect object Str {
     @Composable fun tag_block_keyword_hint(): String
     @Composable fun tag_block_keyword_label(): String
     @Composable fun image_quality(): String
+    @Composable fun disable_swipe_back(): String
+    @Composable fun disable_swipe_back_summary(): String
     @Composable fun quality_standard(): String
     @Composable fun quality_high(): String
 }

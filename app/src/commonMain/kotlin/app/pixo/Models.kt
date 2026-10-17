@@ -15,6 +15,7 @@ data class SettingsBackup(
     val downloadDir: String = "",
     val ugoiraConfirm: Boolean = true,
     val tagBlockPatterns: String = "",
+    val disableSwipeBack: Boolean = false,
     val imageQuality: String = "standard",
     val tagBlockKeywords: String = "",
     val blockedAuthors: String = "",

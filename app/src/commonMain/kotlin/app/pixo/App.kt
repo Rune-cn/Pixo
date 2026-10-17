@@ -233,6 +233,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var ugoiraConfirm by rememberSaveable { mutableStateOf(AppPrefs.ugoiraConfirm) }
     var waterfall by rememberSaveable { mutableStateOf(AppPrefs.waterfall) }
     var imageQuality by rememberSaveable { mutableStateOf(AppPrefs.imageQuality) }
+    var disableSwipeBack by rememberSaveable { mutableStateOf(AppPrefs.disableSwipeBack) }
     val navController = rememberNavController()
     // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情 / 用户主页
     val deepLink = deepLinkSignal?.value
@@ -408,6 +409,11 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onImageQualityChange = {
                                 imageQuality = it
                                 AppPrefs.imageQuality = it
+                            },
+                            disableSwipeBack = disableSwipeBack,
+                            onDisableSwipeBackChange = {
+                                disableSwipeBack = it
+                                AppPrefs.disableSwipeBack = it
                             },
                             onOpenTagBlock = { navController.navigate(TagBlockSettings) },
                             onOpenAuthorBlock = { navController.navigate(AuthorBlockSettings) },
@@ -1914,6 +1920,8 @@ fun ContentPage(
     onWaterfallChange: (Boolean) -> Unit,
     imageQuality: String,
     onImageQualityChange: (String) -> Unit,
+    disableSwipeBack: Boolean,
+    onDisableSwipeBackChange: (Boolean) -> Unit,
     onOpenTagBlock: () -> Unit,
     onOpenAuthorBlock: () -> Unit,
     onBack: () -> Unit,
@@ -1950,6 +1958,12 @@ fun ContentPage(
                         options = listOf(Str.quality_standard(), Str.quality_high()),
                         selectedIndex = if (imageQuality == "high") 1 else 0,
                         onSelectedIndexChange = { onImageQualityChange(if (it == 1) "high" else "standard") },
+                    )
+                    SwitchPreference(
+                        title = Str.disable_swipe_back(),
+                        summary = Str.disable_swipe_back_summary(),
+                        checked = disableSwipeBack,
+                        onCheckedChange = { onDisableSwipeBackChange(it) },
                     )
                 }
             }

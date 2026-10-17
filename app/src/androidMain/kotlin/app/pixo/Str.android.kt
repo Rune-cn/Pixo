@@ -226,6 +226,8 @@ internal actual object Str {
     @Composable actual fun tag_block_keyword_hint(): String = stringResource(app.pixo.R.string.tag_block_keyword_hint)
     @Composable actual fun tag_block_keyword_label(): String = stringResource(app.pixo.R.string.tag_block_keyword_label)
     @Composable actual fun image_quality(): String = stringResource(app.pixo.R.string.image_quality)
+    @Composable actual fun disable_swipe_back(): String = stringResource(app.pixo.R.string.disable_swipe_back)
+    @Composable actual fun disable_swipe_back_summary(): String = stringResource(app.pixo.R.string.disable_swipe_back_summary)
     @Composable actual fun quality_standard(): String = stringResource(app.pixo.R.string.quality_standard)
     @Composable actual fun quality_high(): String = stringResource(app.pixo.R.string.quality_high)
 }

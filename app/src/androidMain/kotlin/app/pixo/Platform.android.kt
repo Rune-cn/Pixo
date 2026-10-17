@@ -152,6 +152,12 @@ actual object AppPrefs {
             prefs.edit().putString("webdav_password", value).apply()
         }
 
+    actual var disableSwipeBack: Boolean
+        get() = prefs.getBoolean("disable_swipe_back", false)
+        set(value) {
+            prefs.edit().putBoolean("disable_swipe_back", value).apply()
+        }
+
     actual var imageQuality: String
         get() = prefs.getString("image_quality", "standard").orEmpty()
         set(value) {

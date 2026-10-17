@@ -71,6 +71,7 @@ fun StaggeredWorkGrid(
     onRetry: () -> Unit = {},
     loading: Boolean = false,
     emptyHint: (@Composable () -> Unit)? = null,
+    userScrollEnabled: Boolean = true,
 ) {
     val gridState = rememberLazyStaggeredGridState()
 
@@ -87,6 +88,7 @@ fun StaggeredWorkGrid(
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
         state = gridState,
+        userScrollEnabled = userScrollEnabled,
         modifier = modifier,
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

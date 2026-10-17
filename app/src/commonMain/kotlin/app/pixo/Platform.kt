@@ -45,6 +45,9 @@ expect object AppPrefs {
     var webdavUrl: String
     var webdavUser: String
     var webdavPassword: String
+    /** 禁用全屏从左往右滑退出（右滑返回）。 */
+    var disableSwipeBack: Boolean
+
     /** 图片画质：standard（默认缩略图）/ high（原图级）。 */
     var imageQuality: String
 
@@ -191,6 +194,7 @@ fun exportSettingsJson(): String = runCatching {
             downloadDir = AppPrefs.downloadDir,
             ugoiraConfirm = AppPrefs.ugoiraConfirm,
             tagBlockPatterns = AppPrefs.tagBlockPatterns,
+            disableSwipeBack = AppPrefs.disableSwipeBack,
             imageQuality = AppPrefs.imageQuality,
             tagBlockKeywords = AppPrefs.tagBlockKeywords,
             blockedAuthors = AppPrefs.blockedAuthors,
@@ -214,6 +218,7 @@ fun importSettingsJson(json: String): Boolean = runCatching {
     AppPrefs.downloadDir = b.downloadDir
     AppPrefs.ugoiraConfirm = b.ugoiraConfirm
     AppPrefs.tagBlockPatterns = b.tagBlockPatterns
+    AppPrefs.disableSwipeBack = b.disableSwipeBack
     AppPrefs.imageQuality = b.imageQuality
     AppPrefs.tagBlockKeywords = b.tagBlockKeywords
     AppPrefs.blockedAuthors = b.blockedAuthors

@@ -230,6 +230,8 @@ furry.*</string>
     <string name="author_block">Blocked people</string>
     <string name="author_block_hint">One name or ID per line (case-insensitive match)</string>
     <string name="block_this_author">Block this person</string>
+    <string name="disable_swipe_back">Disable swipe-to-exit</string>
+    <string name="disable_swipe_back_summary">Disable full-screen swipe right to go back</string>
 </resources>
 
 
