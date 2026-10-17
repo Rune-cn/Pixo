@@ -220,4 +220,6 @@ internal expect object Str {
     @Composable fun related_empty(): String
     @Composable fun tag_block_count(count: Int): String
     @Composable fun blocked_all(): String
+    @Composable fun waterfall(): String
+    @Composable fun waterfall_summary(): String
 }

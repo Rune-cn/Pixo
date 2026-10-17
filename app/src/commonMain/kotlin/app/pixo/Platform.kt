@@ -47,6 +47,8 @@ expect object AppPrefs {
     var webdavPassword: String
     /** 本地观看历史（JSON 序列化）。 */
     var history: String
+    /** 首页作品列表是否用两列瀑布流展示。 */
+    var waterfall: Boolean
 }
 
 expect object LocalAppLocale {
@@ -183,6 +185,7 @@ fun exportSettingsJson(): String = runCatching {
             webdavUrl = AppPrefs.webdavUrl,
             webdavUser = AppPrefs.webdavUser,
             webdavPassword = AppPrefs.webdavPassword,
+            waterfall = AppPrefs.waterfall,
         ),
     )
 }.getOrDefault("")
@@ -202,6 +205,7 @@ fun importSettingsJson(json: String): Boolean = runCatching {
     AppPrefs.webdavUrl = b.webdavUrl
     AppPrefs.webdavUser = b.webdavUser
     AppPrefs.webdavPassword = b.webdavPassword
+    AppPrefs.waterfall = b.waterfall
     PixivApi.refreshClient()
     refreshNetworkConfig()
     applyAppLanguage(b.language)

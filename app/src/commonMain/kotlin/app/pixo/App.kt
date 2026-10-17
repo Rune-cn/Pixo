@@ -228,6 +228,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var floatingBar by rememberSaveable { mutableStateOf(AppPrefs.floatingBar) }
     var liquidGlass by rememberSaveable { mutableStateOf(AppPrefs.liquidGlass) }
     var ugoiraConfirm by rememberSaveable { mutableStateOf(AppPrefs.ugoiraConfirm) }
+    var waterfall by rememberSaveable { mutableStateOf(AppPrefs.waterfall) }
     val navController = rememberNavController()
     // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情 / 用户主页
     val deepLink = deepLinkSignal?.value
@@ -357,6 +358,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenSearch = openSearch,
                             onOpenDetail = openDetail,
                             onOpenBookmarks = openBookmarks,
+                            waterfall = waterfall,
                             onOpenFollow = openFollow,
                             onOpenAppSettings = openAppSettings,
                             onOpenHistory = openHistory,
@@ -392,6 +394,11 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onUgoiraConfirmChange = {
                                 ugoiraConfirm = it
                                 AppPrefs.ugoiraConfirm = it
+                            },
+                            waterfall = waterfall,
+                            onWaterfallChange = {
+                                waterfall = it
+                                AppPrefs.waterfall = it
                             },
                             onOpenTagBlock = { navController.navigate(TagBlockSettings) },
                             onBack = { navController.popBackStack() },
@@ -752,6 +759,7 @@ private fun MainTabsHost(
     onOpenSearch: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenBookmarks: (String) -> Unit,
+    waterfall: Boolean,
     onOpenFollow: () -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenFollows: (Long, String) -> Unit,
@@ -781,6 +789,7 @@ private fun MainTabsHost(
                 onOpenSearch = onOpenSearch,
                 onOpenDetail = onOpenDetail,
                 onOpenBookmarks = onOpenBookmarks,
+                waterfall = waterfall,
                 onOpenFollow = onOpenFollow,
                 onOpenSettings = onGoSettingsTab,
                 onOpenUser = onOpenUser,
@@ -1817,6 +1826,8 @@ fun TagBlockScreen(onBack: () -> Unit) {
 fun ContentPage(
     ugoiraConfirm: Boolean,
     onUgoiraConfirmChange: (Boolean) -> Unit,
+    waterfall: Boolean,
+    onWaterfallChange: (Boolean) -> Unit,
     onOpenTagBlock: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -1839,6 +1850,12 @@ fun ContentPage(
                         summary = Str.ugoira_confirm_summary(),
                         checked = ugoiraConfirm,
                         onCheckedChange = { onUgoiraConfirmChange(it) },
+                    )
+                    SwitchPreference(
+                        title = Str.waterfall(),
+                        summary = Str.waterfall_summary(),
+                        checked = waterfall,
+                        onCheckedChange = { onWaterfallChange(it) },
                     )
                 }
             }

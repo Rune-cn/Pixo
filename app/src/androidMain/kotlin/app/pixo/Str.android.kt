@@ -217,4 +217,6 @@ internal actual object Str {
     @Composable actual fun related_empty(): String = stringResource(app.pixo.R.string.related_empty)
     @Composable actual fun tag_block_count(count: Int): String = stringResource(app.pixo.R.string.tag_block_count, count)
     @Composable actual fun blocked_all(): String = stringResource(app.pixo.R.string.blocked_all)
+    @Composable actual fun waterfall(): String = stringResource(app.pixo.R.string.waterfall)
+    @Composable actual fun waterfall_summary(): String = stringResource(app.pixo.R.string.waterfall_summary)
 }

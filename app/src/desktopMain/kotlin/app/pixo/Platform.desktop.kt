@@ -136,6 +136,12 @@ actual object AppPrefs {
         set(value) {
             prefs.putString("history", value)
         }
+
+    actual var waterfall: Boolean
+        get() = prefs.getBoolean("waterfall", false)
+        set(value) {
+            prefs.putBoolean("waterfall", value)
+        }
 }
 
 actual object LocalAppLocale {

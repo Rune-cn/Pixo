@@ -220,5 +220,7 @@ furry.*</string>
     <string name="related_empty">暂无相关作品</string>
     <string name="tag_block_count">%1$d 条屏蔽规则生效中</string>
     <string name="blocked_all">结果已被「标签屏蔽」过滤，可在 内容 → 屏蔽 中调整</string>
+    <string name="waterfall">瀑布流展示</string>
+    <string name="waterfall_summary">两列瀑布流展示作品，可随时切换</string>
 </resources>
 

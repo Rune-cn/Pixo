@@ -220,6 +220,8 @@ furry.*</string>
     <string name="related_empty">No related works</string>
     <string name="tag_block_count">N rule(s) active</string>
     <string name="blocked_all">All results were filtered by your tag blocking rules</string>
+    <string name="waterfall">Waterfall layout</string>
+    <string name="waterfall_summary">Show works in a two-column waterfall grid</string>
 </resources>
 
 

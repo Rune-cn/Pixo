@@ -180,6 +180,7 @@ fun HomePage(
     onOpenSearch: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenBookmarks: (String) -> Unit,
+    waterfall: Boolean,
     onOpenFollow: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenUser: (Long) -> Unit,
@@ -271,6 +272,59 @@ fun HomePage(
             refreshTexts = refreshTexts(),
             contentPadding = PaddingValues(top = frame.calculateTopPadding()),
         ) {
+            if (waterfall) {
+                StaggeredWorkGrid(
+                    works = list,
+                    onOpenDetail = { id -> onOpenDetail(id, "illust") },
+                    onOpenUser = onOpenUser,
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = PaddingValues(top = frame.calculateTopPadding(), bottom = bottomPadding),
+                    loadingMore = loadingMore,
+                    hasMore = hasMore,
+                    onLoadMore = { loadMore() },
+                    header = {
+                        Column {
+                            HomeEntries(
+                                onOpenRanking, onOpenNovelRanking, onOpenDiscover, onOpenRecommended,
+                                onOpenSearch, onOpenBookmarks, onOpenFollow,
+                            )
+                            when {
+                                error != null && list.isEmpty() -> Column(
+                                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    if (AppPrefs.cookie.isBlank() && !PixivAuth.isLoggedIn) {
+                                        Text(Str.need_cookie())
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = Str.need_cookie_hint(),
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                        Button(onClick = onOpenSettings) { Text(Str.go_settings()) }
+                                    } else {
+                                        ErrorState(error ?: "", onRetry = { retryKey++ })
+                                    }
+                                }
+
+                                loading && list.isEmpty() -> LoadingState()
+                            }
+                            if (list.isEmpty() && error == null && TagBlock.patternCount() > 0) {
+                                Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        Str.blocked_all(),
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    )
+                                }
+                            }
+                            SmallTitle(text = Str.home_title())
+                        }
+                    },
+                )
+            } else {
             LazyColumn(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -280,6 +334,7 @@ fun HomePage(
             ) {
             item {
                 HomeEntries(onOpenRanking, onOpenNovelRanking, onOpenDiscover, onOpenRecommended, onOpenSearch, onOpenBookmarks, onOpenFollow)
+            }
             }
             item { SmallTitle(text = Str.home_title()) }
             when {

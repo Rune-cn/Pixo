@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+  # 午夜版：每天北京时间 00:00（UTC 16:00）自动构建并发布
+  schedule:
+    - cron: '0 16 * * *'
 
 # 最小权限：构建产物不回写仓库；发布需要写 contents
 permissions:
@@ -128,20 +131,20 @@ jobs:
 
       # ===== 读取版本号 =====
       - name: 读取版本号
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request'
         run: |
           VN=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | grep -oE '[0-9.]+')
           echo "version=$VN" >> $GITHUB_ENV
 
       # ===== 正式版 Release（幂等覆盖同名，版本=versionName）=====
       - name: 组合正式版产物
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request'
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk "dist/pixo-${version}-release.apk"
 
       - name: 下载 debug APK（并入正式版）
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request'
         uses: actions/download-artifact@v4
         with:
           name: pixo-debug-apk
@@ -149,7 +152,7 @@ jobs:
           merge-multiple: true
 
       - name: 发布正式版 Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -159,7 +162,20 @@ jobs:
           # debug 从 artifact 下载（app-debug.apk），重命名为 pixo-${version}-debug.apk
           DBG=$(find dist -name 'app-debug.apk' | head -1)
           if [ -n "$DBG" ]; then mv "$DBG" "dist/pixo-${version}-debug.apk"; fi
-          gh release delete "v${version}" --yes --cleanup-tag || true
-          gh release create "v${version}" dist/*.apk \
-            --title "Pixo v${version}" \
-            --notes "正式版：包含全部已发布更新（评论表情/追评/标签屏蔽/历史/WebDAV/关注新作/相关推荐等）。"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # 午夜版：tag = nightly-YYYYMMDD，pre-release，保留历史
+            DATE=$(date -u +%Y%m%d)
+            TAG="nightly-${DATE}"
+            mv "dist/pixo-${version}-release.apk" "dist/pixo-nightly-${DATE}.apk" 2>/dev/null || true
+            rm -f "dist/pixo-${version}-debug.apk" 2>/dev/null || true
+            gh release delete "$TAG" --yes --cleanup-tag || true
+            gh release create "$TAG" dist/*.apk \
+              --title "Pixo 午夜版 ${DATE}" \
+              --notes "每日午夜自动构建（版本 ${version}，commit ${GITHUB_SHA::7}）。" \
+              --prerelease
+          else
+            gh release delete "v${version}" --yes --cleanup-tag || true
+            gh release create "v${version}" dist/*.apk \
+              --title "Pixo v${version}" \
+              --notes "正式版：包含全部已发布更新（评论表情/追评/标签屏蔽/历史/WebDAV/关注新作/相关推荐等）。"
+          fi

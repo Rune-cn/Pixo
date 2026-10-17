@@ -18,6 +18,7 @@ data class SettingsBackup(
     val webdavUrl: String = "",
     val webdavUser: String = "",
     val webdavPassword: String = "",
+    val waterfall: Boolean = false,
 )
 
 /** 插画/漫画列表条目。 */
