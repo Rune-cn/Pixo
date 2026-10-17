@@ -311,6 +311,12 @@ fun HomePage(
                     PixivWorkRow(work, onClick = { onOpenDetail(work.id, "illust") }, onOpenUser = onOpenUser)
                 }
                 item { EndItem(loadingMore, hasMore, onRetry = {}) }
+            } else if (error == null && TagBlock.patternCount() > 0) {
+                item {
+                    Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(Str.blocked_all(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    }
+                }
             }
         }
     }
@@ -1841,7 +1847,11 @@ fun FollowScreen(
                 items == null -> item { LoadingState() }
                 items.orEmpty().isEmpty() -> item {
                     Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(Str.follow_empty(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                        Text(
+                            text = if (TagBlock.patternCount() > 0) Str.blocked_all() else Str.follow_empty(),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
                     }
                 }
                 else -> {

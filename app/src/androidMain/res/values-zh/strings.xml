@@ -218,5 +218,7 @@ furry.*</string>
     <string name="follow_empty">关注的画师还没有新作品</string>
     <string name="related_loading">加载中…</string>
     <string name="related_empty">暂无相关作品</string>
+    <string name="tag_block_count">%1$d 条屏蔽规则生效中</string>
+    <string name="blocked_all">结果已被「标签屏蔽」过滤，可在 内容 → 屏蔽 中调整</string>
 </resources>
 

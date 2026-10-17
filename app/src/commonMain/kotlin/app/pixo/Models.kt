@@ -189,6 +189,15 @@ object SessionCache {
 
 /** 标签屏蔽：`AppPrefs.tagBlockPatterns` 每行一条正则，命中作品任一标签即过滤。 */
 object TagBlock {
+    fun patternCount(): Int {
+        val patterns = AppPrefs.tagBlockPatterns
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toList()
+        return patterns.size
+    }
+
     fun isBlocked(tags: List<String>): Boolean {
         if (tags.isEmpty()) return false
         val patterns = AppPrefs.tagBlockPatterns

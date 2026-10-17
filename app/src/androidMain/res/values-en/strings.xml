@@ -207,6 +207,8 @@ furry.*</string>
     <string name="follow_empty">Nothing new from artists you follow yet</string>
     <string name="related_loading">Loading…</string>
     <string name="related_empty">No related works</string>
+    <string name="tag_block_count">N rule(s) active</string>
+    <string name="blocked_all">All results were filtered by your tag blocking rules</string>
 </resources>
 
 

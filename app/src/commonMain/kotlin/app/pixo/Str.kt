@@ -218,4 +218,6 @@ internal expect object Str {
     @Composable fun follow_empty(): String
     @Composable fun related_loading(): String
     @Composable fun related_empty(): String
+    @Composable fun tag_block_count(count: Int): String
+    @Composable fun blocked_all(): String
 }

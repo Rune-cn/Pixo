@@ -215,4 +215,6 @@ internal actual object Str {
     @Composable actual fun follow_empty(): String = stringResource(app.pixo.R.string.follow_empty)
     @Composable actual fun related_loading(): String = stringResource(app.pixo.R.string.related_loading)
     @Composable actual fun related_empty(): String = stringResource(app.pixo.R.string.related_empty)
+    @Composable actual fun tag_block_count(count: Int): String = stringResource(app.pixo.R.string.tag_block_count, count)
+    @Composable actual fun blocked_all(): String = stringResource(app.pixo.R.string.blocked_all)
 }

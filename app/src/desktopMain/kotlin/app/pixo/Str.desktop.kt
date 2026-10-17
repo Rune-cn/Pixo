@@ -215,4 +215,6 @@ internal actual object Str {
     @Composable actual fun follow_empty(): String = stringResource(Res.string.follow_empty)
     @Composable actual fun related_loading(): String = stringResource(Res.string.related_loading)
     @Composable actual fun related_empty(): String = stringResource(Res.string.related_empty)
+    @Composable actual fun tag_block_count(count: Int): String = stringResource(Res.string.tag_block_count, count)
+    @Composable actual fun blocked_all(): String = stringResource(Res.string.blocked_all)
 }

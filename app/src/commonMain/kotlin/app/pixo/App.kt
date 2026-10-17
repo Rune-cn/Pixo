@@ -1849,9 +1849,10 @@ fun ContentPage(
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp),
                 ) {
+                    val blockCount = TagBlock.patternCount()
                     ArrowPreference(
                         title = Str.tag_block(),
-                        summary = Str.tag_block_summary(),
+                        summary = if (blockCount > 0) Str.tag_block_count(blockCount) else Str.tag_block_summary(),
                         onClick = onOpenTagBlock,
                     )
                 }
