@@ -354,23 +354,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             }
                         }
                     }
-                    AnimatedVisibility(
-                        visible = floatingBar,
-                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
-                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
-                    ) {
-                        FloatingBottomBar(
-                            items = listOf(
-                                FloatingBottomBarItem(MiuixIcons.Home, Str.nav_home()),
-                                FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
-                            ),
-                            selectedIndex = mainPagerState.selectedPage,
-                            onSelected = { index -> mainPagerState.animateToPage(index) },
-                            backdrop = barBackdrop,
-                            mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
-                            onSizeChanged = { barHeight = it },
-                        )
-                    }
                     Box(
                         Modifier
                             .fillMaxSize()
@@ -738,6 +721,25 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     },
                 )
                 } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
+                if (isTabPage) {
+                    AnimatedVisibility(
+                        visible = floatingBar,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
+                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
+                    ) {
+                        FloatingBottomBar(
+                            items = listOf(
+                                FloatingBottomBarItem(MiuixIcons.Home, Str.nav_home()),
+                                FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
+                            ),
+                            selectedIndex = mainPagerState.selectedPage,
+                            onSelected = { index -> mainPagerState.animateToPage(index) },
+                            backdrop = barBackdrop,
+                            mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
+                            onSizeChanged = { barHeight = it },
+                        )
+                    }
+                }
                 // 底栏只在标签根页（首页/设置标签）展示；子页面（详情/设置子页等）不显示底栏
                   // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出
                 // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出
