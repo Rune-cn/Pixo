@@ -118,6 +118,9 @@ object FeedCache {
     /** 评论：key = "$kind:$workId"。 */
     val comments = HashMap<String, List<PixivComment>>()
 
+    /** 详情页相关作品：按作品 id 缓存，重进不再请求。 */
+    val relatedWorks = HashMap<Long, List<PixivWork>>()
+
     /** 用户资料与主页作品：按用户 id 缓存。 */
     val userProfiles = HashMap<Long, PixivUser>()
     val userWorksCache = HashMap<Long, PixivUserWorks>()
@@ -1832,12 +1835,16 @@ private fun RelatedWorksRow(
     workId: Long,
     onOpenDetail: (Long, String) -> Unit,
 ) {
-    var works by remember(workId) { mutableStateOf<List<PixivWork>?>(null) }
+    var works by remember(workId) { mutableStateOf(FeedCache.relatedWorks[workId]) }
     LaunchedEffect(workId) {
-        works = try {
-            PixivApi.fetchRelatedWorks(workId)
-        } catch (_: Exception) {
-            emptyList()
+        if (works == null) {
+            works = try {
+                val list = PixivApi.fetchRelatedWorks(workId)
+                FeedCache.relatedWorks[workId] = list
+                list
+            } catch (_: Exception) {
+                emptyList()
+            }
         }
     }
     val list = works
@@ -1858,14 +1865,14 @@ private fun RelatedWorksRow(
             }
             return@Column
         }
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        StaggeredWorkGrid(
+            works = list,
+            onOpenDetail = { onOpenDetail(it, "illust") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 460.dp),
             contentPadding = PaddingValues(horizontal = 12.dp),
-        ) {
-            items(list, key = { it.id }) { work ->
-                RelatedWorkCard(work, onClick = { onOpenDetail(work.id, "illust") })
-            }
-        }
+        )
     }
 }
 
@@ -2755,6 +2762,7 @@ fun ModeChip(value: String, label: String, current: String, onClick: () -> Unit)
 
 @Composable
 fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Unit = {}) {
+    var showAuthorMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick),
     ) {
@@ -2806,7 +2814,12 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(work.title, style = MiuixTheme.textStyles.body1, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(work.title, style = MiuixTheme.textStyles.body1, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { showAuthorMenu = true }) {
+                        Icon(imageVector = MiuixIcons.More, contentDescription = Str.more_actions())
+                    }
+                }
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AuthorAvatar(work.avatar, 16.dp, work.authorId, onOpenUser)
@@ -2823,6 +2836,23 @@ fun PixivWorkRow(work: PixivWork, onClick: () -> Unit, onOpenUser: (Long) -> Uni
             }
         }
     }
+    if (showAuthorMenu) {
+        OverlayDialog(show = true, onDismissRequest = { showAuthorMenu = false }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("#" + work.author, style = MiuixTheme.textStyles.title3)
+                Button(onClick = {
+                    val add = work.author
+                    val cur = AppPrefs.blockedAuthors.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                    if (cur.none { it.equals(add, ignoreCase = true) }) {
+                        AppPrefs.blockedAuthors = (cur + add).joinToString("\n")
+                    }
+                    showAuthorMenu = false
+                }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_this_author()) }
+                Button(onClick = { showAuthorMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+            }
+        }
+    }
+
 }
 
 @Composable
@@ -3199,6 +3229,7 @@ fun DiscoverScreen(
             }
         }
     }
+
 }
 
 /** 推荐板块：Pixiv 推荐作品（下拉刷新，恢复滚动）。 */
@@ -3548,6 +3579,14 @@ fun UserScreen(
                         showMenu = false
                         shareText("https://www.pixiv.net/users/$userId")
                     }, modifier = Modifier.fillMaxWidth()) { Text(Str.share()) }
+                    Button(onClick = {
+                        showMenu = false
+                        val add = userId.toString()
+                        val cur = AppPrefs.blockedAuthors.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                        if (cur.none { it.equals(add, ignoreCase = true) }) {
+                            AppPrefs.blockedAuthors = (cur + add).joinToString("\n")
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_this_author()) }
                     Button(onClick = { showMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
                 }
             }
