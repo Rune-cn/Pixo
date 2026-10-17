@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -1865,26 +1866,36 @@ private fun RelatedWorksRow(
             }
             return@Column
         }
-        StaggeredWorkGrid(
-            works = list.take(4),
-            onOpenDetail = { onOpenDetail(it, "illust") },
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 12.dp),
-            userScrollEnabled = false,
-        )
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            list.take(4).chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { work ->
+                        RelatedWorkCard(
+                            work = work,
+                            onClick = { onOpenDetail(work.id, "illust") },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun RelatedWorkCard(work: PixivWork, onClick: () -> Unit) {
+private fun RelatedWorkCard(work: PixivWork, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val ctx = LocalPlatformContext.current
     Column(
-        Modifier.width(116.dp).clickable(onClick = onClick),
+        modifier.fillMaxWidth().clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
             Modifier
-                .size(116.dp)
+                .fillMaxWidth()
+                .aspectRatio(1f)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MiuixTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center,
