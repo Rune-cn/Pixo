@@ -379,12 +379,14 @@ fun SwipeBackContainer(
                     val passed = drag > screenW * 0.35f || velocity > 1500f
                     scope.launch {
                         if (passed) {
+                            // 立即触发导航返回：NavHost 的 pop 过渡会从右滑入上一页（真预览）
+                            // 同时本容器把当前页继续右滑出，两者叠加视觉连续
+                            onBack()
                             animate(
                                 initialValue = offsetX,
                                 targetValue = screenW,
                                 animationSpec = tween(200, easing = FastOutSlowInEasing),
                             ) { v, _ -> offsetX = v }
-                            onBack()
                         } else {
                             animate(
                                 initialValue = offsetX,
@@ -396,20 +398,6 @@ fun SwipeBackContainer(
                 }
             },
     ) {
-        // 返回预览层：跟手右滑时底层淡入「返回目标」占位（主题色渐变），随拖动进度增强
-        Box(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = (offsetX / screenW).coerceIn(0f, 0.6f) }
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            MiuixTheme.colorScheme.surfaceContainerHigh,
-                            MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
-                        ),
-                    ),
-                ),
-        )
         Box(
             Modifier
                 .fillMaxSize()

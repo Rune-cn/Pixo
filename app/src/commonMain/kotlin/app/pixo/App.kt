@@ -693,6 +693,14 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     },
                 )
                 } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
+                // 底栏在所有页面常显；在子页面点底栏：先弹回标签根页，再切换标签
+                fun switchTab(index: Int) {
+                    if (isAtRoot) mainPagerState.animateToPage(index)
+                    else {
+                        navController.popBackStack()
+                        mainPagerState.animateToPage(index)
+                    }
+                }
                     AnimatedVisibility(
                         visible = !floatingBar,
                         enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
@@ -710,13 +718,13 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             ) {
                                 NavigationBarItem(
                                     selected = mainPagerState.selectedPage == 0,
-                                    onClick = { mainPagerState.animateToPage(0) },
+                                    onClick = { switchTab(0) },
                                     icon = MiuixIcons.Home,
                                     label = Str.nav_home(),
                                 )
                                 NavigationBarItem(
                                     selected = mainPagerState.selectedPage == 1,
-                                    onClick = { mainPagerState.animateToPage(1) },
+                                    onClick = { switchTab(1) },
                                     icon = MiuixIcons.Settings,
                                     label = Str.nav_settings(),
                                 )
@@ -734,7 +742,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                 FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
                             ),
                             selectedIndex = mainPagerState.selectedPage,
-                            onSelected = { index -> mainPagerState.animateToPage(index) },
+                            onSelected = { index -> switchTab(index) },
                             backdrop = barBackdrop,
                             mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
                             onSizeChanged = { barHeight = it },
