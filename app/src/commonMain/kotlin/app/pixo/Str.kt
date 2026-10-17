@@ -223,6 +223,7 @@ internal expect object Str {
     @Composable fun waterfall(): String
     @Composable fun waterfall_summary(): String
     @Composable fun author_block(): String
+    @Composable fun block_this_author(): String
     @Composable fun author_block_hint(): String
     @Composable fun author_block_save(): String
     @Composable fun tag_block_keyword_hint(): String

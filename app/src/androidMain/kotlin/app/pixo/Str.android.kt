@@ -220,6 +220,7 @@ internal actual object Str {
     @Composable actual fun waterfall(): String = stringResource(app.pixo.R.string.waterfall)
     @Composable actual fun waterfall_summary(): String = stringResource(app.pixo.R.string.waterfall_summary)
     @Composable actual fun author_block(): String = stringResource(app.pixo.R.string.author_block)
+    @Composable actual fun block_this_author(): String = stringResource(app.pixo.R.string.block_this_author)
     @Composable actual fun author_block_hint(): String = stringResource(app.pixo.R.string.author_block_hint)
     @Composable actual fun author_block_save(): String = stringResource(app.pixo.R.string.author_block_save)
     @Composable actual fun tag_block_keyword_hint(): String = stringResource(app.pixo.R.string.tag_block_keyword_hint)

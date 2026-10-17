@@ -316,6 +316,7 @@ object AppPixivApi {
             avatar = user.obj("profile_image_urls")?.str("medium").orEmpty(),
             comment = user.str("comment"),
             isFollowed = user.str("is_followed") == "true",
+            premium = user.str("premium") == "true",
             totalIllusts = profile?.int("total_illusts") ?: 0,
             totalManga = profile?.int("total_manga") ?: 0,
             totalNovels = profile?.int("total_novels") ?: 0,

@@ -404,6 +404,11 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                 waterfall = it
                                 AppPrefs.waterfall = it
                             },
+                            imageQuality = imageQuality,
+                            onImageQualityChange = {
+                                imageQuality = it
+                                AppPrefs.imageQuality = it
+                            },
                             onOpenTagBlock = { navController.navigate(TagBlockSettings) },
                             onOpenAuthorBlock = { navController.navigate(AuthorBlockSettings) },
                             onBack = { navController.popBackStack() },
@@ -507,11 +512,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onLanguageChange = {
                                 language = it
                                 AppPrefs.language = it
-                            },
-                            imageQuality = imageQuality,
-                            onImageQualityChange = {
-                                imageQuality = it
-                                AppPrefs.imageQuality = it
                             },
                             onBack = { navController.popBackStack() },
                         )
@@ -1744,8 +1744,6 @@ fun AppearancePage(
     onLiquidGlassChange: (Boolean) -> Unit,
     language: String,
     onLanguageChange: (String) -> Unit,
-    imageQuality: String,
-    onImageQualityChange: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val themeOptions = listOf(Str.theme_follow(), Str.theme_dark(), Str.theme_light())
@@ -1771,13 +1769,6 @@ fun AppearancePage(
                         options = languageOptions,
                         selectedIndex = languageValues.indexOf(language).coerceAtLeast(0),
                         onSelectedIndexChange = { onLanguageChange(languageValues[it]) },
-                    )
-                    PixoDropdownPreference(
-                        title = Str.image_quality(),
-                        summary = if (imageQuality == "high") Str.quality_high() else Str.quality_standard(),
-                        options = listOf(Str.quality_standard(), Str.quality_high()),
-                        selectedIndex = if (imageQuality == "high") 1 else 0,
-                        onSelectedIndexChange = { onImageQualityChange(if (it == 1) "high" else "standard") },
                     )
                     PixoDropdownPreference(
                         title = Str.theme_mode(),
@@ -1921,6 +1912,8 @@ fun ContentPage(
     onUgoiraConfirmChange: (Boolean) -> Unit,
     waterfall: Boolean,
     onWaterfallChange: (Boolean) -> Unit,
+    imageQuality: String,
+    onImageQualityChange: (String) -> Unit,
     onOpenTagBlock: () -> Unit,
     onOpenAuthorBlock: () -> Unit,
     onBack: () -> Unit,
@@ -1950,6 +1943,13 @@ fun ContentPage(
                         summary = Str.waterfall_summary(),
                         checked = waterfall,
                         onCheckedChange = { onWaterfallChange(it) },
+                    )
+                    PixoDropdownPreference(
+                        title = Str.image_quality(),
+                        summary = if (imageQuality == "high") Str.quality_high() else Str.quality_standard(),
+                        options = listOf(Str.quality_standard(), Str.quality_high()),
+                        selectedIndex = if (imageQuality == "high") 1 else 0,
+                        onSelectedIndexChange = { onImageQualityChange(if (it == 1) "high" else "standard") },
                     )
                 }
             }

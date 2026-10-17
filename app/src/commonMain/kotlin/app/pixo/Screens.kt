@@ -3765,7 +3765,17 @@ private fun UserHeader(
                 AuthorAvatar(user?.avatar.orEmpty(), 68.dp, user?.id ?: 0, onOpenUser = { onPreviewAvatar() })
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(user?.name.orEmpty(), style = MiuixTheme.textStyles.title3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(user?.name.orEmpty(), style = MiuixTheme.textStyles.title3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (user?.premium == true) {
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Premium",
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = Color(0xFFE0A72B),
+                            )
+                        }
+                    }
                     user?.account?.takeIf { it.isNotBlank() }?.let { account ->
                         Text(
                             "@" + account,

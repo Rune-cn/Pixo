@@ -221,14 +221,15 @@ furry.*</string>
     <string name="blocked_all">All results were filtered by your tag blocking rules</string>
     <string name="waterfall">Waterfall layout</string>
     <string name="waterfall_summary">Show works in a two-column waterfall grid</string>
-    <string name="author_block">Blocked authors</string>
-    <string name="author_block_hint">One author name or ID per line (case-insensitive match)</string>
-    <string name="author_block_save">Save</string>
+            <string name="author_block_save">Save</string>
     <string name="tag_block_keyword_hint">Plain words (case-insensitive), one per line</string>
     <string name="tag_block_keyword_label">Keyword blocking</string>
     <string name="image_quality">Image quality</string>
     <string name="quality_standard">Standard</string>
     <string name="quality_high">High (original)</string>
+    <string name="author_block">Blocked people</string>
+    <string name="author_block_hint">One name or ID per line (case-insensitive match)</string>
+    <string name="block_this_author">Block this person</string>
 </resources>
 
 

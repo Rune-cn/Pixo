@@ -42,7 +42,13 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -136,6 +142,7 @@ private fun StaggeredWorkCard(
     onClick: () -> Unit,
     onOpenUser: () -> Unit,
 ) {
+    var showAuthorMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -196,12 +203,18 @@ private fun StaggeredWorkCard(
                 }
             }
             Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                Text(
-                    work.title,
-                    style = MiuixTheme.textStyles.body2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        work.title,
+                        style = MiuixTheme.textStyles.body2,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { showAuthorMenu = true }) {
+                        Icon(imageVector = MiuixIcons.More, contentDescription = Str.more_actions())
+                    }
+                }
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AuthorAvatar(work.avatar, 14.dp, work.authorId, onOpenUser = { onOpenUser() })
@@ -218,4 +231,21 @@ private fun StaggeredWorkCard(
             }
         }
     }
+    if (showAuthorMenu) {
+        OverlayDialog(show = true, onDismissRequest = { showAuthorMenu = false }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("#" + work.author, style = MiuixTheme.textStyles.title3)
+                Button(onClick = {
+                    val add = work.author
+                    val cur = AppPrefs.blockedAuthors.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                    if (cur.none { it.equals(add, ignoreCase = true) }) {
+                        AppPrefs.blockedAuthors = (cur + add).joinToString("\n")
+                    }
+                    showAuthorMenu = false
+                }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_this_author()) }
+                Button(onClick = { showAuthorMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
+            }
+        }
+    }
+
 }

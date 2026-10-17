@@ -384,14 +384,14 @@ fun SwipeBackContainer(
                     val passed = drag > screenW * 0.35f || velocity > 1500f
                     scope.launch {
                         if (passed) {
-                            // 立即触发导航返回：NavHost 的 pop 过渡会从右滑入上一页（真预览）
-                            // 同时本容器把当前页继续右滑出，两者叠加视觉连续
-                            onBack()
+                            // 先让当前页跟手滑出屏幕，再触发返回：
+                            // NavHost 的 pop 过渡随后把上一页全宽从右滑入 = 「返回途中预览」
                             animate(
                                 initialValue = offsetX,
                                 targetValue = screenW,
-                                animationSpec = tween(200, easing = FastOutSlowInEasing),
+                                animationSpec = tween(180, easing = FastOutSlowInEasing),
                             ) { v, _ -> offsetX = v }
+                            onBack()
                         } else {
                             animate(
                                 initialValue = offsetX,

@@ -68,6 +68,8 @@ data class PixivUser(
     val avatar: String,
     val comment: String,
     val isFollowed: Boolean,
+    /** 是否 Pixiv 会员（premium）。 */
+    val premium: Boolean = false,
     val totalIllusts: Int,
     /** 漫画数（illustType=1）；部分通道拿不到时按 0 处理。 */
     val totalManga: Int = 0,
