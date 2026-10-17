@@ -75,7 +75,10 @@ Pixiv 第三方客户端，基于 Compose Multiplatform + Miuix（MIUI/HyperOS �
 
 ```
 app/src/commonMain/kotlin/app/pixo/
-├── App.kt              应用骨架、路由表、主标签页宿主
+├── App.kt              应用骨架（主题、NavHost、底栏、主标签页）
+├── Navigation.kt       路由表 + 统一的 push/pop 过渡扩展
+├── Design.kt           共享设计元素（分区标题、分组卡片、设置页骨架、规则编辑器）
+├── BlockActions.kt     屏蔽动作（追加规则、标签动作面板、作者动作面板）
 ├── HomeScreen.kt       首页推荐流 / 关注新作
 ├── RankingScreen.kt    插画 / 漫画 / 小说排行榜
 ├── BookmarksScreen.kt  收藏（公开 / 私密）
@@ -86,8 +89,16 @@ app/src/commonMain/kotlin/app/pixo/
 ├── UserScreen.kt       作者主页、粉丝 / 关注列表
 ├── FollowScreen.kt     关注新作
 ├── DiscoverScreen.kt   发现页、推荐页
-├── LogScreen.kt        调试日志、崩溃日志
-├── UiWidgets.kt        列表行、头像、分区标题等共用组件
+├── SettingsScreens.kt  账号页与设置入口
+├── SettingsAppearance.kt 外观（语言 / 主题 / 底栏 / 液态玻璃）
+├── SettingsContent.kt  内容（动图 / 画质 / 瀑布流 / 屏蔽规则）
+├── SettingsData.kt     数据（导出导入 / WebDAV / 下载目录 / 缓存）
+├── SettingsDebug.kt    调试（日志开关、日志查看、崩溃日志）
+├── AboutScreen.kt      关于页
+├── DownloadsScreen.kt  下载页
+├── HistoryScreen.kt    浏览历史
+├── LogScreen.kt        日志查看 / 崩溃日志
+├── UiWidgets.kt        列表行、头像、空态等共用组件
 ├── Ui.kt               页面框架（Scaffold / 毛玻璃顶栏）、右滑返回、提示条
 ├── Settings.kt         设置项单一声明处（AppPrefs）+ 导出 / 导入 + 变更版本号
 ├── Cache.kt            进程内缓存（列表 / 详情 / 评论）+ ugoira 帧 LRU

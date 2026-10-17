@@ -1,9 +1,9 @@
 package app.pixo
 
-import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.Json
 
 /**
  * 设置备份的序列化契约单测。

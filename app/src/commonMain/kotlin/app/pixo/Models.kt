@@ -1,5 +1,7 @@
 package app.pixo
 
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 

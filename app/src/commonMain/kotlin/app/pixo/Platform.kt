@@ -1,5 +1,7 @@
 package app.pixo
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ProvidedValue
@@ -10,7 +12,6 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.annotation.DelicateCoilApi
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CoroutineDispatcher
 
 /**

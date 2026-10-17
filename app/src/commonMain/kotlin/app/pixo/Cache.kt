@@ -1,5 +1,7 @@
 package app.pixo
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.key
 import java.util.concurrent.ConcurrentHashMap
 
 /**

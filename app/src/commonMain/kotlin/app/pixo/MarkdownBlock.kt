@@ -1,20 +1,16 @@
 package app.pixo
 
-// Markdown 渲染：JetBrains intellij-markdown AST 解析器 + Compose 节点渲染。
-// 解析一次 AST，按节点类型渲染段落 / 标题 / 列表 / 引用 / 表格 / 代码 / 行内样式（加粗、斜体、行内代码、链接）。
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -26,10 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -56,6 +54,10 @@ import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import org.intellij.markdown.parser.MarkdownParser
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+// Markdown 渲染：JetBrains intellij-markdown AST 解析器 + Compose 节点渲染。
+// 解析一次 AST，按节点类型渲染段落 / 标题 / 列表 / 引用 / 表格 / 代码 / 行内样式（加粗、斜体、行内代码、链接）。
+
 
 private val markdownFlavour by lazy { GFMFlavourDescriptor(makeHttpsAutoLinks = true, useSafeLinks = true) }
 private val markdownParser by lazy { MarkdownParser(markdownFlavour) }

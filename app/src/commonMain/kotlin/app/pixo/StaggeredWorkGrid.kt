@@ -1,6 +1,5 @@
 package app.pixo
 
-// ===== 两列瀑布流作品网格 =====
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -23,13 +23,16 @@ import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridS
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
@@ -42,14 +45,10 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.More
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+// ===== 两列瀑布流作品网格 =====
 
 /**
  * 两列瀑布流作品网格：缩略图高度随图片比例自适应形成错落；
@@ -144,7 +143,6 @@ private fun StaggeredWorkCard(
     onClick: () -> Unit,
     onOpenUser: () -> Unit,
 ) {
-    var showAuthorMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -205,18 +203,12 @@ private fun StaggeredWorkCard(
                 }
             }
             Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        work.title,
-                        style = MiuixTheme.textStyles.body2,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = { showAuthorMenu = true }) {
-                        Icon(imageVector = MiuixIcons.More, contentDescription = Str.more_actions())
-                    }
-                }
+                Text(
+                    work.title,
+                    style = MiuixTheme.textStyles.body2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AuthorAvatar(work.avatar, 14.dp, work.authorId, onOpenUser = { onOpenUser() })
@@ -230,23 +222,6 @@ private fun StaggeredWorkCard(
                         modifier = Modifier.weight(1f),
                     )
                 }
-            }
-        }
-    }
-    if (showAuthorMenu) {
-        OverlayDialog(show = true, onDismissRequest = { showAuthorMenu = false }) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("#" + work.author, style = MiuixTheme.textStyles.title3)
-                Button(onClick = {
-                    val add = work.author
-                    val cur = AppPrefs.blockedAuthors.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-                    if (cur.none { it.equals(add, ignoreCase = true) }) {
-                        AppPrefs.blockedAuthors = (cur + add).joinToString("\n")
-                        invalidateFeedCaches()
-                    }
-                    showAuthorMenu = false
-                }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_this_author()) }
-                Button(onClick = { showAuthorMenu = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
             }
         }
     }

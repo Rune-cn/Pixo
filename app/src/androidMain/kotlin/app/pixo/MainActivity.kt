@@ -1,18 +1,18 @@
 package app.pixo
 
-import android.content.Intent
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import androidx.core.app.ActivityCompat
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.app.ActivityCompat
 
 class MainActivity : AppCompatActivity() {
     /** 深链信号：App 首屏与 onNewIntent 都通过它把 pixiv:// 链接导航到作品详情。 */
