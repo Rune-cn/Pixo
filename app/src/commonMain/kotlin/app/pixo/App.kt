@@ -93,6 +93,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.compose.animation.AnimatedContentScope
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -218,14 +222,46 @@ internal object Discover
 @Serializable
 internal object Recommended
 
+/**
+ * 子页面统一过渡：miuix 的 push/pop（500ms 弹簧曲线）。
+ *
+ * 25 个路由原本各自重复 4 行过渡参数，改一处动画要改 25 处；
+ * 现在只有这里一处定义。
+ */
+private inline fun <reified T : Any> NavGraphBuilder.pixoScreen(
+    noinline content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
+) = composable<T>(
+    enterTransition = { miuixPushEnter() },
+    exitTransition = { miuixPushExit() },
+    popEnterTransition = { miuixPopEnter() },
+    popExitTransition = { miuixPopExit() },
+    content = content,
+)
+
+/** 标签根页的淡入淡出过渡（与子页面的左右滑动区分）。 */
+private inline fun <reified T : Any> NavGraphBuilder.pixoScreenFade(
+    noinline content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
+) = composable<T>(
+    enterTransition = { miuixFadeEnter() },
+    exitTransition = { miuixFadeExit() },
+    popEnterTransition = { miuixFadeEnter() },
+    popExitTransition = { miuixFadeExit() },
+    content = content,
+)
+
 private val themeModes = listOf(ColorSchemeMode.System, ColorSchemeMode.Dark, ColorSchemeMode.Light)
 
-/** 动态取色模式：Monet 引擎（Android 12+ 取壁纸主色，桌面端回退默认色板）。 */
-private val dynamicThemeModes = listOf(ColorSchemeMode.MonetSystem, ColorSchemeMode.MonetDark, ColorSchemeMode.MonetLight)
+/**
+ * 从偏好恢复主题模式（存的是 [ColorSchemeMode.name]，未知值回退「跟随系统」）。
+ *
+ * 之前只有 `rememberSaveable`，进程重启后主题会静默退回 System —— 现在与其它外观项一致持久化。
+ */
+private fun savedThemeMode(): ColorSchemeMode =
+    themeModes.firstOrNull { it.name == AppPrefs.themeMode } ?: ColorSchemeMode.System
 
 @Composable
 fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
-    var themeMode by rememberSaveable { mutableStateOf(ColorSchemeMode.System) }
+    var themeMode by rememberSaveable { mutableStateOf(savedThemeMode()) }
     var dynamicColor by rememberSaveable { mutableStateOf(AppPrefs.dynamicColor) }
     var language by rememberSaveable { mutableStateOf(AppPrefs.language) }
     var floatingBar by rememberSaveable { mutableStateOf(AppPrefs.floatingBar) }
@@ -295,7 +331,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
             applyWindowBackground(MiuixTheme.colorScheme.surface)
             val backStackEntry by navController.currentBackStackEntryAsState()
             val current = backStackEntry?.destination
-            val isHomeRoute = current?.route == "app.pixo.Home"
+            val isHomeRoute = current?.hasRoute<Home>() == true
             val isTabPage = isHomeRoute
             Scaffold() { _ ->
                 // 底部导航以浮层方式贴在内容之上；NavHost 不再按路由切换内边距，
@@ -344,12 +380,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         startDestination = Home,
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                    composable<Home>(
-                        enterTransition = { miuixFadeEnter() },
-                        exitTransition = { miuixFadeExit() },
-                        popEnterTransition = { miuixFadeEnter() },
-                        popExitTransition = { miuixFadeExit() },
-                    ) {
+                    pixoScreenFade<Home> {
                         MainTabsHost(
                             mainPagerState = mainPagerState,
                             bottomPadding = barHeight,
@@ -374,12 +405,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenWebLogin = openWebLogin,
                         )
                     }
-                    composable<AppSettings>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<AppSettings> {
                         AppSettingsPage(
                             onOpenAppearance = { navController.navigate(AppearanceSettings) },
                             onOpenContent = { navController.navigate(ContentSettings) },
@@ -388,12 +414,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                         )
                     }
-                    composable<ContentSettings>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<ContentSettings> {
                         ContentPage(
                             ugoiraConfirm = ugoiraConfirm,
                             onUgoiraConfirmChange = {
@@ -409,6 +430,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onImageQualityChange = {
                                 imageQuality = it
                                 AppPrefs.imageQuality = it
+                                invalidateFeedCaches()
                             },
                             disableSwipeBack = disableSwipeBack,
                             onDisableSwipeBackChange = {
@@ -420,59 +442,29 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                         )
                     }
-                    composable<AuthorBlockSettings>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<AuthorBlockSettings> {
                         AuthorBlockScreen(onBack = { navController.popBackStack() })
                     }
-                    composable<TagBlockSettings>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<TagBlockSettings> {
                         TagBlockScreen(onBack = { navController.popBackStack() })
                     }
-                    composable<DataSettings>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<DataSettings> {
                         DataPage(onBack = { navController.popBackStack() })
                     }
-                    composable<Downloads>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<Downloads> {
                         DownloadsScreen(
                             onBack = { navController.popBackStack() },
                             waterfall = waterfall,
                         )
                     }
-                    composable<History>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<History> {
                         HistoryScreen(
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             waterfall = waterfall,
                         )
                     }
-                    composable<Follow>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<Follow> {
                         FollowScreen(
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
@@ -480,22 +472,12 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<About>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<About> {
                         AboutScreen(
                             onBack = { navController.popBackStack() },
                         )
                     }
-                    composable<AppearanceSettings>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<AppearanceSettings> {
                         AppearancePage(
                             themeMode = themeMode,
                             dynamicColor = dynamicColor,
@@ -503,7 +485,10 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                 dynamicColor = it
                                 AppPrefs.dynamicColor = it
                             },
-                            onThemeModeChange = { themeMode = it },
+                            onThemeModeChange = {
+                                themeMode = it
+                                AppPrefs.themeMode = it.name
+                            },
                             floatingBar = floatingBar,
                             onFloatingBarChange = {
                                 floatingBar = it
@@ -522,48 +507,23 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                         )
                     }
-                    composable<DebugSettings>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<DebugSettings> {
                         DebugPage(
                             onOpenLogs = { navController.navigate(LogViewer) },
                             onOpenCrashLog = { navController.navigate(CrashLog) },
                             onBack = { navController.popBackStack() },
                         )
                     }
-                    composable<LogViewer>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<LogViewer> {
                         LogViewerScreen(onBack = { navController.popBackStack() })
                     }
-                    composable<CrashLog>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<CrashLog> {
                         CrashLogPage(onBack = { navController.popBackStack() })
                     }
-                    composable<WebLogin>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<WebLogin> {
                         WebLoginScreen(onBack = { navController.popBackStack() })
                     }
-                    composable<Discover>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<Discover> {
                         DiscoverScreen(
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
@@ -572,12 +532,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<Recommended>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) {
+                    pixoScreen<Recommended> {
                         RecommendedScreen(
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
@@ -586,12 +541,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<Ranking>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<Ranking> { entry ->
                         RankingScreen(
                             mode = entry.toRoute<Ranking>().mode,
                             content = entry.toRoute<Ranking>().content,
@@ -601,12 +551,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<NovelRanking>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<NovelRanking> { entry ->
                         NovelRankingScreen(
                             mode = entry.toRoute<NovelRanking>().mode,
                             onBack = { navController.popBackStack() },
@@ -615,12 +560,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<Bookmarks>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<Bookmarks> { entry ->
                         BookmarksScreen(
                             restrict = entry.toRoute<Bookmarks>().restrict,
                             onBack = { navController.popBackStack() },
@@ -629,12 +569,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<Search>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<Search> { entry ->
                         SearchScreen(
                             initialQuery = entry.toRoute<Search>().query,
                             onBack = { navController.popBackStack() },
@@ -643,12 +578,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<Detail>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<Detail> { entry ->
                         DetailScreen(
                             workId = entry.toRoute<Detail>().workId,
                             kind = entry.toRoute<Detail>().kind,
@@ -662,12 +592,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             },
                         )
                     }
-                    composable<Comments>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<Comments> { entry ->
                         CommentsScreen(
                             workId = entry.toRoute<Comments>().workId,
                             kind = entry.toRoute<Comments>().kind,
@@ -675,12 +600,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenUser = { navController.navigate(User(it)) },
                         )
                     }
-                    composable<User>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<User> { entry ->
                         UserScreen(
                             userId = entry.toRoute<User>().userId,
                             onBack = { navController.popBackStack() },
@@ -690,12 +610,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             waterfall = waterfall,
                         )
                     }
-                    composable<Follows>(
-                        enterTransition = { miuixPushEnter() },
-                        exitTransition = { miuixPushExit() },
-                        popEnterTransition = { miuixPopEnter() },
-                        popExitTransition = { miuixPopExit() },
-                    ) { entry ->
+                    pixoScreen<Follows> { entry ->
                         FollowsScreen(
                             userId = entry.toRoute<Follows>().userId,
                             kind = entry.toRoute<Follows>().kind,
@@ -1402,7 +1317,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 modifier = if (blurActive) Modifier.pixoTopBarBlur(backdrop) else Modifier,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
+                        Icon(imageVector = MiuixIcons.Back, contentDescription = Str.action_back())
                     }
                 },
             )
@@ -1688,15 +1603,15 @@ private fun downloadDirLabel(dir: String): String {
 }
 
 /** 设置分区标题：小号 + 中等字重 + 次要色（分区标记）。 */
+/**
+ * 设置分区标题：使用 Miuix 的 [SmallTitle]（`subtitle` 字阶 + `onBackgroundVariant`），
+ * 只把内边距调成本项目既有节奏（20/6dp），与 12dp 的 Card 分组对齐。
+ */
+private val PixoSectionTitleMargin = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp)
+
 @Composable
 private fun SettingsSectionHeader(text: String) {
-    Text(
-        text = text,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Medium,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp),
-    )
+    SmallTitle(text = text, insideMargin = PixoSectionTitleMargin)
 }
 
 /**
@@ -1804,8 +1719,8 @@ fun AppearancePage(
                         checked = floatingBar,
                         onCheckedChange = { onFloatingBarChange(it) },
                     )
-                    // 液态玻璃只对悬浮底栏生效：悬浮底栏关闭时不显示该项
-                    if (floatingBar) {
+                    // 液态玻璃只对悬浮底栏生效：悬浮底栏关闭时隐藏该项（带展开动画）
+                    AnimatedVisibility(visible = floatingBar) {
                         SwitchPreference(
                             title = Str.liquid_glass(),
                             summary = Str.liquid_glass_summary(),
@@ -1866,6 +1781,7 @@ fun TagBlockScreen(onBack: () -> Unit) {
                 onClick = {
                     AppPrefs.tagBlockPatterns = regex
                     AppPrefs.tagBlockKeywords = keywords
+                    invalidateFeedCaches()
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1903,6 +1819,7 @@ fun AuthorBlockScreen(onBack: () -> Unit) {
             Button(
                 onClick = {
                     AppPrefs.blockedAuthors = text
+                    invalidateFeedCaches()
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),

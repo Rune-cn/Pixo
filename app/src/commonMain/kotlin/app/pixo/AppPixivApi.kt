@@ -40,22 +40,7 @@ object AppPixivApi {
                 val o = el as? JsonObject ?: continue
                 val user = o.obj("user")
                 add(
-                    PixivWork(
-                        id = o.lng("id"),
-                        title = o.str("title"),
-                        author = user?.str("name").orEmpty(),
-                        authorId = user?.lng("id") ?: 0,
-                        avatar = user?.obj("profile_image_urls")?.str("medium").orEmpty(),
-                        thumb = o.obj("image_urls")?.str("square_medium").orEmpty(),
-                        illustType = when (o.str("type")) {
-                            "ugoira" -> 2
-                            "manga" -> 1
-                            else -> 0
-                        },
-                        pageCount = o.int("page_count").coerceAtLeast(1),
-                        xRestrict = o.int("x_restrict"),
-                        tags = o.arr("tags")?.mapNotNull { (it as? JsonObject)?.str("name") } ?: emptyList(),
-                    ),
+                    o.toAppWork(),
                 )
             }
         }
@@ -420,6 +405,34 @@ object AppPixivApi {
 
     // ---------- 解析 ----------
 
+    /**
+     * App API 作品条目 → [PixivWork]（`user` 嵌套对象 + `image_urls` 多尺寸）。
+     *
+     * 之前 `fetchRelatedWorks` 与 `parseIllusts` 各写一份，字段兜底逻辑还不一致；
+     * 统一到这里，取并集（camelCase / snake_case 都认）。
+     */
+    private fun JsonObject.toAppWork(): PixivWork {
+        val user = obj("user")
+        val images = obj("image_urls")
+        return PixivWork(
+            id = lng("id"),
+            title = str("title"),
+            author = user?.str("name").orEmpty().ifBlank { str("userName") },
+            authorId = user?.lng("id")?.takeIf { it > 0L } ?: lng("userId"),
+            avatar = user?.obj("profile_image_urls")?.str("medium").orEmpty(),
+            thumb = images?.str("square_medium")?.takeIf { it.isNotBlank() }
+                ?: images?.str("medium").orEmpty(),
+            illustType = int("illust_type").takeIf { it > 0 } ?: when (str("type")) {
+                "ugoira" -> 2
+                "manga" -> 1
+                else -> 0
+            },
+            pageCount = int("page_count").coerceAtLeast(1),
+            xRestrict = int("x_restrict"),
+            tags = stringTags(this),
+        )
+    }
+
     private fun parseIllusts(arr: JsonArray?): List<PixivWork> = buildList {
         if (arr == null) return@buildList
         for (el in arr) {
@@ -427,28 +440,13 @@ object AppPixivApi {
                 val o = el as JsonObject
                 val user = o.obj("user")
                 add(
-                    PixivWork(
-                        id = o.lng("id"),
-                        title = o.str("title"),
-                        author = user?.str("name").orEmpty().ifBlank { o.str("userName") },
-                        authorId = user?.lng("id")?.takeIf { it > 0 } ?: o.lng("userId"),
-                        avatar = user?.obj("profile_image_urls")?.str("medium").orEmpty(),
-                        thumb = o.obj("image_urls")?.str("square_medium")
-                            ?.takeIf { it.isNotBlank() } ?: o.obj("image_urls")?.str("medium").orEmpty(),
-                        illustType = o.int("illust_type"),
-                        pageCount = o.int("page_count").coerceAtLeast(1),
-                        xRestrict = o.int("x_restrict"),
-                        tags = stringTags(o),
-                    ),
+                    o.toAppWork(),
                 )
             } catch (_: Exception) {
                 // 跳过异常条目
             }
         }
-     }.let { list ->
-            val filtered = list.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) }
-            if (AppPrefs.imageQuality == "high") filtered.map { it.copy(thumb = upscaleThumb(it.thumb)) } else filtered
-        }
+     }.applyListPolicy()
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList
         for (el in arr) {
@@ -485,7 +483,7 @@ object AppPixivApi {
                 // 跳过异常条目
             }
         }
-    }
+    }.applyListPolicy()
 
     /** 兼容 App API 标签对象数组形态（{name}）。 */
     private fun stringTags(o: JsonObject): List<String> = buildList {

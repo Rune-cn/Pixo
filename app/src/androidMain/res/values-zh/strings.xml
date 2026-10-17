@@ -233,5 +233,7 @@ furry.*</string>
     <string name="block_this_author">屏蔽此人</string>
     <string name="disable_swipe_back">禁用从左往右滑退出操作</string>
     <string name="disable_swipe_back_summary">关闭后全屏右滑不再触发返回</string>
+    <string name="action_back">返回</string>
+    <string name="action_close">关闭</string>
 </resources>
 

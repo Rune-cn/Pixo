@@ -3,12 +3,20 @@ package app.pixo
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** 设置备份（数据页导出 / 导入用，仅偏好设置，不含任何登录凭据）。 */
+/**
+ * 设置备份（数据页导出 / 导入、WebDAV 云备份用）。
+ *
+ * 不含 Pixiv 登录凭据（cookie / token），但**包含 WebDAV 账号与密码**，
+ * 导出的 JSON 与上传到 WebDAV 的文件都含明文密码 —— 分享备份文件前请注意。
+ *
+ * 新增设置项时只需在此加一个字段，并补上 [fromPrefs] / [applyToPrefs] 的一行，
+ * 不再需要在 Platform.kt 里分别维护导出与导入两份清单。
+ */
 @Serializable
 data class SettingsBackup(
     val debugLog: Boolean = false,
     val language: String = "system",
-    val predictiveBack: Boolean = true,
+    val themeMode: String = "system",
     val dynamicColor: Boolean = true,
     val floatingBar: Boolean = true,
     val liquidGlass: Boolean = true,
@@ -23,7 +31,49 @@ data class SettingsBackup(
     val webdavUser: String = "",
     val webdavPassword: String = "",
     val waterfall: Boolean = false,
-)
+) {
+    companion object {
+        fun fromPrefs(): SettingsBackup = SettingsBackup(
+            debugLog = AppPrefs.debugLog,
+            language = AppPrefs.language,
+            themeMode = AppPrefs.themeMode,
+            dynamicColor = AppPrefs.dynamicColor,
+            floatingBar = AppPrefs.floatingBar,
+            liquidGlass = AppPrefs.liquidGlass,
+            downloadDir = AppPrefs.downloadDir,
+            ugoiraConfirm = AppPrefs.ugoiraConfirm,
+            tagBlockPatterns = AppPrefs.tagBlockPatterns,
+            disableSwipeBack = AppPrefs.disableSwipeBack,
+            imageQuality = AppPrefs.imageQuality,
+            tagBlockKeywords = AppPrefs.tagBlockKeywords,
+            blockedAuthors = AppPrefs.blockedAuthors,
+            webdavUrl = AppPrefs.webdavUrl,
+            webdavUser = AppPrefs.webdavUser,
+            webdavPassword = AppPrefs.webdavPassword,
+            waterfall = AppPrefs.waterfall,
+        )
+    }
+
+    fun applyToPrefs() {
+        AppPrefs.debugLog = debugLog
+        AppPrefs.language = language
+        AppPrefs.themeMode = themeMode
+        AppPrefs.dynamicColor = dynamicColor
+        AppPrefs.floatingBar = floatingBar
+        AppPrefs.liquidGlass = liquidGlass
+        AppPrefs.downloadDir = downloadDir
+        AppPrefs.ugoiraConfirm = ugoiraConfirm
+        AppPrefs.tagBlockPatterns = tagBlockPatterns
+        AppPrefs.disableSwipeBack = disableSwipeBack
+        AppPrefs.imageQuality = imageQuality
+        AppPrefs.tagBlockKeywords = tagBlockKeywords
+        AppPrefs.blockedAuthors = blockedAuthors
+        AppPrefs.webdavUrl = webdavUrl
+        AppPrefs.webdavUser = webdavUser
+        AppPrefs.webdavPassword = webdavPassword
+        AppPrefs.waterfall = waterfall
+    }
+}
 
 /** 插画/漫画列表条目。 */
 data class PixivWork(
@@ -195,10 +245,57 @@ object SessionCache {
 }
 
 /** 标签屏蔽：`AppPrefs.tagBlockPatterns` 每行一条正则，命中作品任一标签即过滤。 */
+/**
+ * 屏蔽匹配的纯逻辑（不读偏好、无副作用），便于单元测试。
+ *
+ * 规则解析（读偏好、缓存编译结果）留在 [TagBlock] / [AuthorBlock]；
+ * 这里只负责「给定规则，这条作品是否命中」。
+ */
+internal object BlockMatcher {
+    /** 任一标签命中正则或字面量关键词即视为屏蔽。 */
+    fun matchesTag(tags: List<String>, patterns: List<Regex>, keywords: List<String>): Boolean {
+        if (tags.isEmpty()) return false
+        if (patterns.isEmpty() && keywords.isEmpty()) return false
+        return tags.any { tag ->
+            patterns.any { it.containsMatchIn(tag) } ||
+                keywords.any { tag.contains(it, ignoreCase = true) }
+        }
+    }
+
+    /** 作者 ID 完全相等，或作者名包含规则串（忽略大小写）即视为屏蔽。 */
+    fun matchesAuthor(authorId: Long, author: String, rules: List<String>): Boolean {
+        if (rules.isEmpty()) return false
+        val id = authorId.toString()
+        return rules.any { rule -> id == rule || author.contains(rule, ignoreCase = true) }
+    }
+}
+
 object TagBlock {
-    /** 正则规则（一行一条）。 */
-    private fun regexRules(): List<String> = AppPrefs.tagBlockPatterns
-        .lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+    /**
+     * 编译结果缓存：按「原始规则文本」作为版本号。
+     *
+     * 列表解析时每个作品、每条标签都会调用 [isBlocked]，
+     * 之前每次都重新 `Regex(...)` 编译一遍，一页 30 个作品就是上千次编译。
+     */
+    private class CompiledRules {
+        @Volatile private var raw: String? = null
+        @Volatile private var compiled: List<Regex> = emptyList()
+
+        fun of(patterns: String): List<Regex> {
+            if (patterns == raw) return compiled
+            val next = patterns.lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                // 非法正则直接丢弃（与旧行为一致：单条规则写错不影响其它规则）
+                .mapNotNull { runCatching { Regex(it, RegexOption.IGNORE_CASE) }.getOrNull() }
+                .toList()
+            raw = patterns
+            compiled = next
+            return next
+        }
+    }
+
+    private val regexCache = CompiledRules()
 
     /** 常规屏蔽词（一行一条，字面量忽略大小写匹配）。 */
     private fun keywordRules(): List<String> = AppPrefs.tagBlockKeywords
@@ -208,38 +305,73 @@ object TagBlock {
 
     fun keywordCount(): Int = keywordRules().size
 
-    fun isBlocked(tags: List<String>): Boolean {
-        if (tags.isEmpty()) return false
-        val patterns = regexRules()
-        val keywords = keywordRules()
-        if (patterns.isEmpty() && keywords.isEmpty()) return false
-        return tags.any { tag ->
-            patterns.any { p ->
-                runCatching { Regex(p, RegexOption.IGNORE_CASE).containsMatchIn(tag) }.getOrDefault(false)
-            } || keywords.any { tag.contains(it, ignoreCase = true) }
-        }
-    }
+    private fun regexRules(): List<Regex> = regexCache.of(AppPrefs.tagBlockPatterns)
+
+    fun isBlocked(tags: List<String>): Boolean =
+        BlockMatcher.matchesTag(tags, regexRules(), keywordRules())
 }
 
-/** 高清画质：把列表缩略图 URL（master1200）转换为原图级（img-original）。 */
-fun upscaleThumb(url: String): String =
-    url.replace("c/540x540_70/img-master/img/", "img-original/img/")
-        .replace("_master1200.jpg", ".jpg")
+/**
+ * 高清画质：把列表缩略图 URL 提升到 1200 宽的大图。
+ *
+ * 缩略图尺寸段有 `c/540x540_70/`、`c/360x360_70/`（App API 的 square_medium）、
+ * `c/250x250_80_a2/` 等多种前缀，只替换单一前缀会让「高清」在部分通道静默失效。
+ * 这里统一改写尺寸段，并保留原扩展名（原图可能是 png/gif，硬编码 .jpg 会 404）。
+ */
+private val THUMB_SIZE_SEGMENT = Regex("/c/\\d+x\\d+(_[0-9a-zA-Z]+)*/")
 
-/** 作者屏蔽：作者名/ID，一行一条（字面量匹配，不区分大小写）；列表解析层统一过滤。 */
+fun upscaleThumb(url: String): String {
+    if (url.isBlank()) return url
+    // 只替换尺寸段，保留后面的 /img-master/ 与原文件名
+    return THUMB_SIZE_SEGMENT.replace(url, "/c/1200x1200/")
+}
+
+/** 人（作者）屏蔽：作者名/ID，一行一条（字面量匹配，不区分大小写）。 */
 object AuthorBlock {
-    private fun rules(): List<String> = AppPrefs.blockedAuthors
-        .lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+    @Volatile private var cachedRaw: String? = null
+    @Volatile private var cachedRules: List<String> = emptyList()
+
+    private fun rules(): List<String> {
+        val raw = AppPrefs.blockedAuthors
+        if (raw == cachedRaw) return cachedRules
+        val next = raw.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        cachedRaw = raw
+        cachedRules = next
+        return next
+    }
 
     fun patternCount(): Int = rules().size
 
-    fun isBlocked(authorId: Long, author: String): Boolean {
-        val rules = rules()
-        if (rules.isEmpty()) return false
-        val id = authorId.toString()
-        return rules.any { r -> id == r || author.contains(r, ignoreCase = true) }
-    }
+    fun isBlocked(authorId: Long, author: String): Boolean =
+        BlockMatcher.matchesAuthor(authorId, author, rules())
 }
+
+/**
+ * 列表统一策略：屏蔽过滤 + 画质提升。
+ *
+ * 插画与小说共用同一份实现 —— 之前小说列表完全没走屏蔽规则（只给 `parseWorks` 加了），
+ * 这类「只改了一边」的漂移在统一入口后不会再发生。
+ */
+internal fun <T> List<T>.filterBlocked(
+    tags: (T) -> List<String>,
+    authorId: (T) -> Long,
+    author: (T) -> String,
+): List<T> = filterNot { TagBlock.isBlocked(tags(it)) || AuthorBlock.isBlocked(authorId(it), author(it)) }
+
+internal fun List<PixivWork>.applyListPolicy(
+    filter: Boolean = true,
+    upscale: Boolean = isHighQuality,
+): List<PixivWork> {
+    val base = if (filter) filterBlocked({ it.tags }, { it.authorId }, { it.author }) else this
+    return if (upscale) base.map { it.copy(thumb = upscaleThumb(it.thumb)) } else base
+}
+
+internal fun List<PixivNovel>.applyListPolicy(): List<PixivNovel> =
+    filterBlocked({ it.tags }, { it.authorId }, { it.author })
+
+/** 当前画质是否为「高清」（列表解析时决定是否重写缩略图 URL）。 */
+internal val isHighQuality: Boolean
+    get() = AppPrefs.imageQuality == "high"
 
 /** 本地浏览历史条目（kind：illust / novel）。 */
 @Serializable

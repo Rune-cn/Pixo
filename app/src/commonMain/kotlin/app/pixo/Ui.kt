@@ -236,7 +236,7 @@ fun PixoSubScreen(
                     modifier = Modifier.pixoTopBarBlur(backdrop),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
+                            Icon(imageVector = MiuixIcons.Back, contentDescription = Str.action_back())
                         }
                     },
                     actions = actions,
@@ -248,7 +248,7 @@ fun PixoSubScreen(
                     modifier = Modifier.pixoTopBarBlur(backdrop),
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
+                            Icon(imageVector = MiuixIcons.Back, contentDescription = Str.action_back())
                         }
                     },
                     actions = actions,
@@ -413,4 +413,19 @@ fun SwipeBackContainer(
         }
     }
 }
+
+/** 底部居中的提示条（下载失败/收藏结果等反馈统一样式）。 */
+@Composable
+internal fun BottomToast(text: String?) {
+    if (text == null) return
+    Box(Modifier.fillMaxSize().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
+        Box(
+            Modifier.clip(RoundedCornerShape(50)).background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Text(text, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceContainer)
+        }
+    }
+}
+
 

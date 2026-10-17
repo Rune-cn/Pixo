@@ -22,46 +22,6 @@ expect val ioDispatcher: CoroutineDispatcher
 /** 是否为桌面端（JVM）。桌面端用 ESC 键模拟系统返回。 */
 expect val isDesktop: Boolean
 
-expect object AppPrefs {
-    fun init()
-    var cookie: String
-    var refreshToken: String
-    var accessToken: String
-    var lastLoginUser: String
-    var selfUserId: Long
-    var debugLog: Boolean
-    var language: String
-    var predictiveBack: Boolean
-    var dynamicColor: Boolean
-    var floatingBar: Boolean
-    var liquidGlass: Boolean
-    /** 下载目录（空 = 平台默认目录，如 Android 的 Pictures/Pixo）。 */
-    var downloadDir: String
-    /** 动图（ugoira）播放前是否需要手动确认（避免详情页自动轮播造成闪烁）。 */
-    var ugoiraConfirm: Boolean
-    /** 标签屏蔽规则：每行一条正则，匹配到作品的任一标签即过滤。 */
-    var tagBlockPatterns: String
-    /** WebDAV 备份服务器地址 / 用户名 / 密码。 */
-    var webdavUrl: String
-    var webdavUser: String
-    var webdavPassword: String
-    /** 禁用全屏从左往右滑退出（右滑返回）。 */
-    var disableSwipeBack: Boolean
-
-    /** 图片画质：standard（默认缩略图）/ high（原图级）。 */
-    var imageQuality: String
-
-    /** 标签屏蔽：正则（每行一条）。 */
-    var tagBlockKeywords: String
-
-    /** 作者屏蔽：每行一条（作者名或 ID，支持正则）。 */
-    var blockedAuthors: String
-
-    /** 本地观看历史（JSON 序列化）。 */
-    var history: String
-    /** 首页作品列表是否用两列瀑布流展示。 */
-    var waterfall: Boolean
-}
 
 expect object LocalAppLocale {
     val current: String
@@ -180,57 +140,6 @@ internal fun refreshNetworkConfig() {
             .build()
     )
 }
-
-/** 导出全部设置（含登录凭据）为 JSON 文本；失败返回空串。 */
-fun exportSettingsJson(): String = runCatching {
-    Json.encodeToString(
-        SettingsBackup(
-            debugLog = AppPrefs.debugLog,
-            language = AppPrefs.language,
-            predictiveBack = AppPrefs.predictiveBack,
-            dynamicColor = AppPrefs.dynamicColor,
-            floatingBar = AppPrefs.floatingBar,
-            liquidGlass = AppPrefs.liquidGlass,
-            downloadDir = AppPrefs.downloadDir,
-            ugoiraConfirm = AppPrefs.ugoiraConfirm,
-            tagBlockPatterns = AppPrefs.tagBlockPatterns,
-            disableSwipeBack = AppPrefs.disableSwipeBack,
-            imageQuality = AppPrefs.imageQuality,
-            tagBlockKeywords = AppPrefs.tagBlockKeywords,
-            blockedAuthors = AppPrefs.blockedAuthors,
-            webdavUrl = AppPrefs.webdavUrl,
-            webdavUser = AppPrefs.webdavUser,
-            webdavPassword = AppPrefs.webdavPassword,
-            waterfall = AppPrefs.waterfall,
-        ),
-    )
-}.getOrDefault("")
-
-/** 导入设置 JSON 文本并立即生效；成功返回 true。 */
-fun importSettingsJson(json: String): Boolean = runCatching {
-    val b = Json.decodeFromString<SettingsBackup>(json)
-    AppPrefs.debugLog = b.debugLog
-    AppPrefs.language = b.language
-    AppPrefs.predictiveBack = b.predictiveBack
-    AppPrefs.dynamicColor = b.dynamicColor
-    AppPrefs.floatingBar = b.floatingBar
-    AppPrefs.liquidGlass = b.liquidGlass
-    AppPrefs.downloadDir = b.downloadDir
-    AppPrefs.ugoiraConfirm = b.ugoiraConfirm
-    AppPrefs.tagBlockPatterns = b.tagBlockPatterns
-    AppPrefs.disableSwipeBack = b.disableSwipeBack
-    AppPrefs.imageQuality = b.imageQuality
-    AppPrefs.tagBlockKeywords = b.tagBlockKeywords
-    AppPrefs.blockedAuthors = b.blockedAuthors
-    AppPrefs.webdavUrl = b.webdavUrl
-    AppPrefs.webdavUser = b.webdavUser
-    AppPrefs.webdavPassword = b.webdavPassword
-    AppPrefs.waterfall = b.waterfall
-    PixivApi.refreshClient()
-    refreshNetworkConfig()
-    applyAppLanguage(b.language)
-    true
-}.getOrDefault(false)
 
 /** 清除内存缓存：列表 / 详情 / 评论缓存与图片内存、磁盘缓存。 */
 fun clearAppCache() {

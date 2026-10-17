@@ -39,154 +39,35 @@ actual val isDesktop: Boolean = false
 
 internal lateinit var androidAppContext: Context
 
-actual object AppPrefs {
-    private lateinit var appContext: Context
-    private val prefs get() = appContext.getSharedPreferences("pixo", Context.MODE_PRIVATE)
+/** 注入 Application Context（SharedPreferences、下载目录、崩溃日志都依赖它）。 */
+fun attachAndroidContext(context: Context) {
+    androidAppContext = context
+}
 
-    fun attach(context: Context) {
-        appContext = context
-        androidAppContext = context
+/**
+ * SharedPreferences 实现。键值原语是唯一的平台差异点，
+ * 设置项声明集中在 commonMain 的 [AppPrefs]（见 Settings.kt）。
+ */
+actual object SettingsStore {
+    private val prefs get() = androidAppContext.getSharedPreferences("pixo", Context.MODE_PRIVATE)
+
+    actual fun getString(key: String, default: String): String = prefs.getString(key, default) ?: default
+
+    actual fun putString(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
     }
 
-    actual fun init() {}
+    actual fun getBoolean(key: String, default: Boolean): Boolean = prefs.getBoolean(key, default)
 
-    actual var cookie: String
-        get() = prefs.getString("cookie", "") ?: ""
-        set(value) {
-            prefs.edit().putString("cookie", value).apply()
-        }
+    actual fun putBoolean(key: String, value: Boolean) {
+        prefs.edit().putBoolean(key, value).apply()
+    }
 
-    actual var refreshToken: String
-        get() = prefs.getString("refresh_token", "") ?: ""
-        set(value) {
-            prefs.edit().putString("refresh_token", value).apply()
-        }
+    actual fun getLong(key: String, default: Long): Long = prefs.getLong(key, default)
 
-    actual var accessToken: String
-        get() = prefs.getString("access_token", "") ?: ""
-        set(value) {
-            prefs.edit().putString("access_token", value).apply()
-        }
-
-    actual var lastLoginUser: String
-        get() = prefs.getString("last_login_user", "") ?: ""
-        set(value) {
-            prefs.edit().putString("last_login_user", value).apply()
-        }
-
-    actual var selfUserId: Long
-        get() = prefs.getLong("self_user_id", 0L)
-        set(value) {
-            prefs.edit().putLong("self_user_id", value).apply()
-        }
-
-    actual var debugLog: Boolean
-        get() = prefs.getBoolean("debug_log", false)
-        set(value) {
-            prefs.edit().putBoolean("debug_log", value).apply()
-        }
-
-    actual var language: String
-        get() = prefs.getString("language", "system") ?: "system"
-        set(value) {
-            prefs.edit().putString("language", value).apply()
-        }
-
-    actual var predictiveBack: Boolean
-        get() = prefs.getBoolean("predictive_back", true)
-        set(value) {
-            prefs.edit().putBoolean("predictive_back", value).apply()
-        }
-
-    actual var dynamicColor: Boolean
-        get() = prefs.getBoolean("dynamic_color", true)
-        set(value) {
-            prefs.edit().putBoolean("dynamic_color", value).apply()
-        }
-
-    actual var floatingBar: Boolean
-        get() = prefs.getBoolean("floating_bar", true)
-        set(value) {
-            prefs.edit().putBoolean("floating_bar", value).apply()
-        }
-
-    actual var liquidGlass: Boolean
-        get() = prefs.getBoolean("liquid_glass", true)
-        set(value) {
-            prefs.edit().putBoolean("liquid_glass", value).apply()
-        }
-
-    actual var downloadDir: String
-        get() = prefs.getString("download_dir", "") ?: ""
-        set(value) {
-            prefs.edit().putString("download_dir", value).apply()
-        }
-
-    actual var ugoiraConfirm: Boolean
-        get() = prefs.getBoolean("ugoira_confirm", true)
-        set(value) {
-            prefs.edit().putBoolean("ugoira_confirm", value).apply()
-        }
-
-    actual var tagBlockPatterns: String
-        get() = prefs.getString("tag_block_patterns", "").orEmpty()
-        set(value) {
-            prefs.edit().putString("tag_block_patterns", value).apply()
-        }
-
-    actual var webdavUrl: String
-        get() = prefs.getString("webdav_url", "").orEmpty()
-        set(value) {
-            prefs.edit().putString("webdav_url", value).apply()
-        }
-
-    actual var webdavUser: String
-        get() = prefs.getString("webdav_user", "").orEmpty()
-        set(value) {
-            prefs.edit().putString("webdav_user", value).apply()
-        }
-
-    actual var webdavPassword: String
-        get() = prefs.getString("webdav_password", "").orEmpty()
-        set(value) {
-            prefs.edit().putString("webdav_password", value).apply()
-        }
-
-    actual var disableSwipeBack: Boolean
-        get() = prefs.getBoolean("disable_swipe_back", false)
-        set(value) {
-            prefs.edit().putBoolean("disable_swipe_back", value).apply()
-        }
-
-    actual var imageQuality: String
-        get() = prefs.getString("image_quality", "standard").orEmpty()
-        set(value) {
-            prefs.edit().putString("image_quality", value).apply()
-        }
-
-    actual var tagBlockKeywords: String
-        get() = prefs.getString("tag_block_keywords", "").orEmpty()
-        set(value) {
-            prefs.edit().putString("tag_block_keywords", value).apply()
-        }
-
-    actual var blockedAuthors: String
-        get() = prefs.getString("blocked_authors", "").orEmpty()
-        set(value) {
-            prefs.edit().putString("blocked_authors", value).apply()
-        }
-
-    actual var history: String
-        get() = prefs.getString("history", "").orEmpty()
-        set(value) {
-            prefs.edit().putString("history", value).apply()
-        }
-
-    actual var waterfall: Boolean
-        get() = prefs.getBoolean("waterfall", false)
-        set(value) {
-            prefs.edit().putBoolean("waterfall", value).apply()
-        }
+    actual fun putLong(key: String, value: Long) {
+        prefs.edit().putLong(key, value).apply()
+    }
 }
 
 actual object LocalAppLocale {

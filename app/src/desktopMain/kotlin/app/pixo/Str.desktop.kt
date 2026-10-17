@@ -230,4 +230,6 @@ internal actual object Str {
     @Composable actual fun disable_swipe_back_summary(): String = stringResource(Res.string.disable_swipe_back_summary)
     @Composable actual fun quality_standard(): String = stringResource(Res.string.quality_standard)
     @Composable actual fun quality_high(): String = stringResource(Res.string.quality_high)
+    @Composable actual fun action_back(): String = stringResource(Res.string.action_back)
+    @Composable actual fun action_close(): String = stringResource(Res.string.action_close)
 }

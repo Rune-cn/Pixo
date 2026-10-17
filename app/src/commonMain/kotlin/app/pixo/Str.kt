@@ -233,4 +233,6 @@ internal expect object Str {
     @Composable fun disable_swipe_back_summary(): String
     @Composable fun quality_standard(): String
     @Composable fun quality_high(): String
+    @Composable fun action_back(): String
+    @Composable fun action_close(): String
 }

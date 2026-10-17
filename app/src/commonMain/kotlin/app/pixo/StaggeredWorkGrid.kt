@@ -242,6 +242,7 @@ private fun StaggeredWorkCard(
                     val cur = AppPrefs.blockedAuthors.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
                     if (cur.none { it.equals(add, ignoreCase = true) }) {
                         AppPrefs.blockedAuthors = (cur + add).joinToString("\n")
+                        invalidateFeedCaches()
                     }
                     showAuthorMenu = false
                 }, modifier = Modifier.fillMaxWidth()) { Text(Str.block_this_author()) }

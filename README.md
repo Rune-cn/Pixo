@@ -12,10 +12,11 @@ Pixiv 第三方客户端，基于 Compose Multiplatform + Miuix（MIUI/HyperOS �
 
 进入 [Releases](https://github.com/Rune-cn/Pixo/releases/latest) 下载最新版：
 
-- **`pixo-vX.Y.Z-<commit>-preview.apk`**：预览版签名包（版本 = 当前版本 + 构建 commit），可直接覆盖安装
+- **`pixo-<version>-<abi>-release.apk`**：正式签名包（按 ABI 拆分，覆盖安装即可）
+- **`pixo-nightly-<日期>-<abi>.apk`**：午夜版（Pre-release），每日北京时间 00:00 自动构建
 
-> 每次推送 `main` 后，GitHub Actions **自动构建并发布预览版（Pre-release）**：
-> 预览版版本 = **最新正式版 +1** + 本次构建 commit（如正式版 1.0.8 → 预览版 `1.0.9-3ad92dc`），同名覆盖。
+> CI 行为：推送到 `main` 只做编译校验并上传 artifact（不发布）；
+> 正式版由手动触发 `workflow_dispatch` 发布，午夜版由定时任务发布。
 
 ## 功能特性
 
@@ -74,9 +75,23 @@ Pixiv 第三方客户端，基于 Compose Multiplatform + Miuix（MIUI/HyperOS �
 
 ```
 app/src/commonMain/kotlin/app/pixo/
-├── App.kt              应用骨架、路由、设置 / 下载 / 关于 / 历史页
-├── Screens.kt          首页、榜单、搜索、详情、灯箱、评论、作者主页、关注新作等
-├── Ui.kt               页面框架、毛玻璃顶栏、悬浮底栏
+├── App.kt              应用骨架、路由表、主标签页宿主
+├── HomeScreen.kt       首页推荐流 / 关注新作
+├── RankingScreen.kt    插画 / 漫画 / 小说排行榜
+├── BookmarksScreen.kt  收藏（公开 / 私密）
+├── SearchScreen.kt     搜索（插画 / 小说 / 用户）
+├── DetailScreen.kt     插画详情、灯箱、相关作品
+├── NovelDetailScreen.kt 小说详情
+├── CommentsScreen.kt   评论与追评
+├── UserScreen.kt       作者主页、粉丝 / 关注列表
+├── FollowScreen.kt     关注新作
+├── DiscoverScreen.kt   发现页、推荐页
+├── LogScreen.kt        调试日志、崩溃日志
+├── UiWidgets.kt        列表行、头像、分区标题等共用组件
+├── Ui.kt               页面框架（Scaffold / 毛玻璃顶栏）、右滑返回、提示条
+├── Settings.kt         设置项单一声明处（AppPrefs）+ 导出 / 导入 + 变更版本号
+├── Cache.kt            进程内缓存（列表 / 详情 / 评论）+ ugoira 帧 LRU
+├── Models.kt           数据模型、屏蔽规则、列表统一策略
 ├── FloatingBottomBar.kt / LiquidGlass.kt  悬浮底栏与液态玻璃材质
 ├── MarkdownBlock.kt    Markdown 文档渲染
 ├── WebDavApi.kt        WebDAV 设置备份（Basic 认证）
@@ -85,8 +100,10 @@ app/src/commonMain/kotlin/app/pixo/
 ├── WebPixivApi.kt      网页通道（www.pixiv.net/ajax）
 ├── PixivAuth.kt        OAuth 登录与 Token 刷新
 ├── PixivHttp.kt        OkHttp 封装、时间戳签名
-├── Platform.kt         平台 expect 声明
+├── Platform.kt         平台 expect 声明（存储原语 / 语言 / 日志 / 下载）
 └── Str.kt              跨平台文案（Android res / Compose 资源）
+
+app/src/commonTest/kotlin/app/pixo/   纯逻辑单测（屏蔽匹配、画质 URL、设置备份、字段映射）
 ```
 
 ## 构建与发布
@@ -102,6 +119,8 @@ app/src/commonMain/kotlin/app/pixo/
 ./gradlew :app:assembleRelease        # Android 正式包（app/build/outputs/apk/release/）
 ./gradlew :app:assembleDebug          # Debug 包
 ./gradlew :app:compileDebugKotlinAndroid  # 快速编译检查
+./gradlew :app:compileKotlinDesktop       # 桌面端编译检查（CI 未覆盖，本地务必跑）
+./gradlew :app:desktopTest                # 纯逻辑单测（屏蔽规则 / 画质 URL / 设置备份 / 字段映射）
 ```
 
 ### 签名（本地 / 新仓库）

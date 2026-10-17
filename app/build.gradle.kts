@@ -38,6 +38,9 @@ kotlin {
             implementation("org.jetbrains.compose.components:components-resources:1.12.1")
             implementation("org.jetbrains.androidx.navigationevent:navigationevent-compose:1.1.0")
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.13.0")
             implementation("androidx.core:core-ktx:1.19.1")
@@ -121,19 +124,6 @@ compose.desktop {
         // 走 Windows/macOS/Linux 系统代理：Pixiv 需代理才能直连
         jvmArgs += "-Djava.net.useSystemProxies=true"
     }
-}
-
-// 临时预览任务（无头渲染悬浮底栏按压前后）：
-// > .\gradlew.bat :app:barPreview --args=build/barfix2
-tasks.register<JavaExec>("barPreview") {
-    group = "application"
-    dependsOn("desktopMainClasses")
-    val mainCompilation = kotlin.targets.getByName("desktop").compilations.getByName("main")
-    classpath = (mainCompilation.runtimeDependencyFiles ?: project.files())
-        .plus(project.files("build/classes/kotlin/desktop/main"))
-        .plus(project.files("build/processedResources/desktop/main"))
-    mainClass.set("app.pixo.BarPreviewKt")
-    workingDir = rootProject.projectDir
 }
 
 compose.resources {

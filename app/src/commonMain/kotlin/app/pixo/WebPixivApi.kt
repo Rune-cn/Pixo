@@ -23,18 +23,7 @@ object WebPixivApi {
                 .url("https://www.pixiv.net/ranking.php?mode=$mode&content=illust&p=$page&format=json"),
         )
         return parseWorks(root.arr("contents")) { item ->
-            PixivWork(
-                id = item.lng("illust_id"),
-                title = item.str("title"),
-                author = item.str("user_name"),
-                authorId = item.lng("user_id"),
-                avatar = item.str("profile_img"),
-                thumb = item.str("url"),
-                illustType = item.int("illust_type"),
-                pageCount = item.int("illust_page_count").coerceAtLeast(item.int("page_count")).coerceAtLeast(1),
-                xRestrict = item.int("x_restrict"),
-                tags = stringTags(item),
-            )
+            item.toWebWork()
         }
     }
 
@@ -52,18 +41,7 @@ object WebPixivApi {
             throw IOException("推荐接口未返回作品数据，请确认已登录")
         }
         return parseWorks(illust) { item ->
-            PixivWork(
-                id = item.lng("id"),
-                title = item.str("title"),
-                author = item.str("userName"),
-                authorId = item.lng("userId"),
-                avatar = item.str("profileImageUrl"),
-                thumb = item.str("url"),
-                illustType = item.int("illustType"),
-                pageCount = item.int("pageCount").coerceAtLeast(1),
-                xRestrict = item.int("xRestrict"),
-                tags = stringTags(item),
-            )
+            item.toWebWork()
         }
     }
 
@@ -73,18 +51,7 @@ object WebPixivApi {
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
         val body = root.obj("body")
         return parseWorks(body?.arr("illusts"), filterBlocked = false) { item ->
-            PixivWork(
-                id = item.lng("id"),
-                title = item.str("title"),
-                author = item.str("userName"),
-                authorId = item.lng("userId"),
-                avatar = item.str("profileImageUrl"),
-                thumb = item.str("url"),
-                illustType = item.int("illustType"),
-                pageCount = item.int("pageCount").coerceAtLeast(1),
-                xRestrict = item.int("xRestrict"),
-                tags = stringTags(item),
-            )
+            item.toWebWork()
         }
     }
 
@@ -95,18 +62,7 @@ object WebPixivApi {
         val root = PixivHttp.getJson(PixivHttp.webJsonHeaders().url(url))
         val thumbnails = root.obj("body")?.obj("thumbnails")
         return parseWorks(thumbnails?.arr("illust")) { item ->
-            PixivWork(
-                id = item.lng("id"),
-                title = item.str("title"),
-                author = item.str("userName"),
-                authorId = item.lng("userId"),
-                avatar = item.str("profileImageUrl"),
-                thumb = item.str("url"),
-                illustType = item.int("illustType"),
-                pageCount = item.int("pageCount").coerceAtLeast(1),
-                xRestrict = item.int("xRestrict"),
-                tags = stringTags(item),
-            )
+            item.toWebWork()
         }
     }
 
@@ -118,18 +74,7 @@ object WebPixivApi {
         val body = root.obj("body")
         val data = body?.obj("illustManga")?.arr("data") ?: body?.arr("data")
         return parseWorks(data) { item ->
-            PixivWork(
-                id = item.lng("id"),
-                title = item.str("title"),
-                author = item.str("userName"),
-                authorId = item.lng("userId"),
-                avatar = item.str("profileImageUrl"),
-                thumb = item.str("url"),
-                illustType = item.int("illustType"),
-                pageCount = item.int("pageCount").coerceAtLeast(1),
-                xRestrict = item.int("xRestrict"),
-                tags = stringTags(item),
-            )
+            item.toWebWork()
         }
     }
 
@@ -145,18 +90,7 @@ object WebPixivApi {
         throwIfWebError(root, "收藏获取失败")
         val works = root.obj("body")?.arr("works")
         return parseWorks(works) { item ->
-            PixivWork(
-                id = item.lng("id"),
-                title = item.str("title"),
-                author = item.str("userName"),
-                authorId = item.lng("userId"),
-                avatar = item.str("profileImageUrl"),
-                thumb = item.str("url"),
-                illustType = item.int("illustType"),
-                pageCount = item.int("pageCount").coerceAtLeast(1),
-                xRestrict = item.int("xRestrict"),
-                tags = stringTags(item),
-            )
+            item.toWebWork()
         }
     }
 
@@ -262,20 +196,7 @@ object WebPixivApi {
             PixivHttp.webJsonHeaders()
                 .url("https://www.pixiv.net/ranking.php?mode=$mode&content=manga&p=$page&format=json"),
         )
-        return parseWorks(root.arr("contents")) { item ->
-            PixivWork(
-                id = item.lng("illust_id"),
-                title = item.str("title"),
-                author = item.str("user_name"),
-                authorId = item.lng("user_id"),
-                avatar = item.str("profile_img"),
-                thumb = item.str("url"),
-                illustType = item.int("illust_type").coerceAtLeast(1),
-                pageCount = item.int("illust_page_count").coerceAtLeast(item.int("page_count")).coerceAtLeast(1),
-                xRestrict = item.int("x_restrict"),
-                tags = stringTags(item),
-            )
-        }
+        return parseWorks(root.arr("contents")) { it.toWebWork(minIllustType = 1) }
     }
 
     /** ugoira（动图）元数据：返回 zip 下载地址与帧序列（帧需自行解压 zip 获得）。 */
@@ -685,18 +606,7 @@ object WebPixivApi {
                     val o = v as? JsonObject ?: continue
                     try {
                         add(
-                            PixivWork(
-                                id = o.lng("id"),
-                                title = o.str("title"),
-                                author = o.str("userName"),
-                                authorId = o.lng("userId"),
-                                avatar = o.str("profileImageUrl"),
-                                thumb = o.str("url"),
-                                illustType = o.int("illustType"),
-                                pageCount = o.int("pageCount").coerceAtLeast(1),
-                                xRestrict = o.int("xRestrict"),
-                                tags = stringTags(o),
-                            ),
+                            o.toWebWork(),
                         )
                     } catch (_: Exception) {
                         // 跳过异常条目
@@ -741,18 +651,7 @@ object WebPixivApi {
                 val o = map.obj(id) ?: continue
                 try {
                     add(
-                        PixivWork(
-                            id = o.lng("id").takeIf { it > 0 } ?: id.toLongOrNull() ?: 0L,
-                            title = o.str("title"),
-                            author = o.str("userName").ifBlank { o.str("user_name") },
-                            authorId = o.lng("userId").takeIf { it > 0 } ?: userId,
-                            avatar = o.str("profileImageUrl").ifBlank { o.str("profile_img") },
-                            thumb = o.str("url"),
-                            illustType = o.int("illustType").coerceAtLeast(o.int("illust_type")),
-                            pageCount = o.int("pageCount").coerceAtLeast(o.int("illust_page_count")).coerceAtLeast(1),
-                            xRestrict = o.int("xRestrict").coerceAtLeast(o.int("x_restrict")),
-                            tags = stringTags(o),
-                        ),
+                        o.toWebWork(),
                     )
                 } catch (_: Exception) {
                     // 跳过异常条目
@@ -789,7 +688,9 @@ object WebPixivApi {
                                 if (arr != null) for (t in arr) {
                                     when (t) {
                                         is JsonPrimitive -> if (t.content.isNotBlank()) add(t.content)
-                                        is JsonObject -> t.str("name").takeIf { it.isNotBlank() }?.let { add(it) }
+                                        // 列表端点用 {name}，详情端点用 {tag}
+                is JsonObject -> (t.str("name").ifBlank { t.str("tag") })
+                    .takeIf { it.isNotBlank() }?.let { add(it) }
                                         else -> {}
                                     }
                                 }
@@ -849,18 +750,7 @@ object WebPixivApi {
         }
         return items.mapNotNull { o ->
             try {
-                PixivWork(
-                    id = o.lng("id"),
-                    title = o.str("title"),
-                    author = o.str("userName").ifBlank { o.str("user_name") },
-                    authorId = o.lng("userId").takeIf { it > 0L } ?: o.lng("user_id"),
-                    avatar = o.str("profileImageUrl").ifBlank { o.str("profile_img") },
-                    thumb = o.str("url"),
-                    illustType = o.int("illustType").coerceAtLeast(o.int("illust_type")),
-                    pageCount = o.int("pageCount").coerceAtLeast(o.int("illust_page_count")).coerceAtLeast(1),
-                    xRestrict = o.int("xRestrict").coerceAtLeast(o.int("x_restrict")),
-                    tags = stringTags(o),
-                )
+                o.toWebWork()
             } catch (_: Exception) {
                 null
             }
@@ -965,6 +855,26 @@ object WebPixivApi {
         throw IOException("无法获取 CSRF token，请重新登录并刷新 Cookie")
     }
 
+    /**
+     * 网页 ajax 作品条目 → [PixivWork]。
+     *
+     * 兼容两套字段名：ajax 端点用 camelCase（id/userName/profileImageUrl/illustType），
+     * 排行榜用 snake_case（illust_id/user_name/profile_img/illust_type）。
+     * 之前 7 个端点各写一份映射，改字段极易漏改；现在只有这一处。
+     */
+    internal fun JsonObject.toWebWork(minIllustType: Int = 0): PixivWork = PixivWork(
+        id = lng("id").takeIf { it > 0L } ?: lng("illust_id"),
+        title = str("title"),
+        author = str("userName").ifBlank { str("user_name") },
+        authorId = lng("userId").takeIf { it > 0L } ?: lng("user_id"),
+        avatar = str("profileImageUrl").ifBlank { str("profile_img") },
+        thumb = str("url"),
+        illustType = maxOf(int("illustType"), int("illust_type"), minIllustType),
+        pageCount = maxOf(int("pageCount"), int("illust_page_count"), int("page_count"), 1),
+        xRestrict = maxOf(int("xRestrict"), int("x_restrict")),
+        tags = stringTags(this),
+    )
+
     private fun parseWorks(arr: JsonArray?, filterBlocked: Boolean = true, mapper: (JsonObject) -> PixivWork): List<PixivWork> =
         buildList {
             if (arr == null) return@buildList
@@ -975,12 +885,7 @@ object WebPixivApi {
                     // 跳过异常条目
                 }
             }
-        }.let { list ->
-            val filtered = if (filterBlocked)
-                list.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) }
-            else list
-            if (AppPrefs.imageQuality == "high") filtered.map { it.copy(thumb = upscaleThumb(it.thumb)) } else filtered
-        }
+        }.applyListPolicy(filter = filterBlocked)
 
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList
@@ -991,7 +896,7 @@ object WebPixivApi {
                 // 跳过异常条目
             }
         }
-    }
+    }.applyListPolicy()
 
     private fun parseUsers(arr: JsonArray?): List<PixivUser> = buildList {
         if (arr == null) return@buildList
@@ -1052,12 +957,14 @@ object WebPixivApi {
     }
 
     /** 兼容网页/App API 两种标签形态（字符串数组 / {name} 对象数组）。 */
-    private fun stringTags(o: JsonObject): List<String> = buildList {
+    internal fun stringTags(o: JsonObject): List<String> = buildList {
         val arr = o.arr("tags")
         if (arr != null) for (t in arr) {
             when (t) {
                 is JsonPrimitive -> if (t.content.isNotBlank()) add(t.content)
-                is JsonObject -> t.str("name").takeIf { it.isNotBlank() }?.let { add(it) }
+                // 列表端点用 {name}，详情端点用 {tag}
+                is JsonObject -> (t.str("name").ifBlank { t.str("tag") })
+                    .takeIf { it.isNotBlank() }?.let { add(it) }
                 else -> {}
             }
         }

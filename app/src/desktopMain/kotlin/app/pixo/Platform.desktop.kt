@@ -24,148 +24,30 @@ val LocalPixoWindow = staticCompositionLocalOf<java.awt.Window?> { null }
 
 private val defaultLocale: Locale = Locale.getDefault()
 
-actual object AppPrefs {
+/**
+ * java.util.prefs 实现。键值原语是唯一的平台差异点，
+ * 设置项声明集中在 commonMain 的 [AppPrefs]（见 Settings.kt）。
+ */
+actual object SettingsStore {
     private val prefs = Preferences.userRoot().node("app/pixo")
 
-    actual fun init() {}
+    actual fun getString(key: String, default: String): String = prefs.get(key, default)
 
-    actual var cookie: String
-        get() = prefs.get("cookie", "")
-        set(value) {
-            prefs.put("cookie", value)
-        }
+    actual fun putString(key: String, value: String) {
+        prefs.put(key, value)
+    }
 
-    actual var refreshToken: String
-        get() = prefs.get("refresh_token", "")
-        set(value) {
-            prefs.put("refresh_token", value)
-        }
+    actual fun getBoolean(key: String, default: Boolean): Boolean = prefs.getBoolean(key, default)
 
-    actual var accessToken: String
-        get() = prefs.get("access_token", "")
-        set(value) {
-            prefs.put("access_token", value)
-        }
+    actual fun putBoolean(key: String, value: Boolean) {
+        prefs.putBoolean(key, value)
+    }
 
-    actual var lastLoginUser: String
-        get() = prefs.get("last_login_user", "")
-        set(value) {
-            prefs.put("last_login_user", value)
-        }
+    actual fun getLong(key: String, default: Long): Long = prefs.getLong(key, default)
 
-    actual var selfUserId: Long
-        get() = prefs.getLong("self_user_id", 0L)
-        set(value) {
-            prefs.putLong("self_user_id", value)
-        }
-
-    actual var debugLog: Boolean
-        get() = prefs.getBoolean("debug_log", false)
-        set(value) {
-            prefs.putBoolean("debug_log", value)
-        }
-
-    actual var language: String
-        get() = prefs.get("language", "system")
-        set(value) {
-            prefs.put("language", value)
-        }
-
-    actual var predictiveBack: Boolean
-        get() = prefs.getBoolean("predictive_back", true)
-        set(value) {
-            prefs.putBoolean("predictive_back", value)
-        }
-
-    actual var dynamicColor: Boolean
-        get() = prefs.getBoolean("dynamic_color", true)
-        set(value) {
-            prefs.putBoolean("dynamic_color", value)
-        }
-
-    actual var floatingBar: Boolean
-        get() = prefs.getBoolean("floating_bar", true)
-        set(value) {
-            prefs.putBoolean("floating_bar", value)
-        }
-
-    actual var liquidGlass: Boolean
-        get() = prefs.getBoolean("liquid_glass", true)
-        set(value) {
-            prefs.putBoolean("liquid_glass", value)
-        }
-
-    actual var downloadDir: String
-        get() = prefs.get("download_dir", "")
-        set(value) {
-            prefs.put("download_dir", value)
-        }
-
-    actual var ugoiraConfirm: Boolean
-        get() = prefs.getBoolean("ugoira_confirm", true)
-        set(value) {
-            prefs.putBoolean("ugoira_confirm", value)
-        }
-
-    actual var tagBlockPatterns: String
-        get() = prefs.get("tag_block_patterns", "")
-        set(value) {
-            prefs.put("tag_block_patterns", value)
-        }
-
-    actual var webdavUrl: String
-        get() = prefs.get("webdav_url", "")
-        set(value) {
-            prefs.put("webdav_url", value)
-        }
-
-    actual var webdavUser: String
-        get() = prefs.get("webdav_user", "")
-        set(value) {
-            prefs.put("webdav_user", value)
-        }
-
-    actual var webdavPassword: String
-        get() = prefs.get("webdav_password", "")
-        set(value) {
-            prefs.put("webdav_password", value)
-        }
-
-    actual var disableSwipeBack: Boolean
-        get() = prefs.getBoolean("disable_swipe_back", false)
-        set(value) {
-            prefs.putBoolean("disable_swipe_back", value)
-        }
-
-    actual var imageQuality: String
-        get() = prefs.get("image_quality", "standard")
-        set(value) {
-            prefs.put("image_quality", value)
-        }
-
-    actual var tagBlockKeywords: String
-        get() = prefs.get("tag_block_keywords", "")
-        set(value) {
-            prefs.put("tag_block_keywords", value)
-        }
-
-    actual var blockedAuthors: String
-        get() = prefs.get("blocked_authors", "")
-        set(value) {
-            prefs.put("blocked_authors", value)
-        }
-
-    actual var history: String
-        get() = prefs.get("history", "")
-        set(value) {
-            prefs.put("history", value)
-        }
-
-    actual var waterfall: Boolean
-        get() = prefs.getBoolean("waterfall", false)
-        set(value) {
-            prefs.putBoolean("waterfall", value)
-        }
+    actual fun putLong(key: String, value: Long) {
+        prefs.putLong(key, value)
+    }
 }
 
 actual object LocalAppLocale {

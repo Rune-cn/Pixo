@@ -230,4 +230,6 @@ internal actual object Str {
     @Composable actual fun disable_swipe_back_summary(): String = stringResource(app.pixo.R.string.disable_swipe_back_summary)
     @Composable actual fun quality_standard(): String = stringResource(app.pixo.R.string.quality_standard)
     @Composable actual fun quality_high(): String = stringResource(app.pixo.R.string.quality_high)
+    @Composable actual fun action_back(): String = stringResource(app.pixo.R.string.action_back)
+    @Composable actual fun action_close(): String = stringResource(app.pixo.R.string.action_close)
 }

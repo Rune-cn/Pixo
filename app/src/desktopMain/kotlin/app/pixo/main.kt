@@ -10,7 +10,6 @@ fun main() {
     // 必须在创建任何网络连接之前生效，否则 Java 以直连方式请求已被墙的 pixiv.net
     System.setProperty("java.net.useSystemProxies", "true")
     initCrashLogging()
-    AppPrefs.init()
     initImageLoaderOnce()
     application {
         Window(

@@ -233,6 +233,8 @@ furry.*</string>
     <string name="block_this_author">Block this person</string>
     <string name="disable_swipe_back">Disable swipe-to-exit</string>
     <string name="disable_swipe_back_summary">Disable full-screen swipe right to go back</string>
+    <string name="action_back">返回</string>
+    <string name="action_close">关闭</string>
 </resources>
 
 
