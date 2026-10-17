@@ -15,6 +15,7 @@ data class SettingsBackup(
     val downloadDir: String = "",
     val ugoiraConfirm: Boolean = true,
     val tagBlockPatterns: String = "",
+    val imageQuality: String = "standard",
     val tagBlockKeywords: String = "",
     val blockedAuthors: String = "",
     val webdavUrl: String = "",
@@ -217,7 +218,12 @@ object TagBlock {
     }
 }
 
-/** 作者屏蔽：作者名/ID，一行一条（支持正则）；列表解析层统一过滤。 */
+/** 高清画质：把列表缩略图 URL（master1200）转换为原图级（img-original）。 */
+fun upscaleThumb(url: String): String =
+    url.replace("c/540x540_70/img-master/img/", "img-original/img/")
+        .replace("_master1200.jpg", ".jpg")
+
+/** 作者屏蔽：作者名/ID，一行一条（字面量匹配，不区分大小写）；列表解析层统一过滤。 */
 object AuthorBlock {
     private fun rules(): List<String> = AppPrefs.blockedAuthors
         .lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
@@ -227,11 +233,8 @@ object AuthorBlock {
     fun isBlocked(authorId: Long, author: String): Boolean {
         val rules = rules()
         if (rules.isEmpty()) return false
-        return rules.any { r ->
-            // ID 精确匹配；名称按正则忽略大小写
-            authorId.toString() == r ||
-                runCatching { Regex(r, RegexOption.IGNORE_CASE).containsMatchIn(author) }.getOrDefault(false)
-        }
+        val id = authorId.toString()
+        return rules.any { r -> id == r || author.contains(r, ignoreCase = true) }
     }
 }
 

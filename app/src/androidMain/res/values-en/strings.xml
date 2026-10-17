@@ -216,6 +216,9 @@ furry.*</string>
     <string name="author_block_save">Save</string>
     <string name="tag_block_keyword_hint">Plain words (case-insensitive), one per line</string>
     <string name="tag_block_keyword_label">Keyword blocking</string>
+    <string name="image_quality">Image quality</string>
+    <string name="quality_standard">Standard</string>
+    <string name="quality_high">High (original)</string>
 </resources>
 
 

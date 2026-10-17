@@ -975,7 +975,12 @@ object WebPixivApi {
                     // 跳过异常条目
                 }
             }
-        }.let { if (filterBlocked) it.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) } else it }
+        }.let { list ->
+            val filtered = if (filterBlocked)
+                list.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) }
+            else list
+            if (AppPrefs.imageQuality == "high") filtered.map { it.copy(thumb = upscaleThumb(it.thumb)) } else filtered
+        }
 
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList

@@ -226,5 +226,8 @@ furry.*</string>
     <string name="author_block_save">保存</string>
     <string name="tag_block_keyword_hint">常规屏蔽词，每行一个（忽略大小写）</string>
     <string name="tag_block_keyword_label">常规屏蔽词</string>
+    <string name="image_quality">图片画质</string>
+    <string name="quality_standard">标准</string>
+    <string name="quality_high">高清（原图级）</string>
 </resources>
 

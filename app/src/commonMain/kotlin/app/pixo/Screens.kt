@@ -1000,7 +1000,7 @@ fun SearchScreen(
                     hasMore = hasMore,
                     onLoadMore = { loadMore() },
                     header = {
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             InputField(
                                 query = query,
                                 onQueryChange = { query = it },

@@ -131,6 +131,12 @@ actual object AppPrefs {
             prefs.put("webdav_password", value)
         }
 
+    actual var imageQuality: String
+        get() = prefs.get("image_quality", "standard")
+        set(value) {
+            prefs.put("image_quality", value)
+        }
+
     actual var tagBlockKeywords: String
         get() = prefs.get("tag_block_keywords", "")
         set(value) {

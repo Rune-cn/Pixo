@@ -444,7 +444,10 @@ object AppPixivApi {
                 // 跳过异常条目
             }
         }
-     }.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) }
+     }.let { list ->
+            val filtered = list.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) }
+            if (AppPrefs.imageQuality == "high") filtered.map { it.copy(thumb = upscaleThumb(it.thumb)) } else filtered
+        }
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList
         for (el in arr) {

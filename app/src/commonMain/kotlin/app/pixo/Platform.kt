@@ -45,6 +45,9 @@ expect object AppPrefs {
     var webdavUrl: String
     var webdavUser: String
     var webdavPassword: String
+    /** 图片画质：standard（默认缩略图）/ high（原图级）。 */
+    var imageQuality: String
+
     /** 标签屏蔽：正则（每行一条）。 */
     var tagBlockKeywords: String
 
@@ -188,6 +191,7 @@ fun exportSettingsJson(): String = runCatching {
             downloadDir = AppPrefs.downloadDir,
             ugoiraConfirm = AppPrefs.ugoiraConfirm,
             tagBlockPatterns = AppPrefs.tagBlockPatterns,
+            imageQuality = AppPrefs.imageQuality,
             tagBlockKeywords = AppPrefs.tagBlockKeywords,
             blockedAuthors = AppPrefs.blockedAuthors,
             webdavUrl = AppPrefs.webdavUrl,
@@ -210,6 +214,7 @@ fun importSettingsJson(json: String): Boolean = runCatching {
     AppPrefs.downloadDir = b.downloadDir
     AppPrefs.ugoiraConfirm = b.ugoiraConfirm
     AppPrefs.tagBlockPatterns = b.tagBlockPatterns
+    AppPrefs.imageQuality = b.imageQuality
     AppPrefs.tagBlockKeywords = b.tagBlockKeywords
     AppPrefs.blockedAuthors = b.blockedAuthors
     AppPrefs.webdavUrl = b.webdavUrl
