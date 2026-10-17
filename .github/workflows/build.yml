@@ -78,6 +78,36 @@ jobs:
       - name: Compile Android Kotlin
         run: ./gradlew :app:compileDebugKotlinAndroid --no-daemon --stacktrace
 
+
+  # 桌面端（JVM）编译 + 纯逻辑单测：CI 之前只编 Android，
+  # desktopMain 编译坏掉只能在本地发现（历史 commit 里已出现两次）。
+  desktop-check:
+    name: Desktop Compile + Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Compile desktop target
+        run: ./gradlew :app:compileKotlinDesktop --no-daemon --stacktrace
+
+      - name: Run common unit tests
+        run: ./gradlew :app:desktopTest --no-daemon --stacktrace
+
   # 正式签名包：密钥经仓库 Secrets 注入（PIXO_KEYSTORE_BASE64 / PIXO_KEYSTORE_PASSWORD /
   # PIXO_KEY_ALIAS / PIXO_KEY_PASSWORD），未配置时跳过 release 构建
   release:
