@@ -232,6 +232,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var liquidGlass by rememberSaveable { mutableStateOf(AppPrefs.liquidGlass) }
     var ugoiraConfirm by rememberSaveable { mutableStateOf(AppPrefs.ugoiraConfirm) }
     var waterfall by rememberSaveable { mutableStateOf(AppPrefs.waterfall) }
+    var imageQuality by rememberSaveable { mutableStateOf(AppPrefs.imageQuality) }
     val navController = rememberNavController()
     // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情 / 用户主页
     val deepLink = deepLinkSignal?.value
@@ -506,6 +507,11 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onLanguageChange = {
                                 language = it
                                 AppPrefs.language = it
+                            },
+                            imageQuality = imageQuality,
+                            onImageQualityChange = {
+                                imageQuality = it
+                                AppPrefs.imageQuality = it
                             },
                             onBack = { navController.popBackStack() },
                         )
@@ -1738,6 +1744,8 @@ fun AppearancePage(
     onLiquidGlassChange: (Boolean) -> Unit,
     language: String,
     onLanguageChange: (String) -> Unit,
+    imageQuality: String,
+    onImageQualityChange: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val themeOptions = listOf(Str.theme_follow(), Str.theme_dark(), Str.theme_light())
