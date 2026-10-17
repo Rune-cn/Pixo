@@ -1,5 +1,6 @@
 package app.pixo
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -47,10 +48,6 @@ import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-
-/** 底栏高度（App 根维护）：子页面内容底部让出底栏区域，避免被常显底栏遮挡。 */
-val LocalBarHeight = staticCompositionLocalOf { 0.dp }
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
@@ -423,3 +420,6 @@ fun SwipeBackContainer(
         }
     }
 }
+
+/** 底栏高度（App 根维护）：子页面内容底部让出底栏区域，避免被常显底栏遮挡。 */
+val LocalBarHeight = staticCompositionLocalOf { 0.dp }
