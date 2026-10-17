@@ -280,6 +280,9 @@ fun PixoTabFrame(
 ) {
     val backdrop = rememberPixoBlurBackdrop()
     Scaffold(
+        // 标签页容器背景透明：底部由 bottomPadding 预留底栏区域，下层底栏透过留白可见；
+        // 子页面（全屏不透明）则覆盖底栏
+        containerColor = Color.Transparent,
         topBar = {
             if (scrollBehavior != null) {
                 TopAppBar(
@@ -362,6 +365,9 @@ fun SwipeBackContainer(
                 if (!enabled) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    // 屏幕左缘 15% 的手势不消费，交给系统预测返回（Android 14+ 系统渲染
+                    // 「返回目标」真预览：当前页跟手右移 + 露出上一层页面内容）
+                    if (screenW > 0f && down.position.x <= screenW * 0.15f) return@awaitEachGesture
                     var drag = 0f
                     var consumed = false
                     val velocityTracker = VelocityTracker()
