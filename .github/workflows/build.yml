@@ -141,7 +141,14 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk "dist/pixo-${version}-release.apk"
+          for apk in app/build/outputs/apk/release/*.apk; do
+            [ -f "$apk" ] || continue
+            base=$(basename "$apk")
+            # 文件名形如 app-arm64-v8a-release.apk / app-release.apk
+            abi=$(echo "$base" | sed -E 's/^app-(.*)-release\.apk$/\1/')
+            [ "$abi" = "$base" ] && abi="universal"
+            cp "$apk" "dist/pixo-${version}-${abi}-release.apk"
+          done
 
       - name: 下载 debug APK（并入正式版）
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -165,7 +172,11 @@ jobs:
           # 午夜版：tag = nightly-YYYYMMDD，pre-release，保留历史（正式版发布只由手动决定）
           DATE=$(date -u +%Y%m%d)
           TAG="nightly-${DATE}"
-          mv "dist/pixo-${version}-release.apk" "dist/pixo-nightly-${DATE}.apk" 2>/dev/null || true
+          for apk in dist/pixo-*-release.apk; do
+            [ -f "$apk" ] || continue
+            abi=$(echo "$apk" | sed -E 's/.*pixo-[^-]+-(.*)-release\.apk$/\1/')
+            mv "$apk" "dist/pixo-nightly-${DATE}-${abi}.apk"
+          done
           rm -f "dist/pixo-${version}-debug.apk" 2>/dev/null || true
           gh release delete "$TAG" --yes --cleanup-tag || true
           gh release create "$TAG" dist/*.apk \

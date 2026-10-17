@@ -430,6 +430,7 @@ fun RankingScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
+    waterfall: Boolean = false,
 ) {
     var currentMode by rememberSaveable { mutableStateOf(mode) }
     val cacheKey = "rank:$content:$currentMode"
@@ -518,6 +519,29 @@ fun RankingScreen(
             refreshTexts = refreshTexts(),
             contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
         ) {
+            if (waterfall) {
+                StaggeredWorkGrid(
+                    works = list,
+                    onOpenDetail = { onOpenDetail(it, "illust") },
+                    onOpenUser = onOpenUser,
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = innerPadding,
+                    loadingMore = loadingMore,
+                    hasMore = hasMore,
+                    onLoadMore = { loadMore() },
+                    header = {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ModeChip("daily", Str.daily(), currentMode) { currentMode = "daily" }
+                            ModeChip("weekly", Str.weekly(), currentMode) { currentMode = "weekly" }
+                            ModeChip("monthly", Str.monthly(), currentMode) { currentMode = "monthly" }
+                        }
+                    },
+                    error = error,
+                    onRetry = { retryKey++ },
+                    loading = loading && list.isEmpty(),
+                )
+            } else {
             LazyColumn(
                 state = listState,
                 contentPadding = innerPadding,
@@ -543,6 +567,7 @@ fun RankingScreen(
                     item { EndItem(loadingMore, hasMore, onRetry = {}) }
                 }
             }
+            }
         }
     }
 }
@@ -553,6 +578,7 @@ fun NovelRankingScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
+    waterfall: Boolean = false,
 ) {
     var currentMode by rememberSaveable { mutableStateOf(mode) }
     val cacheKey = "novelRank:$currentMode"
@@ -673,6 +699,7 @@ fun BookmarksScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
+    waterfall: Boolean = false,
 ) {
     var currentRestrict by rememberSaveable { mutableStateOf(restrict) }
     val cacheKey = "bookmarks:$currentRestrict"
@@ -938,6 +965,28 @@ fun SearchScreen(
             refreshTexts = refreshTexts(),
             contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
         ) {
+            if (waterfall) {
+                StaggeredWorkGrid(
+                    works = list,
+                    onOpenDetail = { onOpenDetail(it, "illust") },
+                    onOpenUser = onOpenUser,
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = innerPadding,
+                    loadingMore = loadingMore,
+                    hasMore = hasMore,
+                    onLoadMore = { loadMore() },
+                    header = {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ModeChip("show", Str.bookmark_public_label(), currentRestrict) { currentRestrict = "show" }
+                            ModeChip("hide", Str.bookmark_private_label(), currentRestrict) { currentRestrict = "hide" }
+                        }
+                    },
+                    error = error,
+                    onRetry = { retryKey++ },
+                    loading = loading && list.isEmpty(),
+                    emptyHint = { EmptyHint() },
+                )
+            } else {
             LazyColumn(
                 state = listState,
                 contentPadding = innerPadding,
@@ -991,6 +1040,7 @@ fun SearchScreen(
                     }
                     item { EndItem(loadingMore, hasMore, onRetry = {}) }
                 }
+            }
             }
         }
     }
@@ -1850,6 +1900,7 @@ fun FollowScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit,
+    waterfall: Boolean = false,
 ) {
     var items by remember { mutableStateOf<List<PixivWork>?>(null) }
     var page by remember { mutableIntStateOf(1) }
@@ -1889,6 +1940,21 @@ fun FollowScreen(
 
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.follow_new(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+            if (waterfall) {
+                StaggeredWorkGrid(
+                    works = items.orEmpty(),
+                    onOpenDetail = { onOpenDetail(it, "illust") },
+                    onOpenUser = onOpenUser,
+                    modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = innerPadding,
+                    loadingMore = loadingMore,
+                    hasMore = hasMore,
+                    onLoadMore = { loadMore() },
+                    error = error,
+                    onRetry = { retryKey++ },
+                    loading = items == null,
+                )
+            } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = innerPadding,
@@ -1919,6 +1985,7 @@ fun FollowScreen(
                 }
             }
         }
+            }
     }
 }
 
@@ -2966,6 +3033,7 @@ fun DiscoverScreen(
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
     onOpenSettings: (() -> Unit)? = null,
+    waterfall: Boolean = false,
 ) {
     val cacheKey = "discover:feed"
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
@@ -3059,7 +3127,20 @@ fun DiscoverScreen(
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     EmptyHint(onOpenSettings = onOpenSettings)
                 }
-                else -> LazyColumn(
+                else -> if (waterfall) {
+                    StaggeredWorkGrid(
+                        works = list,
+                        onOpenDetail = { onOpenDetail(it, "illust") },
+                        onOpenUser = onOpenUser,
+                        modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical()
+                            .nestedScroll(scrollBehavior.nestedScrollConnection),
+                        contentPadding = innerPadding,
+                        loadingMore = loadingMore,
+                        hasMore = hasMore,
+                        onLoadMore = { loadMore() },
+                    )
+                } else {
+                    LazyColumn(
                     state = listState,
                     contentPadding = innerPadding,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -3070,6 +3151,7 @@ fun DiscoverScreen(
                         PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
                     }
                     item { EndItem(loadingMore, hasMore, onRetry = {}) }
+                }
                 }
             }
         }
@@ -3083,6 +3165,7 @@ fun RecommendedScreen(
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
     onOpenSettings: (() -> Unit)? = null,
+    waterfall: Boolean = false,
 ) {
     val cacheKey = "recommend:feed"
     var items by remember(cacheKey) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
@@ -3147,7 +3230,20 @@ fun RecommendedScreen(
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     EmptyHint(onOpenSettings = onOpenSettings)
                 }
-                else -> LazyColumn(
+                else -> if (waterfall) {
+                    StaggeredWorkGrid(
+                        works = list,
+                        onOpenDetail = { onOpenDetail(it, "illust") },
+                        onOpenUser = onOpenUser,
+                        modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical()
+                            .nestedScroll(scrollBehavior.nestedScrollConnection),
+                        contentPadding = innerPadding,
+                        loadingMore = loadingMore,
+                        hasMore = hasMore,
+                        onLoadMore = { loadMore() },
+                    )
+                } else {
+                    LazyColumn(
                     state = listState,
                     contentPadding = innerPadding,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -3157,6 +3253,7 @@ fun RecommendedScreen(
                     items(list, key = { it.id }) { w ->
                         PixivWorkRow(w, onClick = { onOpenDetail(w.id, "illust") }, onOpenUser = onOpenUser)
                     }
+                }
                 }
             }
         }
@@ -3171,6 +3268,7 @@ fun UserScreen(
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit,
     onOpenFollows: (Long, String) -> Unit,
+    waterfall: Boolean = false,
 ) {
     val illustKey = "userIllusts:$userId"
     val mangaKey = "userManga:$userId"
@@ -3429,6 +3527,42 @@ fun UserScreen(
                     refreshTexts = refreshTexts(),
                     contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
                 ) {
+            if (waterfall && kind != "novel") {
+                StaggeredWorkGrid(
+                    works = if (kind == "manga") mangaItems.orEmpty() else illustItems.orEmpty(),
+                    onOpenDetail = { onOpenDetail(it, "illust") },
+                    onOpenUser = onOpenUser,
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = innerPadding,
+                    loadingMore = loadingMore,
+                    hasMore = hasMore,
+                    onLoadMore = { loadMore() },
+                    header = {
+                        Column {
+                            UserHeader(
+                                user = user,
+                                followBusy = followBusy,
+                                canFollow = userId != AppPrefs.selfUserId,
+                                onFollowClick = { followMenu = true },
+                                onPreviewAvatar = { avatarPreview = true },
+                                onCopyBio = { bio -> copyMenu = bio },
+                                onCopyId = { account, id -> idCopyMenu = account to id },
+                                onOpenFollowing = { onOpenFollows(userId, "following") },
+                                onOpenWorks = { kind = "illust" },
+                            )
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ModeChip("illust", Str.illust(), kind) { kind = "illust" }
+                                ModeChip("manga", Str.manga(), kind) { kind = "manga" }
+                                ModeChip("novel", Str.novel(), kind) { kind = "novel" }
+                            }
+                        }
+                    },
+                    error = error,
+                    onRetry = { retryKey++ },
+                    loading = loading && currentList.isEmpty(),
+                    emptyHint = { EmptyHint() },
+                )
+            } else {
                     LazyColumn(
                         state = listState,
                         contentPadding = innerPadding,
@@ -3475,6 +3609,7 @@ fun UserScreen(
                             item { EndItem(loadingMore, hasMore, onRetry = {}) }
                         }
                     }
+            }
                 }
             }
 

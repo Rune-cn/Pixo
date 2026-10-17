@@ -58,6 +58,8 @@ import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.swipeback.SwipeBackHandler
+import top.yukonga.miuix.kmp.swipeback.SwipeBackHost
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -270,6 +272,8 @@ fun PixoTabFrame(
 ) {
     val backdrop = rememberPixoBlurBackdrop()
     Scaffold(
+        // 容器透明：标签页内容底部由 bottomPadding 预留底栏区域（底栏在页面下层常显）
+        containerColor = Color.Transparent,
         topBar = {
             if (scrollBehavior != null) {
                 TopAppBar(

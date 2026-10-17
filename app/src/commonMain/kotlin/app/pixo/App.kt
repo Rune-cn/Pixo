@@ -323,6 +323,53 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             },
                         ),
                 ) {
+                    AnimatedVisibility(
+                        visible = !floatingBar,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
+                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
+                    ) {
+                        Box(Modifier.fillMaxSize()) {
+                            NavigationBar(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .onSizeChanged {
+                                        barHeight = with(density) { it.height.toDp() }
+                                    },
+                                // 默认“自动”模式：选中图标上移、取消选中回落，文字只在选中时淡入
+                                mode = NavigationBarDisplayMode.IconWithSelectedLabel,
+                            ) {
+                                NavigationBarItem(
+                                    selected = mainPagerState.selectedPage == 0,
+                                    onClick = { mainPagerState.animateToPage(0) },
+                                    icon = MiuixIcons.Home,
+                                    label = Str.nav_home(),
+                                )
+                                NavigationBarItem(
+                                    selected = mainPagerState.selectedPage == 1,
+                                    onClick = { mainPagerState.animateToPage(1) },
+                                    icon = MiuixIcons.Settings,
+                                    label = Str.nav_settings(),
+                                )
+                            }
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = floatingBar,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
+                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
+                    ) {
+                        FloatingBottomBar(
+                            items = listOf(
+                                FloatingBottomBarItem(MiuixIcons.Home, Str.nav_home()),
+                                FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
+                            ),
+                            selectedIndex = mainPagerState.selectedPage,
+                            onSelected = { index -> mainPagerState.animateToPage(index) },
+                            backdrop = barBackdrop,
+                            mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
+                            onSizeChanged = { barHeight = it },
+                        )
+                    }
                     Box(
                         Modifier
                             .fillMaxSize()
@@ -426,7 +473,10 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         popEnterTransition = { miuixPopEnter() },
                         popExitTransition = { miuixPopExit() },
                     ) {
-                        DownloadsScreen(onBack = { navController.popBackStack() })
+                        DownloadsScreen(
+                            onBack = { navController.popBackStack() },
+                            waterfall = waterfall,
+                        )
                     }
                     composable<History>(
                         enterTransition = { miuixPushEnter() },
@@ -437,6 +487,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         HistoryScreen(
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
+                            waterfall = waterfall,
                         )
                     }
                     composable<Follow>(
@@ -449,6 +500,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
+                            waterfall = waterfall,
                         )
                     }
                     composable<About>(
@@ -540,6 +592,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
                             onOpenSettings = openSettingsTabFromSubPage,
+                            waterfall = waterfall,
                         )
                     }
                     composable<Recommended>(
@@ -553,6 +606,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
                             onOpenSettings = openSettingsTabFromSubPage,
+                            waterfall = waterfall,
                         )
                     }
                     composable<Ranking>(
@@ -567,6 +621,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
+                            waterfall = waterfall,
                         )
                     }
                     composable<NovelRanking>(
@@ -580,6 +635,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
+                            waterfall = waterfall,
                         )
                     }
                     composable<Bookmarks>(
@@ -593,6 +649,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
+                            waterfall = waterfall,
                         )
                     }
                     composable<Search>(
@@ -652,6 +709,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
                             onOpenFollows = { id, kind -> navController.navigate(Follows(id, kind)) },
+                            waterfall = waterfall,
                         )
                     }
                     composable<Follows>(
@@ -681,55 +739,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                 } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
                   // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出
                 // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出
-                if (isTabPage) {
-                    AnimatedVisibility(
-                        visible = !floatingBar,
-                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
-                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
-                    ) {
-                        Box(Modifier.fillMaxSize()) {
-                            NavigationBar(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .onSizeChanged {
-                                        barHeight = with(density) { it.height.toDp() }
-                                    },
-                                // 默认“自动”模式：选中图标上移、取消选中回落，文字只在选中时淡入
-                                mode = NavigationBarDisplayMode.IconWithSelectedLabel,
-                            ) {
-                                NavigationBarItem(
-                                    selected = mainPagerState.selectedPage == 0,
-                                    onClick = { mainPagerState.animateToPage(0) },
-                                    icon = MiuixIcons.Home,
-                                    label = Str.nav_home(),
-                                )
-                                NavigationBarItem(
-                                    selected = mainPagerState.selectedPage == 1,
-                                    onClick = { mainPagerState.animateToPage(1) },
-                                    icon = MiuixIcons.Settings,
-                                    label = Str.nav_settings(),
-                                )
-                            }
-                        }
-                    }
-                    AnimatedVisibility(
-                        visible = floatingBar,
-                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
-                        exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
-                    ) {
-                        FloatingBottomBar(
-                            items = listOf(
-                                FloatingBottomBarItem(MiuixIcons.Home, Str.nav_home()),
-                                FloatingBottomBarItem(MiuixIcons.Settings, Str.nav_settings()),
-                            ),
-                            selectedIndex = mainPagerState.selectedPage,
-                            onSelected = { index -> mainPagerState.animateToPage(index) },
-                            backdrop = barBackdrop,
-                            mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
-                            onSizeChanged = { barHeight = it },
-                        )
-                    }
-                }
             }
         }
     }
@@ -1121,7 +1130,7 @@ private fun SettingEntryRow(title: String, onClick: () -> Unit) {
 
 /** 历史页：本地看过的作品（插画/小说），点按进入详情页。 */
 @Composable
-fun HistoryScreen(onBack: () -> Unit, onOpenDetail: (Long, String) -> Unit) {
+fun HistoryScreen(onBack: () -> Unit, onOpenDetail: (Long, String) -> Unit, waterfall: Boolean = false) {
     var historyItems by remember { mutableStateOf(HistoryStore.load()) }
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.history_title(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
@@ -1194,7 +1203,7 @@ private fun HistoryRow(entry: HistoryItem, onClick: () -> Unit) {
 }
 
 @Composable
-fun DownloadsScreen(onBack: () -> Unit) {
+fun DownloadsScreen(onBack: () -> Unit, waterfall: Boolean = false) {
     var images by remember { mutableStateOf<List<DownloadedImage>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }

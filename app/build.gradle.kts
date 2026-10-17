@@ -82,6 +82,17 @@ android {
         }
     }
 
+    // 按 ABI 拆分 release 包（arm64-v8a / armeabi-v7a / x86 / x86_64），
+    // debug 保持通用包（体积无所谓）。各 ABI 的 versionCode 由 AGP 自动递增分配。
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true

@@ -61,6 +61,10 @@ fun StaggeredWorkGrid(
     hasMore: Boolean = true,
     onLoadMore: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
+    error: String? = null,
+    onRetry: () -> Unit = {},
+    loading: Boolean = false,
+    emptyHint: (@Composable () -> Unit)? = null,
 ) {
     val gridState = rememberLazyStaggeredGridState()
 
@@ -84,6 +88,17 @@ fun StaggeredWorkGrid(
     ) {
         if (header != null) {
             item(span = StaggeredGridItemSpan.FullLine) { header() }
+        }
+        when {
+            error != null && works.isEmpty() -> item(span = StaggeredGridItemSpan.FullLine) {
+                ErrorState(error, onRetry)
+            }
+            loading && works.isEmpty() -> item(span = StaggeredGridItemSpan.FullLine) {
+                LoadingState()
+            }
+            works.isEmpty() && emptyHint != null -> item(span = StaggeredGridItemSpan.FullLine) {
+                emptyHint()
+            }
         }
         items(works, key = { it.id }) { work ->
             StaggeredWorkCard(
