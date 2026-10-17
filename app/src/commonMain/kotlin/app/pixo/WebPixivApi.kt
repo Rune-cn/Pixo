@@ -975,7 +975,7 @@ object WebPixivApi {
                     // 跳过异常条目
                 }
             }
-        }.let { if (filterBlocked) it.filterNot { TagBlock.isBlocked(it.tags) } else it }
+        }.let { if (filterBlocked) it.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) } else it }
 
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList

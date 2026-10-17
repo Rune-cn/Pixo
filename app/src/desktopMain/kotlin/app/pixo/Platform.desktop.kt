@@ -131,6 +131,18 @@ actual object AppPrefs {
             prefs.put("webdav_password", value)
         }
 
+    actual var tagBlockKeywords: String
+        get() = prefs.get("tag_block_keywords", "")
+        set(value) {
+            prefs.put("tag_block_keywords", value)
+        }
+
+    actual var blockedAuthors: String
+        get() = prefs.get("blocked_authors", "")
+        set(value) {
+            prefs.put("blocked_authors", value)
+        }
+
     actual var history: String
         get() = prefs.get("history", "")
         set(value) {

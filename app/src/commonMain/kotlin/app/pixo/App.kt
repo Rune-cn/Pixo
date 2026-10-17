@@ -155,6 +155,7 @@ internal object ContentSettings
 
 @Serializable
 internal object TagBlockSettings
+internal object AuthorBlockSettings
 
 @Serializable
 internal object DataSettings
@@ -432,8 +433,17 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                                 AppPrefs.waterfall = it
                             },
                             onOpenTagBlock = { navController.navigate(TagBlockSettings) },
+                            onOpenAuthorBlock = { navController.navigate(AuthorBlockSettings) },
                             onBack = { navController.popBackStack() },
                         )
+                    }
+                    composable<AuthorBlockSettings>(
+                        enterTransition = { miuixPushEnter() },
+                        exitTransition = { miuixPushExit() },
+                        popEnterTransition = { miuixPopEnter() },
+                        popExitTransition = { miuixPopExit() },
+                    ) {
+                        AuthorBlockScreen(onBack = { navController.popBackStack() })
                     }
                     composable<TagBlockSettings>(
                         enterTransition = { miuixPushEnter() },
@@ -647,6 +657,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onBack = { navController.popBackStack() },
                             onOpenDetail = { workId, kind -> navController.navigate(Detail(workId, kind)) },
                             onOpenUser = { navController.navigate(User(it)) },
+                            waterfall = waterfall,
                         )
                     }
                     composable<Detail>(
@@ -721,9 +732,8 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     },
                 )
                 } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
-                if (isTabPage) {
                     AnimatedVisibility(
-                        visible = floatingBar,
+                        visible = floatingBar && isTabPage,
                         enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
                         exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
                     ) {
@@ -739,7 +749,6 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onSizeChanged = { barHeight = it },
                         )
                     }
-                }
                 // 底栏只在标签根页（首页/设置标签）展示；子页面（详情/设置子页等）不显示底栏
                   // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出
                 // 悬浮底栏开关切换：两种底栏交叉淡入淡出 + 底部滑入滑出
@@ -1800,7 +1809,8 @@ fun AppearancePage(
 /** 标签屏蔽规则编辑页：每行一条正则，保存进 AppPrefs.tagBlockPatterns。 */
 @Composable
 fun TagBlockScreen(onBack: () -> Unit) {
-    var text by remember { mutableStateOf(AppPrefs.tagBlockPatterns) }
+    var regex by remember { mutableStateOf(AppPrefs.tagBlockPatterns) }
+    var keywords by remember { mutableStateOf(AppPrefs.tagBlockKeywords) }
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.tag_block(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         Column(
@@ -1809,6 +1819,60 @@ fun TagBlockScreen(onBack: () -> Unit) {
         ) {
             Text(
                 text = Str.tag_block_hint(),
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+            Card(Modifier.fillMaxWidth()) {
+                BasicTextField(
+                    value = regex,
+                    onValueChange = { regex = it },
+                    textStyle = MiuixTheme.textStyles.body2.copy(color = MiuixTheme.colorScheme.onSurface),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 160.dp)
+                        .padding(16.dp),
+                )
+            }
+            Text(
+                text = Str.tag_block_keyword_label() + "：" + Str.tag_block_keyword_hint(),
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+            Card(Modifier.fillMaxWidth()) {
+                BasicTextField(
+                    value = keywords,
+                    onValueChange = { keywords = it },
+                    textStyle = MiuixTheme.textStyles.body2.copy(color = MiuixTheme.colorScheme.onSurface),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp)
+                        .padding(16.dp),
+                )
+            }
+            Button(
+                onClick = {
+                    AppPrefs.tagBlockPatterns = regex
+                    AppPrefs.tagBlockKeywords = keywords
+                    onBack()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(Str.tag_block_save()) }
+        }
+    }
+}
+
+/** 屏蔽作者编辑页：每行一个作者名或 ID（支持正则）。 */
+@Composable
+fun AuthorBlockScreen(onBack: () -> Unit) {
+    var text by remember { mutableStateOf(AppPrefs.blockedAuthors) }
+    val scrollBehavior = MiuixScrollBehavior()
+    PixoSubScreen(title = Str.author_block(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
+        Column(
+            Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = Str.author_block_hint(),
                 style = MiuixTheme.textStyles.footnote2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
@@ -1825,11 +1889,11 @@ fun TagBlockScreen(onBack: () -> Unit) {
             }
             Button(
                 onClick = {
-                    AppPrefs.tagBlockPatterns = text
+                    AppPrefs.blockedAuthors = text
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(Str.tag_block_save()) }
+            ) { Text(Str.author_block_save()) }
         }
     }
 }
@@ -1842,6 +1906,7 @@ fun ContentPage(
     waterfall: Boolean,
     onWaterfallChange: (Boolean) -> Unit,
     onOpenTagBlock: () -> Unit,
+    onOpenAuthorBlock: () -> Unit,
     onBack: () -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -1880,10 +1945,18 @@ fun ContentPage(
                         .padding(bottom = 12.dp),
                 ) {
                     val blockCount = TagBlock.patternCount()
+                    val keywordCount = TagBlock.keywordCount()
                     ArrowPreference(
                         title = Str.tag_block(),
-                        summary = if (blockCount > 0) Str.tag_block_count(blockCount) else Str.tag_block_summary(),
+                        summary = if (blockCount + keywordCount > 0)
+                            Str.tag_block_count(blockCount + keywordCount) else Str.tag_block_summary(),
                         onClick = onOpenTagBlock,
+                    )
+                    val authorCount = AuthorBlock.patternCount()
+                    ArrowPreference(
+                        title = Str.author_block(),
+                        summary = if (authorCount > 0) Str.tag_block_count(authorCount) else Str.author_block_hint(),
+                        onClick = onOpenAuthorBlock,
                     )
                 }
             }

@@ -853,6 +853,7 @@ fun SearchScreen(
     onBack: () -> Unit,
     onOpenDetail: (Long, String) -> Unit,
     onOpenUser: (Long) -> Unit = {},
+    waterfall: Boolean = false,
 ) {
     var query by rememberSaveable(initialQuery) { mutableStateOf(initialQuery) }
     var submitted by rememberSaveable(initialQuery) { mutableStateOf(initialQuery) }
@@ -988,6 +989,47 @@ fun SearchScreen(
             refreshTexts = refreshTexts(),
             contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
         ) {
+            if (waterfall && kind == "illust") {
+                StaggeredWorkGrid(
+                    works = list.filterIsInstance<PixivWork>(),
+                    onOpenDetail = { onOpenDetail(it, "illust") },
+                    onOpenUser = onOpenUser,
+                    modifier = Modifier.fillMaxSize().scrollEndHaptic().overScrollVertical().nestedScroll(scrollBehavior.nestedScrollConnection),
+                    contentPadding = innerPadding,
+                    loadingMore = loadingMore,
+                    hasMore = hasMore,
+                    onLoadMore = { loadMore() },
+                    header = {
+                        Column {
+                            InputField(
+                                query = query,
+                                onQueryChange = { query = it },
+                                onSearch = {
+                                    submitted = it
+                                    expanded = false
+                                },
+                                expanded = expanded,
+                                onExpandedChange = { expanded = it },
+                                label = Str.search_pixiv(),
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                            )
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ModeChip("illust", Str.illust(), kind) { kind = "illust" }
+                                ModeChip("novel", Str.novel(), kind) { kind = "novel" }
+                                ModeChip("user", Str.user(), kind) { kind = "user" }
+                            }
+                        }
+                    },
+                    error = error,
+                    onRetry = { retryKey++ },
+                    loading = loading && list.isEmpty(),
+                    emptyHint = {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+                            Text(Str.search_hint(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                        }
+                    },
+                )
+            } else {
             LazyColumn(
                 state = listState,
                 contentPadding = innerPadding,
@@ -1041,6 +1083,7 @@ fun SearchScreen(
                     }
                     item { EndItem(loadingMore, hasMore, onRetry = {}) }
                 }
+            }
             }
         }
     }
@@ -1362,10 +1405,10 @@ private fun IllustDetail(
                             tagAction = null
                         }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_tag()) }
                         Button(onClick = {
-                            val add = Regex.escape(tagText)
-                            val cur = AppPrefs.tagBlockPatterns.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-                            if (add !in cur) {
-                                AppPrefs.tagBlockPatterns = (cur + add).joinToString("\n")
+                            val add = tagText
+                            val cur = AppPrefs.tagBlockKeywords.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                            if (cur.none { it.equals(add, ignoreCase = true) }) {
+                                AppPrefs.tagBlockKeywords = (cur + add).joinToString("\n")
                             }
                             feedback = sTagBlockedFormat.replace("%s", tagText)
                             tagAction = null
@@ -2638,10 +2681,10 @@ private fun NovelDetail(
                             tagAction = null
                         }, modifier = Modifier.fillMaxWidth()) { Text(Str.copy_tag()) }
                         Button(onClick = {
-                            val add = Regex.escape(tagText)
-                            val cur = AppPrefs.tagBlockPatterns.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-                            if (add !in cur) {
-                                AppPrefs.tagBlockPatterns = (cur + add).joinToString("\n")
+                            val add = tagText
+                            val cur = AppPrefs.tagBlockKeywords.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                            if (cur.none { it.equals(add, ignoreCase = true) }) {
+                                AppPrefs.tagBlockKeywords = (cur + add).joinToString("\n")
                             }
                             feedback = sTagBlockedFormat.replace("%s", tagText)
                             tagAction = null
@@ -3535,7 +3578,7 @@ fun UserScreen(
                     hasMore = hasMore,
                     onLoadMore = { loadMore() },
                     header = {
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             UserHeader(
                                 user = user,
                                 followBusy = followBusy,

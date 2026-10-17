@@ -444,7 +444,7 @@ object AppPixivApi {
                 // 跳过异常条目
             }
         }
-     }.filterNot { TagBlock.isBlocked(it.tags) }
+     }.filterNot { TagBlock.isBlocked(it.tags) || AuthorBlock.isBlocked(it.authorId, it.author) }
     private fun parseNovels(arr: JsonArray?): List<PixivNovel> = buildList {
         if (arr == null) return@buildList
         for (el in arr) {

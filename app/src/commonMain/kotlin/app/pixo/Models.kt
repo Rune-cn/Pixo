@@ -15,6 +15,8 @@ data class SettingsBackup(
     val downloadDir: String = "",
     val ugoiraConfirm: Boolean = true,
     val tagBlockPatterns: String = "",
+    val tagBlockKeywords: String = "",
+    val blockedAuthors: String = "",
     val webdavUrl: String = "",
     val webdavUser: String = "",
     val webdavPassword: String = "",
@@ -190,27 +192,45 @@ object SessionCache {
 
 /** 标签屏蔽：`AppPrefs.tagBlockPatterns` 每行一条正则，命中作品任一标签即过滤。 */
 object TagBlock {
-    fun patternCount(): Int {
-        val patterns = AppPrefs.tagBlockPatterns
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .toList()
-        return patterns.size
-    }
+    /** 正则规则（一行一条）。 */
+    private fun regexRules(): List<String> = AppPrefs.tagBlockPatterns
+        .lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+
+    /** 常规屏蔽词（一行一条，字面量忽略大小写匹配）。 */
+    private fun keywordRules(): List<String> = AppPrefs.tagBlockKeywords
+        .lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+
+    fun patternCount(): Int = regexRules().size
+
+    fun keywordCount(): Int = keywordRules().size
 
     fun isBlocked(tags: List<String>): Boolean {
         if (tags.isEmpty()) return false
-        val patterns = AppPrefs.tagBlockPatterns
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .toList()
-        if (patterns.isEmpty()) return false
+        val patterns = regexRules()
+        val keywords = keywordRules()
+        if (patterns.isEmpty() && keywords.isEmpty()) return false
         return tags.any { tag ->
             patterns.any { p ->
                 runCatching { Regex(p, RegexOption.IGNORE_CASE).containsMatchIn(tag) }.getOrDefault(false)
-            }
+            } || keywords.any { tag.contains(it, ignoreCase = true) }
+        }
+    }
+}
+
+/** 作者屏蔽：作者名/ID，一行一条（支持正则）；列表解析层统一过滤。 */
+object AuthorBlock {
+    private fun rules(): List<String> = AppPrefs.blockedAuthors
+        .lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+
+    fun patternCount(): Int = rules().size
+
+    fun isBlocked(authorId: Long, author: String): Boolean {
+        val rules = rules()
+        if (rules.isEmpty()) return false
+        return rules.any { r ->
+            // ID 精确匹配；名称按正则忽略大小写
+            authorId.toString() == r ||
+                runCatching { Regex(r, RegexOption.IGNORE_CASE).containsMatchIn(author) }.getOrDefault(false)
         }
     }
 }

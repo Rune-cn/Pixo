@@ -45,6 +45,12 @@ expect object AppPrefs {
     var webdavUrl: String
     var webdavUser: String
     var webdavPassword: String
+    /** 标签屏蔽：正则（每行一条）。 */
+    var tagBlockKeywords: String
+
+    /** 作者屏蔽：每行一条（作者名或 ID，支持正则）。 */
+    var blockedAuthors: String
+
     /** 本地观看历史（JSON 序列化）。 */
     var history: String
     /** 首页作品列表是否用两列瀑布流展示。 */
@@ -182,6 +188,8 @@ fun exportSettingsJson(): String = runCatching {
             downloadDir = AppPrefs.downloadDir,
             ugoiraConfirm = AppPrefs.ugoiraConfirm,
             tagBlockPatterns = AppPrefs.tagBlockPatterns,
+            tagBlockKeywords = AppPrefs.tagBlockKeywords,
+            blockedAuthors = AppPrefs.blockedAuthors,
             webdavUrl = AppPrefs.webdavUrl,
             webdavUser = AppPrefs.webdavUser,
             webdavPassword = AppPrefs.webdavPassword,
@@ -202,6 +210,8 @@ fun importSettingsJson(json: String): Boolean = runCatching {
     AppPrefs.downloadDir = b.downloadDir
     AppPrefs.ugoiraConfirm = b.ugoiraConfirm
     AppPrefs.tagBlockPatterns = b.tagBlockPatterns
+    AppPrefs.tagBlockKeywords = b.tagBlockKeywords
+    AppPrefs.blockedAuthors = b.blockedAuthors
     AppPrefs.webdavUrl = b.webdavUrl
     AppPrefs.webdavUser = b.webdavUser
     AppPrefs.webdavPassword = b.webdavPassword

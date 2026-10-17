@@ -222,4 +222,9 @@ internal expect object Str {
     @Composable fun blocked_all(): String
     @Composable fun waterfall(): String
     @Composable fun waterfall_summary(): String
+    @Composable fun author_block(): String
+    @Composable fun author_block_hint(): String
+    @Composable fun author_block_save(): String
+    @Composable fun tag_block_keyword_hint(): String
+    @Composable fun tag_block_keyword_label(): String
 }

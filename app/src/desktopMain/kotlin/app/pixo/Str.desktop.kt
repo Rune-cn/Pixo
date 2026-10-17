@@ -219,4 +219,9 @@ internal actual object Str {
     @Composable actual fun blocked_all(): String = stringResource(Res.string.blocked_all)
     @Composable actual fun waterfall(): String = stringResource(Res.string.waterfall)
     @Composable actual fun waterfall_summary(): String = stringResource(Res.string.waterfall_summary)
+    @Composable actual fun author_block(): String = stringResource(Res.string.author_block)
+    @Composable actual fun author_block_hint(): String = stringResource(Res.string.author_block_hint)
+    @Composable actual fun author_block_save(): String = stringResource(Res.string.author_block_save)
+    @Composable actual fun tag_block_keyword_hint(): String = stringResource(Res.string.tag_block_keyword_hint)
+    @Composable actual fun tag_block_keyword_label(): String = stringResource(Res.string.tag_block_keyword_label)
 }
