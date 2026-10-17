@@ -216,6 +216,7 @@ fun PixoSubScreen(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    SwipeBackHost {
     // 内嵌 WebView 等平台视图页面关掉 blur：毛玻璃层反复采样会把 WebView 拉进图形层导致界面抖动
     val backdrop = if (blur) rememberPixoBlurBackdrop() else null
     Scaffold(
@@ -256,6 +257,8 @@ fun PixoSubScreen(
         ) {
             content(innerPadding)
         }
+    }
+        SwipeBackHandler(isBackEnabled = true, onBackCompleted = onBack)
     }
 }
 
