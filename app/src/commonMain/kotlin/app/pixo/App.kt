@@ -155,6 +155,7 @@ internal object ContentSettings
 
 @Serializable
 internal object TagBlockSettings
+@Serializable
 internal object AuthorBlockSettings
 
 @Serializable
