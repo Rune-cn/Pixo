@@ -1,6 +1,5 @@
 package app.pixo
 
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -149,8 +148,9 @@ fun miuixPushExit(): ExitTransition =
 
 /** 返回时被覆盖页：从 -1/4 视差 + 0.45 透明度复位。 */
 fun miuixPopEnter(): EnterTransition =
-    slideInHorizontally(tween(MIUIX_NAV_MS, easing = miuixNavEasing)) { -it / 4 } +
-        fadeIn(tween(MIUIX_NAV_MS, easing = miuixNavEasing), initialAlpha = 0.45f)
+    // 返回时底层页全宽从右侧滑入：右滑返回时能清晰预览「上一层页面」内容
+    slideInHorizontally(tween(MIUIX_NAV_MS, easing = miuixNavEasing)) { -it } +
+        fadeIn(tween(MIUIX_NAV_MS, easing = miuixNavEasing), initialAlpha = 0.3f)
 
 /** 返回时顶层页：全宽滑向右侧退出，无淡出。 */
 fun miuixPopExit(): ExitTransition =
@@ -259,7 +259,6 @@ fun PixoSubScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(bottom = LocalBarHeight.current)
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
         ) {
             content(innerPadding)
@@ -409,5 +408,3 @@ fun SwipeBackContainer(
     }
 }
 
-/** 底栏高度（App 根维护）：子页面内容底部让出底栏区域，避免被常显底栏遮挡。 */
-val LocalBarHeight = staticCompositionLocalOf { 0.dp }
