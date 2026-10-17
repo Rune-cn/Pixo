@@ -11,6 +11,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
@@ -43,8 +44,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.gestures.drag
-import androidx.compose.foundation.gestures.calculateVelocity
-import androidx.compose.foundation.gestures.VelocityTracker
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -79,6 +78,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
