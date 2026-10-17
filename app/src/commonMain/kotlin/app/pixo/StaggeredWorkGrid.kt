@@ -40,7 +40,9 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -78,7 +80,7 @@ fun StaggeredWorkGrid(
         modifier = modifier,
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalItemArrangement = Arrangement.spacedBy(10.dp),
+        verticalItemSpacing = 10.dp,
     ) {
         if (header != null) {
             item(span = StaggeredGridItemSpan.FullLine) { header() }

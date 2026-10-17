@@ -335,7 +335,6 @@ fun HomePage(
             item {
                 HomeEntries(onOpenRanking, onOpenNovelRanking, onOpenDiscover, onOpenRecommended, onOpenSearch, onOpenBookmarks, onOpenFollow)
             }
-            }
             item { SmallTitle(text = Str.home_title()) }
             when {
                 error != null && list.isEmpty() -> item {
@@ -372,6 +371,7 @@ fun HomePage(
                         Text(Str.blocked_all(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     }
                 }
+            }
             }
         }
     }
