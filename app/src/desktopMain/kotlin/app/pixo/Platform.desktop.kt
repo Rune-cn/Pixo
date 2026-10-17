@@ -108,33 +108,33 @@ actual object AppPrefs {
         }
 
     actual var tagBlockPatterns: String
-        get() = prefs.getString("tag_block_patterns", "")
+        get() = prefs.get("tag_block_patterns", "")
         set(value) {
-            prefs.putString("tag_block_patterns", value)
+            prefs.put("tag_block_patterns", value)
         }
 
     actual var webdavUrl: String
-        get() = prefs.getString("webdav_url", "")
+        get() = prefs.get("webdav_url", "")
         set(value) {
-            prefs.putString("webdav_url", value)
+            prefs.put("webdav_url", value)
         }
 
     actual var webdavUser: String
-        get() = prefs.getString("webdav_user", "")
+        get() = prefs.get("webdav_user", "")
         set(value) {
-            prefs.putString("webdav_user", value)
+            prefs.put("webdav_user", value)
         }
 
     actual var webdavPassword: String
-        get() = prefs.getString("webdav_password", "")
+        get() = prefs.get("webdav_password", "")
         set(value) {
-            prefs.putString("webdav_password", value)
+            prefs.put("webdav_password", value)
         }
 
     actual var history: String
-        get() = prefs.getString("history", "")
+        get() = prefs.get("history", "")
         set(value) {
-            prefs.putString("history", value)
+            prefs.put("history", value)
         }
 
     actual var waterfall: Boolean
