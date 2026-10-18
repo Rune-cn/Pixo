@@ -243,5 +243,6 @@ furry.*</string>
     <string name="webdav_save">保存配置</string>
     <string name="webdav_unsaved">有未保存的修改，请先保存</string>
     <string name="saved">已保存</string>
+    <string name="update_notes_unavailable">请前往发布页查看更新内容</string>
 </resources>
 

@@ -243,6 +243,7 @@ furry.*</string>
     <string name="webdav_save">Save configuration</string>
     <string name="webdav_unsaved">Unsaved changes — save first</string>
     <string name="saved">Saved</string>
+    <string name="update_notes_unavailable">Open the release page to see what changed</string>
 </resources>
 
 

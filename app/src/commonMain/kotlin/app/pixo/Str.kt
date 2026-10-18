@@ -244,4 +244,5 @@ internal expect object Str {
     @Composable fun webdav_save(): String
     @Composable fun webdav_unsaved(): String
     @Composable fun saved(): String
+    @Composable fun update_notes_unavailable(): String
 }

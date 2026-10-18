@@ -93,6 +93,10 @@ object AppPrefs {
     var autoCheckUpdate: Boolean by boolPref("auto_check_update", true)
     /** 已提醒过的版本，避免每次冷启动都弹同一个更新提示。 */
     var lastNotifiedVersion: String by stringPref("last_notified_version")
+    /** 上次检查更新时间（毫秒），用于 6 小时节流，避免撞 GitHub 限流。 */
+    var updateCheckedAt: Long by longPref("update_checked_at", 0L)
+    /** 上次查到的线上版本（网页兜底路径也会写）。 */
+    var updateLatestVersion: String by stringPref("update_latest_version")
 
     // ---------- WebDAV 备份 ----------
     var webdavUrl: String by stringPref("webdav_url")

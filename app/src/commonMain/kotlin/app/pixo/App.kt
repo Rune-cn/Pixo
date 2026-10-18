@@ -70,7 +70,9 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     LaunchedEffect(Unit) {
         if (!AppPrefs.autoCheckUpdate) return@LaunchedEffect
-        val info = runCatching { UpdateChecker.fetchLatest() }.getOrNull() ?: return@LaunchedEffect
+        // 6 小时内只查一次；失败静默（不打扰用户），手动检查在「关于」页
+        val info = runCatching { UpdateChecker.check(force = false) }.getOrNull()
+            ?: return@LaunchedEffect
         if (UpdateChecker.isNewer(info.version, appVersionName()) &&
             info.version != AppPrefs.lastNotifiedVersion
         ) {

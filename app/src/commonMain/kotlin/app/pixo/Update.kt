@@ -47,7 +47,59 @@ object UpdateChecker {
     private const val REPO = "Pixo"
     private const val LATEST_RELEASE = "https://api.github.com/repos/$OWNER/$REPO/releases/latest"
 
+    private const val RELEASES_PAGE = "https://github.com/$OWNER/$REPO/releases"
+
+    /** 自动检查的最小间隔：GitHub 未认证接口只有 60 次/小时（按 IP，共享网络更容易耗尽）。 */
+    private const val AUTO_CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
+
     private val json = Json { ignoreUnknownKeys = true }
+
+    /**
+     * 检查更新（对外入口）。
+     *
+     * - 自动检查（[force] = false）6 小时内只跑一次，避免撞限流
+     * - API 失败（常见：403 限流）时退回「网页重定向」探测版本：
+     *   `GET https://github.com/{owner}/{repo}/releases/latest` 会 302 到 `/releases/tag/vX.Y.Z`，
+     *   这条走的是网页，不消耗 API 配额，只是拿不到更新说明
+     *
+     * @return 最新版本信息；6 小时内已检查过且非强制时返回 null
+     */
+    suspend fun check(force: Boolean = false): UpdateInfo? {
+        val now = System.currentTimeMillis()
+        if (!force && now - AppPrefs.updateCheckedAt < AUTO_CHECK_INTERVAL_MS) return null
+        val info = try {
+            fetchLatest()
+        } catch (e: Exception) {
+            logError("Update", "GitHub API failed, fallback to web redirect", e)
+            val version = runCatching { fetchLatestVersionByRedirect() }.getOrNull()
+                ?: throw e
+            UpdateInfo(
+                version = version,
+                notes = "",
+                pageUrl = RELEASES_PAGE,
+                apkUrls = emptyMap(),
+            )
+        }
+        AppPrefs.updateCheckedAt = System.currentTimeMillis()
+        AppPrefs.updateLatestVersion = info.version
+        return info
+    }
+
+    /**
+     * 网页兜底：跟随 `releases/latest` 的重定向，从最终 URL 的 `/tag/vX.Y.Z` 里取版本号。
+     * 不消耗 GitHub API 配额。
+     */
+    private suspend fun fetchLatestVersionByRedirect(): String? = withContext(ioDispatcher) {
+        val request = Request.Builder()
+            .url("$RELEASES_PAGE/latest")
+            .header("User-Agent", "Pixo/${appVersionName()}")
+            .build()
+        PixivHttp.client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@use null
+            val finalUrl = response.request.url.toString()
+            Regex("/tag/v?([0-9][0-9.]*)/?$").find(finalUrl)?.groupValues?.get(1)
+        }
+    }
 
     suspend fun fetchLatest(): UpdateInfo = withContext(ioDispatcher) {
         val request = Request.Builder()
@@ -126,7 +178,7 @@ internal fun UpdateAvailableDialog(info: UpdateInfo, onDismiss: () -> Unit) {
                 style = MiuixTheme.textStyles.title3,
             )
             Text(
-                text = info.notes.ifBlank { "—" },
+                text = info.notes.ifBlank { Str.update_notes_unavailable() },
                 style = MiuixTheme.textStyles.footnote2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier

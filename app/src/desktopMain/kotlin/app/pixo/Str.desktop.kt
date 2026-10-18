@@ -242,4 +242,5 @@ internal actual object Str {
     @Composable actual fun webdav_save(): String = stringResource(Res.string.webdav_save)
     @Composable actual fun webdav_unsaved(): String = stringResource(Res.string.webdav_unsaved)
     @Composable actual fun saved(): String = stringResource(Res.string.saved)
+    @Composable actual fun update_notes_unavailable(): String = stringResource(Res.string.update_notes_unavailable)
 }

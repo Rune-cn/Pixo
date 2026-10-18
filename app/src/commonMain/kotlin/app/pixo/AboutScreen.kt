@@ -1,5 +1,6 @@
 package app.pixo
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,11 +17,13 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +74,19 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun AboutScreen(onBack: () -> Unit) {
     val topAppBarScrollBehavior = MiuixScrollBehavior()
     var consoleDoc by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // 检查更新：结果反馈用行尾文字（3 秒后自动清除），有新版本时弹对话框
+    var checking by remember { mutableStateOf(false) }
+    var checkStatus by remember { mutableStateOf<String?>(null) }
+    var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
+    val scope = rememberCoroutineScope()
+    val upToDateText = Str.update_latest()
+    val failedText = Str.update_failed()
+    LaunchedEffect(checkStatus) {
+        if (checkStatus != null) {
+            kotlinx.coroutines.delay(3000)
+            checkStatus = null
+        }
+    }
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
 
@@ -126,7 +142,31 @@ fun AboutScreen(onBack: () -> Unit) {
                 lazyListState = lazyListState,
                 scrollProgress = scrollProgress,
                 onOpenDoc = { title, content -> consoleDoc = title to content },
+                checking = checking,
+                checkStatus = checkStatus,
+                onCheckUpdate = {
+                    if (!checking) {
+                        checking = true
+                        checkStatus = null
+                        scope.launch {
+                            val outcome = runCatching { UpdateChecker.check(force = true) }
+                            checking = false
+                            outcome.onSuccess { info ->
+                                if (info != null && UpdateChecker.isNewer(info.version, appVersionName())) {
+                                    pendingUpdate = info
+                                } else {
+                                    checkStatus = upToDateText
+                                }
+                            }.onFailure {
+                                checkStatus = failedText
+                            }
+                        }
+                    }
+                },
             )
+            pendingUpdate?.let { info ->
+                UpdateAvailableDialog(info = info, onDismiss = { pendingUpdate = null })
+            }
         }
     }
     // 文档弹窗：Miuix 原生 WindowBottomSheet（从下往上滑出）渲染 Markdown
@@ -148,6 +188,9 @@ internal fun AboutContent(
     lazyListState: LazyListState,
     scrollProgress: Float,
     onOpenDoc: (String, String) -> Unit,
+    checking: Boolean,
+    checkStatus: String?,
+    onCheckUpdate: () -> Unit,
 ) {
     val density = LocalDensity.current
     val sPrivacy = Str.privacy_policy()
@@ -323,9 +366,15 @@ internal fun AboutContent(
                         ArrowPreference(
                             title = Str.check_update(),
                             endActions = {
-                                ValueText(appVersionName())
+                                ValueText(
+                                    when {
+                                        checking -> "…"
+                                        checkStatus != null -> checkStatus
+                                        else -> appVersionName()
+                                    },
+                                )
                             },
-                            onClick = { openUrlInBrowser("https://github.com/Rune-cn/Pixo/releases") },
+                            onClick = onCheckUpdate,
                         )
                     }
                     Card(
