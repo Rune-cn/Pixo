@@ -13,10 +13,11 @@ Pixiv 第三方客户端，基于 Compose Multiplatform + Miuix（MIUI/HyperOS �
 进入 [Releases](https://github.com/Rune-cn/Pixo/releases/latest) 下载最新版：
 
 - **`pixo-<version>-<abi>-release.apk`**：正式签名包（按 ABI 拆分，覆盖安装即可）
-- **`pixo-nightly-<日期>-<abi>.apk`**：午夜版（Pre-release），每日北京时间 00:00 自动构建
+- **`pixo-nightly-<日期>-<abi>.apk`**：预发布（仅手动触发并勾选 `publish_nightly` 时生成）
 
-> CI 行为：推送到 `main` 只做编译校验并上传 artifact（不发布）；
-> 正式版由手动触发 `workflow_dispatch` 发布，午夜版由定时任务发布。
+> CI 行为：推送到 `main` 只做编译校验并上传 artifact（**不发布**）；
+> 预发布需手动触发 `workflow_dispatch` 并勾选 `publish_nightly`；
+> 正式版由维护者创建 Release。
 
 ## 功能特性
 

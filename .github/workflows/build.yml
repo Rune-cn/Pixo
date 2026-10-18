@@ -6,9 +6,11 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-  # 午夜版：每天北京时间 00:00（UTC 16:00）自动构建并发布
-  schedule:
-    - cron: '0 16 * * *'
+    inputs:
+      publish_nightly:
+        description: '构建后发布为 nightly 预发布（默认只构建，不发版）'
+        type: boolean
+        default: false
 
 # 最小权限：构建产物不回写仓库；发布需要写 contents
 permissions:
@@ -114,6 +116,10 @@ jobs:
     name: Android Release APK (signed)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # 发布开关只有这一处定义：手动触发且勾选 publish_nightly 才发预发布；
+    # push / PR 只构建产物（artifact），不产生 Release。
+    env:
+      PUBLISH_NIGHTLY: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_nightly }}
 
     steps:
       - name: Checkout
@@ -161,14 +167,14 @@ jobs:
 
       # ===== 读取版本号 =====
       - name: 读取版本号
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: env.PUBLISH_NIGHTLY == 'true'
         run: |
           VN=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | grep -oE '[0-9.]+')
           echo "version=$VN" >> $GITHUB_ENV
 
-      # ===== 正式版 Release（幂等覆盖同名，版本=versionName）=====
+      # ===== 预发布产物（仅 publish_nightly=true 时）=====
       - name: 组合正式版产物
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: env.PUBLISH_NIGHTLY == 'true'
         run: |
           mkdir -p dist
           for apk in app/build/outputs/apk/release/*.apk; do
@@ -180,8 +186,8 @@ jobs:
             cp "$apk" "dist/pixo-${version}-${abi}-release.apk"
           done
 
-      - name: 发布午夜版（仅定时构建）
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      - name: 发布午夜版（手动触发且勾选 publish_nightly）
+        if: env.PUBLISH_NIGHTLY == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -191,7 +197,7 @@ jobs:
           # debug 从 artifact 下载（app-debug.apk），重命名为 pixo-${version}-debug.apk
           DBG=$(find dist -name 'app-debug.apk' | head -1)
           if [ -n "$DBG" ]; then mv "$DBG" "dist/pixo-${version}-debug.apk"; fi
-          # 午夜版：tag = nightly-YYYYMMDD，pre-release，保留历史（正式版发布只由手动决定）
+          # tag = nightly-YYYYMMDD（UTC 日期），pre-release，同日重跑会覆盖
           DATE=$(date -u +%Y%m%d)
           TAG="nightly-${DATE}"
           for apk in dist/pixo-*-release.apk; do
