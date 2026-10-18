@@ -32,7 +32,6 @@ fun DebugPage(
 ) {
     var debugLog by remember { mutableStateOf(AppPrefs.debugLog) }
     var showExport by remember { mutableStateOf(false) }
-    var exportCopied by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     fun exportText(): String = buildString {
         appendLine("Pixo login info (debug)")
@@ -94,20 +93,10 @@ fun DebugPage(
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
             Button(
-                onClick = {
-                    clipboard.setText(AnnotatedString(exportText()))
-                    exportCopied = true
-                },
+                onClick = { clipboard.setText(AnnotatedString(exportText())) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(Str.copy_all())
-            }
-            if (exportCopied) {
-                Text(
-                    text = Str.export_copied(),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.primary,
-                )
             }
             Button(onClick = { showExport = false }, modifier = Modifier.fillMaxWidth()) { Text(Str.cancel()) }
         }

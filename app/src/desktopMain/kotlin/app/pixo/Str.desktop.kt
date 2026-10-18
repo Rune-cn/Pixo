@@ -32,7 +32,6 @@ internal actual object Str {
     @Composable actual fun liquid_glass_summary(): String = stringResource(Res.string.liquid_glass_summary)
     @Composable actual fun export_login_info(): String = stringResource(Res.string.export_login_info)
     @Composable actual fun export_login_summary(): String = stringResource(Res.string.export_login_summary)
-    @Composable actual fun export_copied(): String = stringResource(Res.string.export_copied)
     @Composable actual fun export_login_dialog_title(): String = stringResource(Res.string.export_login_dialog_title)
     @Composable actual fun settings_debug(): String = stringResource(Res.string.settings_debug)
     @Composable actual fun debug_log(): String = stringResource(Res.string.debug_log)
@@ -232,4 +231,15 @@ internal actual object Str {
     @Composable actual fun quality_high(): String = stringResource(Res.string.quality_high)
     @Composable actual fun action_back(): String = stringResource(Res.string.action_back)
     @Composable actual fun action_close(): String = stringResource(Res.string.action_close)
+    @Composable actual fun update(): String = stringResource(Res.string.update)
+    @Composable actual fun auto_check_update(): String = stringResource(Res.string.auto_check_update)
+    @Composable actual fun auto_check_summary(): String = stringResource(Res.string.auto_check_summary)
+    @Composable actual fun update_latest(): String = stringResource(Res.string.update_latest)
+    @Composable actual fun update_checking(): String = stringResource(Res.string.update_checking)
+    @Composable actual fun update_failed(): String = stringResource(Res.string.update_failed)
+    @Composable actual fun update_available(version: String): String =
+        stringResource(Res.string.update_available, version)
+    @Composable actual fun webdav_save(): String = stringResource(Res.string.webdav_save)
+    @Composable actual fun webdav_unsaved(): String = stringResource(Res.string.webdav_unsaved)
+    @Composable actual fun saved(): String = stringResource(Res.string.saved)
 }

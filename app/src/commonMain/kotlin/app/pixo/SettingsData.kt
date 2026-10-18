@@ -43,6 +43,11 @@ fun DataPage(onBack: () -> Unit) {
     var webdavUser by remember { mutableStateOf(AppPrefs.webdavUser) }
     var webdavPass by remember { mutableStateOf(AppPrefs.webdavPassword) }
     var webdavBusy by remember { mutableStateOf(false) }
+    // 草稿与已保存配置不同 → 提示先保存，避免「改了但备份还是旧配置」
+    val webdavDirty = webdavUrl != AppPrefs.webdavUrl ||
+        webdavUser != AppPrefs.webdavUser ||
+        webdavPass != AppPrefs.webdavPassword
+    val sSaved = Str.saved()
     val scope = rememberCoroutineScope()
     val pickFolder = rememberDownloadFolderPicker { dir -> downloadDir = dir }
     val exportFile = rememberExportSettingsFile { ok ->
@@ -108,34 +113,42 @@ fun DataPage(onBack: () -> Unit) {
                             )
                             TextField(
                                 value = webdavUrl,
-                                onValueChange = {
-                                    webdavUrl = it
-                                    AppPrefs.webdavUrl = it
-                                },
+                                onValueChange = { webdavUrl = it },
                                 label = Str.webdav_url(),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             TextField(
                                 value = webdavUser,
-                                onValueChange = {
-                                    webdavUser = it
-                                    AppPrefs.webdavUser = it
-                                },
+                                onValueChange = { webdavUser = it },
                                 label = Str.webdav_user(),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             TextField(
                                 value = webdavPass,
-                                onValueChange = {
-                                    webdavPass = it
-                                    AppPrefs.webdavPassword = it
-                                },
+                                onValueChange = { webdavPass = it },
                                 label = Str.webdav_password(),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
+                            if (webdavDirty) {
+                                Text(
+                                    text = Str.webdav_unsaved(),
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.primary,
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    AppPrefs.webdavUrl = webdavUrl.trim()
+                                    AppPrefs.webdavUser = webdavUser.trim()
+                                    AppPrefs.webdavPassword = webdavPass
+                                    toast = sSaved
+                                },
+                                enabled = webdavDirty,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(Str.webdav_save()) }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(
                                     onClick = {
@@ -146,7 +159,7 @@ fun DataPage(onBack: () -> Unit) {
                                             webdavBusy = false
                                         }
                                     },
-                                    enabled = !webdavBusy,
+                                    enabled = !webdavBusy && !webdavDirty,
                                     modifier = Modifier.weight(1f),
                                 ) { Text(Str.webdav_backup()) }
                                 Button(
@@ -158,7 +171,7 @@ fun DataPage(onBack: () -> Unit) {
                                             webdavBusy = false
                                         }
                                     },
-                                    enabled = !webdavBusy,
+                                    enabled = !webdavBusy && !webdavDirty,
                                     modifier = Modifier.weight(1f),
                                 ) { Text(Str.webdav_restore()) }
                             }

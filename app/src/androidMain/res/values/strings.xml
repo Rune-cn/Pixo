@@ -127,7 +127,6 @@
     <string name="floating_bar_summary">Floating capsule bottom bar (enable Liquid glass separately)</string>
     <string name="export_login_info">Export login info</string>
     <string name="export_login_summary">Copy Token / Cookie / user ID for troubleshooting</string>
-    <string name="export_copied">Copied to clipboard</string>
     <string name="export_login_dialog_title">Login info (debug only)</string>
     <string name="liquid_glass">Liquid glass</string>
     <string name="liquid_glass_summary">Frosted blur + highlight on the floating bar (off = flat capsule)</string>
@@ -235,6 +234,16 @@ furry.*</string>
     <string name="disable_swipe_back_summary">Disable full-screen swipe right to go back</string>
     <string name="action_back">返回</string>
     <string name="action_close">关闭</string>
+    <string name="update">Update</string>
+    <string name="auto_check_update">Check for updates at launch</string>
+    <string name="auto_check_summary">Query the latest GitHub release in the background on startup</string>
+    <string name="update_latest">You are on the latest version</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_failed">Failed to check for updates</string>
+    <string name="update_available">New version %1$s available</string>
+    <string name="webdav_save">Save configuration</string>
+    <string name="webdav_unsaved">Unsaved changes — save first</string>
+    <string name="saved">Saved</string>
 </resources>
 
 

@@ -32,7 +32,6 @@ internal actual object Str {
     @Composable actual fun liquid_glass_summary(): String = stringResource(app.pixo.R.string.liquid_glass_summary)
     @Composable actual fun export_login_info(): String = stringResource(app.pixo.R.string.export_login_info)
     @Composable actual fun export_login_summary(): String = stringResource(app.pixo.R.string.export_login_summary)
-    @Composable actual fun export_copied(): String = stringResource(app.pixo.R.string.export_copied)
     @Composable actual fun export_login_dialog_title(): String = stringResource(app.pixo.R.string.export_login_dialog_title)
     @Composable actual fun settings_debug(): String = stringResource(app.pixo.R.string.settings_debug)
     @Composable actual fun debug_log(): String = stringResource(app.pixo.R.string.debug_log)
@@ -232,4 +231,15 @@ internal actual object Str {
     @Composable actual fun quality_high(): String = stringResource(app.pixo.R.string.quality_high)
     @Composable actual fun action_back(): String = stringResource(app.pixo.R.string.action_back)
     @Composable actual fun action_close(): String = stringResource(app.pixo.R.string.action_close)
+    @Composable actual fun update(): String = stringResource(app.pixo.R.string.update)
+    @Composable actual fun auto_check_update(): String = stringResource(app.pixo.R.string.auto_check_update)
+    @Composable actual fun auto_check_summary(): String = stringResource(app.pixo.R.string.auto_check_summary)
+    @Composable actual fun update_latest(): String = stringResource(app.pixo.R.string.update_latest)
+    @Composable actual fun update_checking(): String = stringResource(app.pixo.R.string.update_checking)
+    @Composable actual fun update_failed(): String = stringResource(app.pixo.R.string.update_failed)
+    @Composable actual fun update_available(version: String): String =
+        stringResource(app.pixo.R.string.update_available, version)
+    @Composable actual fun webdav_save(): String = stringResource(app.pixo.R.string.webdav_save)
+    @Composable actual fun webdav_unsaved(): String = stringResource(app.pixo.R.string.webdav_unsaved)
+    @Composable actual fun saved(): String = stringResource(app.pixo.R.string.saved)
 }

@@ -65,6 +65,19 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var imageQuality by rememberSaveable { mutableStateOf(AppPrefs.imageQuality) }
     var disableSwipeBack by rememberSaveable { mutableStateOf(AppPrefs.disableSwipeBack) }
     val navController = rememberNavController()
+
+    // 启动时自动检查更新（设置 → 更新 可关闭）；同一版本只提醒一次
+    var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    LaunchedEffect(Unit) {
+        if (!AppPrefs.autoCheckUpdate) return@LaunchedEffect
+        val info = runCatching { UpdateChecker.fetchLatest() }.getOrNull() ?: return@LaunchedEffect
+        if (UpdateChecker.isNewer(info.version, appVersionName()) &&
+            info.version != AppPrefs.lastNotifiedVersion
+        ) {
+            AppPrefs.lastNotifiedVersion = info.version
+            updateInfo = info
+        }
+    }
     // 深链：首次启动或 App 运行中收到新的 pixiv:// 链接时跳转对应作品详情 / 用户主页
     val deepLink = deepLinkSignal?.value
     LaunchedEffect(deepLink?.workId, deepLink?.kind, deepLink?.userId) {
@@ -205,6 +218,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenContent = { navController.navigate(ContentSettings) },
                             onOpenData = { navController.navigate(DataSettings) },
                             onOpenDebug = { navController.navigate(DebugSettings) },
+                            onOpenUpdate = { navController.navigate(UpdateSettings) },
                             onBack = { navController.popBackStack() },
                         )
                     }
@@ -300,6 +314,9 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             },
                             onBack = { navController.popBackStack() },
                         )
+                    }
+                    pixoScreen<UpdateSettings> {
+                        UpdatePage(onBack = { navController.popBackStack() })
                     }
                     pixoScreen<DebugSettings> {
                         DebugPage(
@@ -470,6 +487,10 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             mode = if (liquidGlass) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.None,
                             onSizeChanged = { barHeight = it },
                         )
+                    }
+                    // 启动时检查到新版本：在 Scaffold 内弹提示（OverlayDialog 需要 Scaffold 祖先）
+                    updateInfo?.let { info ->
+                        UpdateAvailableDialog(info = info, onDismiss = { updateInfo = null })
                     }
                 // 底栏只在标签根页（首页/设置标签）展示；子页面（详情/设置子页等）不显示底栏
                   // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出

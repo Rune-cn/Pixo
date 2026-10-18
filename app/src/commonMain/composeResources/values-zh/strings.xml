@@ -126,7 +126,6 @@
     <string name="floating_bar_summary">底部导航改为悬浮胶囊（液态玻璃请单独开启）</string>
     <string name="export_login_info">导出登录信息</string>
     <string name="export_login_summary">复制 Token / Cookie / 用户 ID，便于排查登录问题</string>
-    <string name="export_copied">已复制到剪贴板</string>
     <string name="export_login_dialog_title">登录信息（仅供调试）</string>
     <string name="liquid_glass">液态玻璃</string>
     <string name="liquid_glass_summary">悬浮底栏启用毛玻璃模糊与高光（关闭后为纯色胶囊）</string>
@@ -234,5 +233,15 @@ furry.*</string>
     <string name="disable_swipe_back_summary">关闭后全屏右滑不再触发返回</string>
     <string name="action_back">返回</string>
     <string name="action_close">关闭</string>
+    <string name="update">更新</string>
+    <string name="auto_check_update">启动时自动检查更新</string>
+    <string name="auto_check_summary">启动时在后台查询 GitHub 最新正式版</string>
+    <string name="update_latest">已是最新版本</string>
+    <string name="update_checking">正在检查…</string>
+    <string name="update_failed">检查更新失败</string>
+    <string name="update_available">发现新版本 %1$s</string>
+    <string name="webdav_save">保存配置</string>
+    <string name="webdav_unsaved">有未保存的修改，请先保存</string>
+    <string name="saved">已保存</string>
 </resources>
 

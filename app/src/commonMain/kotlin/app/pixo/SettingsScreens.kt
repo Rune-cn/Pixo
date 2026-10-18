@@ -158,6 +158,7 @@ fun AppSettingsPage(
     onOpenContent: () -> Unit,
     onOpenData: () -> Unit,
     onOpenDebug: () -> Unit,
+    onOpenUpdate: () -> Unit,
     onBack: () -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -177,6 +178,7 @@ fun AppSettingsPage(
                     SettingEntryRow(Str.settings_appearance(), onClick = onOpenAppearance)
                     SettingEntryRow(Str.settings_content(), onClick = onOpenContent)
                     SettingEntryRow(Str.settings_data(), onClick = onOpenData)
+                    SettingEntryRow(Str.update(), onClick = onOpenUpdate)
                     SettingEntryRow(Str.settings_debug(), onClick = onOpenDebug)
                 }
             }

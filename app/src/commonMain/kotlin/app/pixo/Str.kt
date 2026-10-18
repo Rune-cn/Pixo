@@ -34,7 +34,6 @@ internal expect object Str {
     @Composable fun liquid_glass_summary(): String
     @Composable fun export_login_info(): String
     @Composable fun export_login_summary(): String
-    @Composable fun export_copied(): String
     @Composable fun export_login_dialog_title(): String
     @Composable fun predictive_back_summary(): String
     @Composable fun settings_debug(): String
@@ -235,4 +234,14 @@ internal expect object Str {
     @Composable fun quality_high(): String
     @Composable fun action_back(): String
     @Composable fun action_close(): String
+    @Composable fun update(): String
+    @Composable fun auto_check_update(): String
+    @Composable fun auto_check_summary(): String
+    @Composable fun update_latest(): String
+    @Composable fun update_checking(): String
+    @Composable fun update_failed(): String
+    @Composable fun update_available(version: String): String
+    @Composable fun webdav_save(): String
+    @Composable fun webdav_unsaved(): String
+    @Composable fun saved(): String
 }

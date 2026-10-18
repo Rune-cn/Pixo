@@ -88,6 +88,12 @@ object AppPrefs {
     var history: String by stringPref("history")
     var debugLog: Boolean by boolPref("debug_log", false)
 
+    // ---------- 更新 ----------
+    /** 启动时自动检查 GitHub 最新正式版。 */
+    var autoCheckUpdate: Boolean by boolPref("auto_check_update", true)
+    /** 已提醒过的版本，避免每次冷启动都弹同一个更新提示。 */
+    var lastNotifiedVersion: String by stringPref("last_notified_version")
+
     // ---------- WebDAV 备份 ----------
     var webdavUrl: String by stringPref("webdav_url")
     var webdavUser: String by stringPref("webdav_user")

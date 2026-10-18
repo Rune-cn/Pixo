@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -43,7 +44,14 @@ fun LogViewerScreen(onBack: () -> Unit) {
     PixoSubScreen(title = Str.view_logs(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
         val logs = remember(tick) { LogBuffer.snapshot() }
         val crashText = remember(tick) { readCrashLog().trim() }
-        LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
+        LazyColumn(
+            contentPadding = innerPadding,
+            modifier = Modifier
+                .scrollEndHaptic()
+                .overScrollVertical()
+                // 没有这行顶栏收不到滚动 → 大字标题不会收缩居中
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+        ) {
             if (crashText.isNotEmpty()) {
                 item {
                     Row(
@@ -79,8 +87,9 @@ fun LogViewerScreen(onBack: () -> Unit) {
             }
             item {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.End,
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Button(onClick = {
                         clipboard.setText(AnnotatedString(logs.joinToString("\n")))
@@ -109,7 +118,7 @@ fun LogViewerScreen(onBack: () -> Unit) {
 }
 
 
-/** 崩溃日志独立页：展示持久化的崩溃堆栈，可清空。 */
+/** 崩溃日志独立页：展示持久化的崩溃堆栈，可复制 / 清空。 */
 @Composable
 fun CrashLogPage(onBack: () -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
@@ -117,34 +126,50 @@ fun CrashLogPage(onBack: () -> Unit) {
     val text = remember(tick) { readCrashLog().trim() }
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.crash_log(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
-        Column(Modifier.fillMaxSize().padding(innerPadding)) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                Button(onClick = {
-                    clipboard.setText(AnnotatedString(text))
-                }, enabled = text.isNotBlank()) { Text(Str.copy_title()) }
-                Button(onClick = {
-                    clearCrashLog()
-                    tick++
-                }, enabled = text.isNotBlank()) { Text(Str.clear_crash_log()) }
+        LazyColumn(
+            contentPadding = innerPadding,
+            modifier = Modifier
+                .scrollEndHaptic()
+                .overScrollVertical()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+        ) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Button(onClick = {
+                        clipboard.setText(AnnotatedString(text))
+                    }, enabled = text.isNotBlank()) { Text(Str.copy_title()) }
+                    Button(onClick = {
+                        clearCrashLog()
+                        tick++
+                    }, enabled = text.isNotBlank()) { Text(Str.clear_crash_log()) }
+                }
             }
             if (text.isBlank()) {
-                Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text(Str.crash_none(), style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                }
-            } else {
-                LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
-                    item {
+                item {
+                    Box(
+                        Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Text(
-                            text = text,
-                            style = MiuixTheme.textStyles.footnote2,
-                            fontFamily = FontFamily.Monospace,
-                            color = MiuixTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            text = Str.crash_none(),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
+                }
+            } else {
+                item {
+                    Text(
+                        text = text,
+                        style = MiuixTheme.textStyles.footnote2,
+                        fontFamily = FontFamily.Monospace,
+                        color = MiuixTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
                 }
             }
         }
