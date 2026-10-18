@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
@@ -296,6 +297,7 @@ private fun IllustDetail(
 
             else -> {
                 val d = detail
+                val relatedWorks = rememberRelatedWorks(workId)
                 LazyColumn(contentPadding = innerPadding, modifier = Modifier.scrollEndHaptic().overScrollVertical()) {
                     itemsIndexed(pages) { index, page ->
                         val isUgoira = ugoira != null && index == 0
@@ -366,12 +368,10 @@ private fun IllustDetail(
                             onLongPressTag = { tag -> tagAction = tag },
                         )
                     }
-                    item {
-                        RelatedWorksRow(
-                            workId = workId,
-                            onOpenDetail = onOpenDetail,
-                        )
-                    }
+                    relatedWorksSection(
+                        works = relatedWorks,
+                        onOpenDetail = onOpenDetail,
+                    )
                 }
                 BottomToast(feedback)
                 // 长按标签：复制 / 屏蔽（共享动作面板，见 BlockActions.kt）
@@ -765,61 +765,83 @@ private fun BookmarkButtons(
 }
 
 
-/** 详情页「相关作品」横滑区：作品缩略卡 + 标题，点按打开新详情。 */
+/**
+ * 相关作品数据：命中缓存直接用，否则请求一次。
+ *
+ * 单独抽出来是为了把渲染交给父级 LazyColumn（见 [relatedWorksSection]）——
+ * 在 LazyColumn 里再嵌一个可滚动容器会触发无限高度约束崩溃，
+ * 之前正是因为这个才「只取前 4 个」来规避。
+ */
 @Composable
-private fun RelatedWorksRow(
-    workId: Long,
-    onOpenDetail: (Long, String) -> Unit,
-) {
-    var works by remember(workId, SettingsRevision.current) { mutableStateOf(FeedCache.relatedWorks[workId]) }
+private fun rememberRelatedWorks(workId: Long): List<PixivWork>? {
+    var works by remember(workId, SettingsRevision.current) {
+        mutableStateOf(FeedCache.relatedWorks[workId])
+    }
     LaunchedEffect(workId) {
         if (works == null) {
             works = try {
-                val list = PixivApi.fetchRelatedWorks(workId)
-                FeedCache.relatedWorks[workId] = list
-                list
+                PixivApi.fetchRelatedWorks(workId).also { FeedCache.relatedWorks[workId] = it }
             } catch (_: Exception) {
                 emptyList()
             }
         }
     }
-    val list = works
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    return works
+}
+
+/**
+ * 相关作品区：标题 + 两列网格。
+ *
+ * 每一行都是父级 LazyColumn 的独立 item（可虚拟化），
+ * 所以不再需要「只取前 4 个」：接口返回多少就展示多少。
+ */
+private fun LazyListScope.relatedWorksSection(
+    works: List<PixivWork>?,
+    onOpenDetail: (Long, String) -> Unit,
+) {
+    item(key = "relatedTitle") {
         Text(
             text = Str.related_works(),
             style = MiuixTheme.textStyles.title3,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
         )
-        if (list == null || list.isEmpty()) {
-            // 加载中或加载失败：给出占位，避免"相关推荐区凭空消失"
-            Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+    }
+    if (works == null || works.isEmpty()) {
+        // 加载中或加载失败：给出占位，避免「相关推荐区凭空消失」
+        item(key = "relatedPlaceholder") {
+            Box(
+                Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
-                    text = if (list == null) Str.related_loading() else Str.related_empty(),
+                    text = if (works == null) Str.related_loading() else Str.related_empty(),
                     style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             }
-            return@Column
         }
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        return
+    }
+    items(
+        items = works.chunked(2),
+        key = { row -> row.joinToString("-") { it.id.toString() } },
+    ) { pair ->
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            list.take(4).chunked(2).forEach { pair ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pair.forEach { work ->
-                        RelatedWorkCard(
-                            work = work,
-                            onClick = { onOpenDetail(work.id, "illust") },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
+            pair.forEach { work ->
+                RelatedWorkCard(
+                    work = work,
+                    onClick = { onOpenDetail(work.id, "illust") },
+                    modifier = Modifier.weight(1f),
+                )
             }
+            // 奇数个时补位，保持卡片左对齐
+            if (pair.size == 1) Spacer(Modifier.weight(1f))
         }
     }
 }
-
 
 @Composable
 private fun RelatedWorkCard(work: PixivWork, onClick: () -> Unit, modifier: Modifier = Modifier) {
