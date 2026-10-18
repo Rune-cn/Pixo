@@ -49,13 +49,11 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -71,7 +69,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.TimeSource
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.Backdrop
@@ -172,8 +169,8 @@ private fun lerpFloat(start: Float, stop: Float, fraction: Float): Float =
  * - 三层结构：基础层（全宽内容）→ 激活层（透明、采样进 tabsBackdrop，渲染选中色与放大的内容）→
  *   指示器层（combinedBackdrop = 页面 + 激活层，故玻璃里折射出选中内容）。
  * - 按压：胶囊弹簧放大（撑出容器）、高光增强、内阴影压暗；速度挤压（落定时的惯性形变）。
- * - 长按：胶囊弹簧「瞬移」到手指正下方（连续位置，不再只是原地放大），
- *   随后跟手拖拽，松手吸附最近槽位并切换；长按成立时给一次震动反馈。
+ * - 按下：胶囊弹簧「瞬移」到手指正下方（连续位置，不再只是原地放大），随后跟手拖拽，
+ *   松手吸附最近槽位并切换（对齐 InstallerX-Revived 的按下即抓取）。
  * - 横向拖拽：胶囊跟手滑动，松手弹簧吸附最近槽位并切换；点击：直接切换到按下槽位。
  * - RTL：isLtr 镜像槽位坐标。
  * - 无障碍：每个标签 Role.Tab + selected + onClick 语义，回车/空格键激活。
@@ -196,7 +193,6 @@ fun FloatingBottomBar(
     val density = LocalDensity.current
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val scope = rememberCoroutineScope()
-    val haptics = LocalHapticFeedback.current
 
     val containerShape = RoundedCornerShape(32.dp)
     val pillShape = RoundedCornerShape(28.dp)
@@ -372,37 +368,23 @@ fun FloatingBottomBar(
                         ),
                     )
                     .pointerInput(tabsCount) {
-                        // 统一手势：按下放大 → 长按抓取（胶囊弹簧「瞬移」到手指正下方）→ 跟手拖拽
-                        // → 抬起吸附最近槽位并切换。
-                        // 长按判定参考 InstallerX-Revived 的 DampedDragAnimation：
-                        // onDragStarted → updateValue(indexAt(position.x))，即胶囊先飞到手指位置再跟随，
-                        // 而不是像以前那样只在原地放大、必须拖动才跟手。
-                        // 这里用 positionAt（连续值）而不是 indexAt（取整），胶囊才会正好停在手指下方。
-                        val longPressMs = viewConfiguration.longPressTimeoutMillis
+                        // 手势对齐 InstallerX-Revived（inspectDragGestures + DampedDragAnimation）：
+                        // 1) 按下（onDragStart）立刻把胶囊弹簧「瞬移」到手指正下方，而不是原地放大；
+                        // 2) 拖动按位移跟手（onDrag）；
+                        // 3) 抬起吸附最近槽位并切换（onDragEnd → targetValue.round）。
+                        // 注意：那边是「按下即抓取」，不等长按超时；等长按会被
+                        // PointerEventTimeoutCancellationException 打断，实测表现为「还是原地放大」。
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             scope.launch { pressProgress.animateTo(1f, pressIn) }
                             glowCenterX = down.position.x
+                            // 胶囊瞬移到手指正下方（连续位置 + 弹簧过渡）
+                            scope.launch { trackVelocity(positionAt(down.position.x)) }
+
                             var dragTotal = 0f
                             var dragging = false
-                            var grabbed = false
-                            var lastUptime = down.uptimeMillis
                             while (true) {
-                                // 抓取/拖拽后正常等事件；此前按「剩余长按时长」等待，超时即长按成立
-                                val event = if (grabbed || dragging) {
-                                    awaitPointerEvent()
-                                } else {
-                                    val remaining = longPressMs - (lastUptime - down.uptimeMillis)
-                                    withTimeoutOrNull(remaining.coerceAtLeast(0L)) { awaitPointerEvent() }
-                                }
-                                if (event == null) {
-                                    // 长按成立：胶囊带弹簧动画瞬移到手指正下方（连续位置），随后跟手拖拽
-                                    grabbed = true
-                                    glowCenterX = down.position.x
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    scope.launch { trackVelocity(positionAt(down.position.x)) }
-                                    continue
-                                }
+                                val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull { it.id == down.id }
                                 if (change == null) {
                                     // 指针意外消失：按抬起处理，避免按压态卡住
@@ -410,17 +392,12 @@ fun FloatingBottomBar(
                                     scope.launch { pressProgress.animateTo(0f, pressOut) }
                                     break
                                 }
-                                lastUptime = change.uptimeMillis
                                 if (!change.pressed) {
-                                    val target = if (grabbed || dragging) {
-                                        pillIndex.value.roundToInt().coerceIn(0, tabsCount - 1)
-                                    } else {
-                                        indexAt(down.position.x)
-                                    }
+                                    val target = pillIndex.value.roundToInt().coerceIn(0, tabsCount - 1)
                                     if (currentIndex != target) {
                                         activate(target)
                                     } else {
-                                        // 同档位点击外部选中态不变，仍需把胶囊吸附回槽位
+                                        // 同档位：外部选中态不变，仍需把胶囊吸附回槽位中心
                                         scope.launch { trackVelocity(target.toFloat()) }
                                     }
                                     scope.launch { pressProgress.animateTo(0f, pressOut) }
@@ -431,7 +408,7 @@ fun FloatingBottomBar(
                                     change.consume()
                                     dragTotal += delta.x
                                     if (!dragging && abs(dragTotal) > viewConfiguration.touchSlop) dragging = true
-                                    if ((dragging || grabbed) && tabWidthPx > 0f) {
+                                    if (dragging && tabWidthPx > 0f) {
                                         glowCenterX = change.position.x
                                         val next = (pillIndex.value + delta.x / tabWidthPx * if (isLtr) 1f else -1f)
                                             .coerceIn(0f, (tabsCount - 1).toFloat())
