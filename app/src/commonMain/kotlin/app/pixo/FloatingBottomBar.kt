@@ -393,7 +393,15 @@ fun FloatingBottomBar(
                                     break
                                 }
                                 if (!change.pressed) {
-                                    val target = pillIndex.value.roundToInt().coerceIn(0, tabsCount - 1)
+                                    // 目标槽位用「手指位置」判定：
+                                    // - 点击（未超过 touchSlop）用按下位置，最贴近用户意图
+                                    // - 拖拽用抬起位置
+                                    // 不能用 pillIndex.value：按下时胶囊正在瞬移动画中，
+                                    // 快速点击（~100ms）读到的是中间值（如 0.2），取整仍落在原槽位，
+                                    // 表现为「点了没反应 / 很难点进去」。
+                                    val target = indexAt(
+                                        if (dragging) change.position.x else down.position.x,
+                                    )
                                     if (currentIndex != target) {
                                         activate(target)
                                     } else {
