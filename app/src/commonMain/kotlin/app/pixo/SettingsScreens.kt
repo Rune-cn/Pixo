@@ -48,7 +48,8 @@ fun SettingsPage(
     onOpenAbout: () -> Unit,
     bottomPadding: Dp = 0.dp,
 ) {
-    var selfId by remember { mutableStateOf(AppPrefs.selfUserId) }
+    // 以设置版本号为 key：导入登录信息后账号卡片立即刷新，不用重启
+    var selfId by remember(SettingsRevision.current) { mutableStateOf(AppPrefs.selfUserId) }
     var selfInfo by remember {
         mutableStateOf(
             if (selfId > 0L) SessionCache.selfInfo?.takeIf { it.id == selfId } else null,
@@ -159,6 +160,7 @@ fun AppSettingsPage(
     onOpenData: () -> Unit,
     onOpenDebug: () -> Unit,
     onOpenUpdate: () -> Unit,
+    onOpenLogin: () -> Unit,
     onBack: () -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -175,6 +177,7 @@ fun AppSettingsPage(
                         .padding(horizontal = 12.dp)
                         .padding(top = 4.dp),
                 ) {
+                    SettingEntryRow(Str.settings_login(), onClick = onOpenLogin)
                     SettingEntryRow(Str.settings_appearance(), onClick = onOpenAppearance)
                     SettingEntryRow(Str.settings_content(), onClick = onOpenContent)
                     SettingEntryRow(Str.settings_data(), onClick = onOpenData)

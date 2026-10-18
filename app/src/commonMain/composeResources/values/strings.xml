@@ -186,7 +186,6 @@
     <string name="settings_section_data">Data</string>
     <string name="settings_section_storage">Storage</string>
     <string name="settings_section_logs">Logs</string>
-    <string name="settings_section_login">Login info</string>
     <string name="related_works">Related works</string>
     <string name="copy_tag">Copy tag</string>
     <string name="block_tag">Block tag</string>
@@ -244,6 +243,11 @@ furry.*</string>
     <string name="webdav_unsaved">Unsaved changes — save first</string>
     <string name="saved">Saved</string>
     <string name="update_notes_unavailable">Open the release page to see what changed</string>
+    <string name="import_login_info">Import login info</string>
+    <string name="import_login_summary">Paste previously exported login info to restore tokens / cookie</string>
+    <string name="login_imported">Login info imported</string>
+    <string name="login_import_failed">Import failed: unrecognized content</string>
+    <string name="import_action">Import</string>
 </resources>
 
 

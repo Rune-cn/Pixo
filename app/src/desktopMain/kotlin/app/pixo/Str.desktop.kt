@@ -176,7 +176,6 @@ internal actual object Str {
     @Composable actual fun settings_section_data(): String = stringResource(Res.string.settings_section_data)
     @Composable actual fun settings_section_storage(): String = stringResource(Res.string.settings_section_storage)
     @Composable actual fun settings_section_logs(): String = stringResource(Res.string.settings_section_logs)
-    @Composable actual fun settings_section_login(): String = stringResource(Res.string.settings_section_login)
     @Composable actual fun open_source(): String = stringResource(Res.string.open_source)
     @Composable actual fun check_update(): String = stringResource(Res.string.check_update)
     @Composable actual fun feedback(): String = stringResource(Res.string.feedback)
@@ -243,4 +242,9 @@ internal actual object Str {
     @Composable actual fun webdav_unsaved(): String = stringResource(Res.string.webdav_unsaved)
     @Composable actual fun saved(): String = stringResource(Res.string.saved)
     @Composable actual fun update_notes_unavailable(): String = stringResource(Res.string.update_notes_unavailable)
+    @Composable actual fun import_login_info(): String = stringResource(Res.string.import_login_info)
+    @Composable actual fun import_login_summary(): String = stringResource(Res.string.import_login_summary)
+    @Composable actual fun login_imported(): String = stringResource(Res.string.login_imported)
+    @Composable actual fun login_import_failed(): String = stringResource(Res.string.login_import_failed)
+    @Composable actual fun import_action(): String = stringResource(Res.string.import_action)
 }

@@ -221,6 +221,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onOpenData = { navController.navigate(DataSettings) },
                             onOpenDebug = { navController.navigate(DebugSettings) },
                             onOpenUpdate = { navController.navigate(UpdateSettings) },
+                            onOpenLogin = { navController.navigate(LoginSettings) },
                             onBack = { navController.popBackStack() },
                         )
                     }
@@ -316,6 +317,9 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             },
                             onBack = { navController.popBackStack() },
                         )
+                    }
+                    pixoScreen<LoginSettings> {
+                        LoginPage(onBack = { navController.popBackStack() })
                     }
                     pixoScreen<UpdateSettings> {
                         UpdatePage(onBack = { navController.popBackStack() })
@@ -492,7 +496,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                     }
                     // 启动时检查到新版本：在 Scaffold 内弹提示（OverlayDialog 需要 Scaffold 祖先）
                     updateInfo?.let { info ->
-                        UpdateAvailableDialog(info = info, onDismiss = { updateInfo = null })
+                        UpdateAvailableSheet(info = info, onDismiss = { updateInfo = null })
                     }
                 // 底栏只在标签根页（首页/设置标签）展示；子页面（详情/设置子页等）不显示底栏
                   // 否则悬浮栏 drawBackdrop 会把「包含它自己的整页」递归快照，渲染树无限加深导致栈溢出

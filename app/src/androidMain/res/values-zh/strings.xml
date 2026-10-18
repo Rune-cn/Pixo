@@ -126,8 +126,8 @@
     <string name="floating_bar">悬浮底栏</string>
     <string name="floating_bar_summary">底部导航改为悬浮胶囊（液态玻璃请单独开启）</string>
     <string name="export_login_info">导出登录信息</string>
-    <string name="export_login_summary">复制 Token / Cookie / 用户 ID，便于排查登录问题</string>
-    <string name="export_login_dialog_title">登录信息（仅供调试）</string>
+    <string name="export_login_summary">复制完整登录信息（Token / Cookie / 用户 ID），可在其它设备导入</string>
+    <string name="export_login_dialog_title">登录信息</string>
     <string name="liquid_glass">液态玻璃</string>
     <string name="liquid_glass_summary">悬浮底栏启用毛玻璃模糊与高光（关闭后为纯色胶囊）</string>
     <string name="share">分享</string>
@@ -187,7 +187,6 @@
     <string name="settings_section_data">数据</string>
     <string name="settings_section_storage">存储</string>
     <string name="settings_section_logs">日志</string>
-    <string name="settings_section_login">登录信息</string>
     <string name="related_works">相关作品</string>
     <string name="copy_tag">复制标签</string>
     <string name="block_tag">屏蔽标签</string>
@@ -245,5 +244,10 @@ furry.*</string>
     <string name="webdav_unsaved">有未保存的修改，请先保存</string>
     <string name="saved">已保存</string>
     <string name="update_notes_unavailable">请前往发布页查看更新内容</string>
+    <string name="import_login_info">导入登录信息</string>
+    <string name="import_login_summary">粘贴之前导出的登录信息，恢复 Token / Cookie</string>
+    <string name="login_imported">登录信息已导入</string>
+    <string name="login_import_failed">导入失败：无法识别的内容</string>
+    <string name="import_action">导入</string>
 </resources>
 

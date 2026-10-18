@@ -55,6 +55,9 @@ internal object About
 
 
 @Serializable
+internal object LoginSettings
+
+@Serializable
 internal object UpdateSettings
 
 @Serializable

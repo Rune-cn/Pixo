@@ -165,7 +165,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 },
             )
             pendingUpdate?.let { info ->
-                UpdateAvailableDialog(info = info, onDismiss = { pendingUpdate = null })
+                UpdateAvailableSheet(info = info, onDismiss = { pendingUpdate = null })
             }
         }
     }

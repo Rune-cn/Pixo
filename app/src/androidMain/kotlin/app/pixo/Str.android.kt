@@ -176,7 +176,6 @@ internal actual object Str {
     @Composable actual fun settings_section_data(): String = stringResource(app.pixo.R.string.settings_section_data)
     @Composable actual fun settings_section_storage(): String = stringResource(app.pixo.R.string.settings_section_storage)
     @Composable actual fun settings_section_logs(): String = stringResource(app.pixo.R.string.settings_section_logs)
-    @Composable actual fun settings_section_login(): String = stringResource(app.pixo.R.string.settings_section_login)
     @Composable actual fun open_source(): String = stringResource(app.pixo.R.string.open_source)
     @Composable actual fun check_update(): String = stringResource(app.pixo.R.string.check_update)
     @Composable actual fun feedback(): String = stringResource(app.pixo.R.string.feedback)
@@ -243,4 +242,9 @@ internal actual object Str {
     @Composable actual fun webdav_unsaved(): String = stringResource(app.pixo.R.string.webdav_unsaved)
     @Composable actual fun saved(): String = stringResource(app.pixo.R.string.saved)
     @Composable actual fun update_notes_unavailable(): String = stringResource(app.pixo.R.string.update_notes_unavailable)
+    @Composable actual fun import_login_info(): String = stringResource(app.pixo.R.string.import_login_info)
+    @Composable actual fun import_login_summary(): String = stringResource(app.pixo.R.string.import_login_summary)
+    @Composable actual fun login_imported(): String = stringResource(app.pixo.R.string.login_imported)
+    @Composable actual fun login_import_failed(): String = stringResource(app.pixo.R.string.login_import_failed)
+    @Composable actual fun import_action(): String = stringResource(app.pixo.R.string.import_action)
 }

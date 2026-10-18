@@ -3,12 +3,18 @@ package app.pixo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -18,7 +24,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 一条可用的更新信息（来自 GitHub Releases）。 */
@@ -162,38 +168,41 @@ object UpdateChecker {
 }
 
 /**
- * 「发现新版本」对话框：展示版本号与 Release 说明，可跳转下载页。
+ * 「发现新版本」底部弹窗。
  *
- * 说明用 Markdown 原文展示（不做渲染）——这里只是更新提示，保持轻量。
+ * Release 说明是 Markdown，直接用项目里的 [MarkdownBlock] 渲染
+ * （与「关于」页的文档弹窗同一套渲染器，支持标题/列表/代码块/链接）。
  */
 @Composable
-internal fun UpdateAvailableDialog(info: UpdateInfo, onDismiss: () -> Unit) {
-    OverlayDialog(show = true, onDismissRequest = onDismiss) {
+internal fun UpdateAvailableSheet(info: UpdateInfo, onDismiss: () -> Unit) {
+    var show by remember { mutableStateOf(true) }
+    WindowBottomSheet(
+        show = show,
+        title = Str.update_available(info.version),
+        onDismissRequest = { show = false },
+        onDismissFinished = onDismiss,
+        insideMargin = DpSize(0.dp, 0.dp),
+    ) {
         Column(
-            Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = Str.update_available(info.version),
-                style = MiuixTheme.textStyles.title3,
-            )
-            Text(
-                text = info.notes.ifBlank { Str.update_notes_unavailable() },
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 240.dp)
-                    .verticalScroll(rememberScrollState()),
+            MarkdownBlock(
+                content = info.notes.ifBlank { Str.update_notes_unavailable() },
+                modifier = Modifier.fillMaxWidth(),
             )
             Button(
                 onClick = {
                     if (info.pageUrl.isNotBlank()) openUrlInBrowser(info.pageUrl)
-                    onDismiss()
+                    show = false
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(Str.open_in_browser()) }
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = { show = false }, modifier = Modifier.fillMaxWidth()) {
                 Text(Str.cancel())
             }
         }

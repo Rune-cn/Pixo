@@ -179,7 +179,6 @@ internal expect object Str {
     @Composable fun settings_section_data(): String
     @Composable fun settings_section_storage(): String
     @Composable fun settings_section_logs(): String
-    @Composable fun settings_section_login(): String
     @Composable fun open_source(): String
     @Composable fun check_update(): String
     @Composable fun feedback(): String
@@ -245,4 +244,9 @@ internal expect object Str {
     @Composable fun webdav_unsaved(): String
     @Composable fun saved(): String
     @Composable fun update_notes_unavailable(): String
+    @Composable fun import_login_info(): String
+    @Composable fun import_login_summary(): String
+    @Composable fun login_imported(): String
+    @Composable fun login_import_failed(): String
+    @Composable fun import_action(): String
 }
