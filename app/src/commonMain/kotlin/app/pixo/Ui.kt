@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -232,6 +233,10 @@ fun PixoSubScreen(
         Box(
             Modifier
                 .fillMaxSize()
+                // 键盘弹出时让内容自己缩，而不是由系统平移整个窗口
+                // （默认 windowSoftInputMode 会被解析成 adjustPan，输入法跟着光标走，
+                //   每敲一个字整页就被平移一次 → 「页面一抖一抖」）
+                .imePadding()
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
         ) {
             content(innerPadding)
@@ -277,6 +282,10 @@ fun PixoTabFrame(
         Box(
             Modifier
                 .fillMaxSize()
+                // 键盘弹出时让内容自己缩，而不是由系统平移整个窗口
+                // （默认 windowSoftInputMode 会被解析成 adjustPan，输入法跟着光标走，
+                //   每敲一个字整页就被平移一次 → 「页面一抖一抖」）
+                .imePadding()
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
         ) {
             content(innerPadding)

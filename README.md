@@ -127,6 +127,14 @@ app/src/commonTest/kotlin/app/pixo/   纯逻辑单测（屏蔽匹配、画质 UR
 2. 构建成功自动创建/覆盖 GitHub Release（`v<versionName>`），上传 release + debug 两个 APK
 3. 自动清理历史版本，只保留当前
 
+### CI 用法
+
+| 场景 | 操作 | 结果 |
+|---|---|---|
+| 日常开发 | push 到 `main` / 开 PR | 构建 + 测试，产物在 Actions artifacts，**不发版** |
+| 预发布 | Actions → Build → Run workflow → 勾选 `publish_nightly` | 生成 `nightly-YYYYMMDD`（pre-release，同日覆盖） |
+| 正式版 | 先改 `versionCode` / `versionName` 并推送 → Run workflow（不勾选） | 从 artifact 取 4 个 ABI 签名包，创建 `vX.Y.Z` Release |
+
 **本地构建**：环境要求 JDK 17+。
 
 ```bash

@@ -1,3 +1,19 @@
+# Pixo CI
+#
+# 用法（日常只需要看这三条）：
+#   1) 日常开发：push 到 main 或开 PR
+#      → 只构建 + 跑测试（Android 编译、桌面端编译、单测、签名 release 包）
+#      → 产物在 Actions 的 artifacts 里，不会产生 Release
+#   2) 预发布（nightly）：
+#      Actions → Build → Run workflow → 勾选 publish_nightly
+#      → 生成 nightly-YYYYMMDD（pre-release，同日重跑会覆盖）
+#   3) 正式版：
+#      先把 app/build.gradle.kts 的 versionCode / versionName 改好并推送
+#      → Actions → Build → Run workflow（不要勾 publish_nightly）
+#      → 从该次 artifact 里取 4 个 ABI 的签名包，创建 vX.Y.Z Release
+#
+# 约定：发布开关只有 release job 的 PUBLISH_NIGHTLY 一处定义，
+#       三个发布步骤共用，改条件时不用逐个改。
 name: Build
 
 on:
