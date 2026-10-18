@@ -39,81 +39,24 @@ fun DiscoverScreen(
     onOpenSettings: (() -> Unit)? = null,
     waterfall: Boolean = false,
 ) {
-    val cacheKey = "discover:feed"
-    var items by remember(cacheKey, SettingsRevision.current) {
-        mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey])
-    }
-    val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
-    var loading by remember { mutableStateOf(items == null) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var refreshing by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
+    val feed = rememberPagedFeed(
+        cacheKey = "discover:feed",
+        cache = FeedCache.illust,
+        pageSize = 30,
+        idOf = { it.id },
+        load = { page -> Page(PixivApi.fetchTopFeed((page - 1) * 30, 30)) },
+    )
+    val items = feed.items
+    val loading = feed.loading
+    val loadingMore = feed.loadingMore
+    val refreshing = feed.refreshing
+    val hasMore = feed.hasMore
+    val error = feed.error
+    val listState = feed.listState
 
-    LaunchedEffect(cacheKey, retryKey) {
-        if (items != null && retryKey == 0) return@LaunchedEffect
-        loading = true
-        error = null
-        try {
-            val list = PixivApi.fetchTopFeed(0, 30)
-            FeedCache.illust[cacheKey] = list
-            items = list
-            hasMore = list.size >= 30
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-            logError("Pixo", "discover load failed", e)
-        }
-        loading = false
-    }
-
-    fun refresh() {
-        scope.launch {
-            refreshing = true
-            try {
-                val list = PixivApi.fetchTopFeed(0, 30)
-                FeedCache.illust[cacheKey] = list
-                items = list
-                hasMore = list.size >= 30
-                error = null
-            } catch (e: Exception) {
-                error = e.friendlyMessage()
-                logError("Pixo", "discover refresh failed", e)
-            }
-            refreshing = false
-        }
-    }
-
-    fun loadMore() {
-        if (loadingMore || !hasMore) return
-        scope.launch {
-            loadingMore = true
-            val n = items?.size ?: 0
-            try {
-                val more = PixivApi.fetchTopFeed(n, 30)
-                val cur = (items ?: emptyList()).toMutableList()
-                val seen = HashSet(cur.map { it.id })
-                cur.addAll(more.filter { it.id !in seen })
-                FeedCache.illust[cacheKey] = cur
-                items = cur
-                hasMore = more.size >= 30
-            } catch (_: Exception) {
-            }
-            loadingMore = false
-        }
-    }
-
+    fun refresh() = feed.refreshNow()
+    fun loadMore() = feed.loadMoreNow()
     val list = items.orEmpty()
-    LaunchedEffect(listState, list.size) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            val total = info.totalItemsCount
-            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-            total > 0 && last >= total - 3
-        }.collect { nearEnd -> if (nearEnd) loadMore() }
-    }
-    SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.discover(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
@@ -128,7 +71,7 @@ fun DiscoverScreen(
                     LoadingState()
                 }
                 error != null && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    ErrorState(error ?: "", onRetry = { retryKey++ })
+                    ErrorState(error ?: "", onRetry = { feed.retry() })
                 }
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     EmptyHint(onOpenSettings = onOpenSettings)
@@ -175,52 +118,20 @@ fun RecommendedScreen(
     onOpenSettings: (() -> Unit)? = null,
     waterfall: Boolean = false,
 ) {
-    val cacheKey = "recommend:feed"
-    var items by remember(cacheKey, SettingsRevision.current) {
-        mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey])
-    }
-    val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
-    var loading by remember { mutableStateOf(items == null) }
-    var refreshing by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
+    val feed = rememberPagedFeed(
+        cacheKey = "recommend:feed",
+        cache = FeedCache.illust,
+        idOf = { it.id },
+        // 推荐接口一次返回整块内容，没有下一页
+        load = { Page(PixivApi.fetchTopArtworks(), hasMore = false) },
+    )
+    val items = feed.items
+    val loading = feed.loading
+    val refreshing = feed.refreshing
+    val error = feed.error
+    val listState = feed.listState
 
-    suspend fun load() {
-        val list = PixivApi.fetchTopArtworks()
-        FeedCache.illust[cacheKey] = list
-        items = list
-    }
-
-    LaunchedEffect(cacheKey, retryKey) {
-        if (items != null && retryKey == 0) return@LaunchedEffect
-        loading = true
-        error = null
-        try {
-            load()
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-            logError("Pixo", "recommend load failed", e)
-        }
-        loading = false
-    }
-
-    fun refresh() {
-        scope.launch {
-            refreshing = true
-            try {
-                load()
-                error = null
-            } catch (e: Exception) {
-                error = e.friendlyMessage()
-                logError("Pixo", "recommend refresh failed", e)
-            }
-            refreshing = false
-        }
-    }
-
-    SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
-
+    fun refresh() = feed.refreshNow()
     val list = items.orEmpty()
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.recommended(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
@@ -235,7 +146,7 @@ fun RecommendedScreen(
                     LoadingState()
                 }
                 error != null && list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    ErrorState(error ?: "", onRetry = { retryKey++ })
+                    ErrorState(error ?: "", onRetry = { feed.retry() })
                 }
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     EmptyHint(onOpenSettings = onOpenSettings)

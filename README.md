@@ -102,6 +102,7 @@ app/src/commonMain/kotlin/app/pixo/
 ├── Ui.kt               页面框架（Scaffold / 毛玻璃顶栏）、右滑返回、提示条
 ├── Settings.kt         设置项单一声明处（AppPrefs）+ 导出 / 导入 + 变更版本号
 ├── Cache.kt            进程内缓存（列表 / 详情 / 评论）+ ugoira 帧 LRU
+├── Paging.kt           分页列表状态机（缓存恢复 / 刷新 / 触底 / 去重 / 滚动位置）
 ├── Models.kt           数据模型、屏蔽规则、列表统一策略
 ├── FloatingBottomBar.kt / LiquidGlass.kt  悬浮底栏与液态玻璃材质
 ├── MarkdownBlock.kt    Markdown 文档渲染

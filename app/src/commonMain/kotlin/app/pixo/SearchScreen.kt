@@ -53,124 +53,53 @@ fun SearchScreen(
     var expanded by rememberSaveable(initialQuery) { mutableStateOf(initialQuery.isBlank()) }
     val focusManager = LocalFocusManager.current
     val cacheKey = "search:$submitted:$kind"
-    // 从缓存恢复，返回时保留原列表与滚动位置
-    var items by remember(cacheKey, SettingsRevision.current) {
-        mutableStateOf<List<Any>?>(
-            when (kind) {
-                "novel" -> FeedCache.novels[cacheKey]
-                "user" -> FeedCache.users[cacheKey]
-                else -> FeedCache.illust[cacheKey]
-            },
-        )
-    }
-    val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
-    var page by remember { mutableIntStateOf(1) }
-    var loading by remember { mutableStateOf(submitted.isNotBlank() && items == null) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var refreshing by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
-    // 用户搜索每页固定 10 条，插画/小说每页 60 条
+    // 用户搜索每页 10 条，插画/小说每页 60 条
     val pageSize = if (kind == "user") 10 else 60
-
-    val current = items
-    LaunchedEffect(cacheKey, retryKey) {
-        if (submitted.isBlank()) {
-            items = null
-            return@LaunchedEffect
-        }
-        if (current != null) return@LaunchedEffect
-        loading = true
-        error = null
-        try {
-            val list: List<Any> = when (kind) {
-                "novel" -> PixivApi.searchNovels(submitted, 1)
-                "user" -> PixivApi.searchUsers(submitted, 1)
-                else -> PixivApi.searchArtworks(submitted, 1)
+    val feed = rememberPagedFeedByKey(
+        cacheKey = cacheKey,
+        idOf = { itemIdOf(it) },
+        pageSize = pageSize,
+        enabled = submitted.isNotBlank(),
+        restore = { key: String ->
+            when (kind) {
+                "novel" -> FeedCache.novels[key] as List<Any>?
+                "user" -> FeedCache.users[key] as List<Any>?
+                else -> FeedCache.illust[key] as List<Any>?
             }
-            FeedCache.illust[cacheKey] = list.filterIsInstance<PixivWork>()
-            FeedCache.novels[cacheKey] = list.filterIsInstance<PixivNovel>()
-            FeedCache.users[cacheKey] = list.filterIsInstance<PixivUser>()
-            items = list
-            page = 1
-            hasMore = list.size >= pageSize
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-            logError("Pixo", "load failed", e)
-        }
-        loading = false
-    }
-
-    fun refresh() {
-        scope.launch {
-            if (submitted.isBlank()) return@launch
-            refreshing = true
-            try {
-                val list: List<Any> = when (kind) {
-                    "novel" -> PixivApi.searchNovels(submitted, 1)
-                    "user" -> PixivApi.searchUsers(submitted, 1)
-                    else -> PixivApi.searchArtworks(submitted, 1)
-                }
-                items = list
-                FeedCache.illust[cacheKey] = list.filterIsInstance<PixivWork>()
-                FeedCache.novels[cacheKey] = list.filterIsInstance<PixivNovel>()
-                FeedCache.users[cacheKey] = list.filterIsInstance<PixivUser>()
-                page = 1
-                error = null
-            } catch (e: Exception) {
-                error = e.friendlyMessage()
-                logError("Pixo", "load failed", e)
+        },
+        persist = { key, list ->
+            // 三类结果共用同一个缓存键，按类型分别存，返回时可原样恢复
+            FeedCache.illust[key] = list.filterIsInstance<PixivWork>()
+            FeedCache.novels[key] = list.filterIsInstance<PixivNovel>()
+            FeedCache.users[key] = list.filterIsInstance<PixivUser>()
+        },
+        load = { page ->
+            val batch: List<Any> = when (kind) {
+                "novel" -> PixivApi.searchNovels(submitted, page)
+                "user" -> PixivApi.searchUsers(submitted, page)
+                else -> PixivApi.searchArtworks(submitted, page)
             }
-            refreshing = false
-        }
-    }
+            Page(batch)
+        },
+    )
+    val items = feed.items
+    val loading = feed.loading
+    val loadingMore = feed.loadingMore
+    val refreshing = feed.refreshing
+    val hasMore = feed.hasMore
+    val error = feed.error
+    val listState = feed.listState
 
-    fun loadMore() {
-        if (loadingMore || !hasMore || submitted.isBlank()) return
-        scope.launch {
-            loadingMore = true
-            val next = page + 1
-            try {
-                val more: List<Any> = when (kind) {
-                    "novel" -> PixivApi.searchNovels(submitted, next)
-                    "user" -> PixivApi.searchUsers(submitted, next)
-                    else -> PixivApi.searchArtworks(submitted, next)
-                }
-                val cur = (items ?: emptyList()).toMutableList()
-                val seen = HashSet(cur.map { itemIdOf(it) })
-                cur.addAll(more.filter {
-                    val id = itemIdOf(it)
-                    id !in seen
-                })
-                items = cur
-                FeedCache.illust[cacheKey] = cur.filterIsInstance<PixivWork>()
-                FeedCache.novels[cacheKey] = cur.filterIsInstance<PixivNovel>()
-                FeedCache.users[cacheKey] = cur.filterIsInstance<PixivUser>()
-                page = next
-                hasMore = more.size >= pageSize
-            } catch (_: Exception) {
-            }
-            loadingMore = false
-        }
-    }
+    fun refresh() = feed.refreshNow()
+    fun loadMore() = feed.loadMoreNow()
 
     val list = items.orEmpty()
-    LaunchedEffect(listState, list.size) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            val total = info.totalItemsCount
-            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-            total > 0 && last >= total - 3
-        }.collect { nearEnd -> if (nearEnd) loadMore() }
-    }
-    SideEffect { FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex }
 
     fun openItem(id: Long, kindOf: String) {
         focusManager.clearFocus()
         onOpenDetail(id, kindOf)
     }
+
 
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.search(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
@@ -212,7 +141,7 @@ fun SearchScreen(
                         }
                     },
                     error = error,
-                    onRetry = { retryKey++ },
+                    onRetry = { feed.retry() },
                     loading = loading && list.isEmpty(),
                     emptyHint = {
                         Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
@@ -257,7 +186,7 @@ fun SearchScreen(
                     }
 
                     loading && list.isEmpty() -> item { LoadingState() }
-                    error != null && list.isEmpty() -> item { ErrorState(error ?: "", onRetry = { retryKey++ }) }
+                    error != null && list.isEmpty() -> item { ErrorState(error ?: "", onRetry = { feed.retry() }) }
                 }
                 if (list.isNotEmpty()) {
                     items(list.size, key = { i ->

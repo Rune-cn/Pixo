@@ -32,42 +32,20 @@ fun FollowScreen(
     onOpenUser: (Long) -> Unit,
     waterfall: Boolean = false,
 ) {
-    var items by remember { mutableStateOf<List<PixivWork>?>(null) }
-    var page by remember { mutableIntStateOf(1) }
-    var hasMore by remember { mutableStateOf(true) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
+    val feed = rememberPagedFeedByKey(
+        cacheKey = "follow:latest",
+        idOf = { it.id },
+        pageSize = 60,
+        restore = { null },
+        persist = { _, _ -> },
+        load = { page -> Page(PixivApi.fetchFollowLatest(page)) },
+    )
+    val items = feed.items
+    val loadingMore = feed.loadingMore
+    val hasMore = feed.hasMore
+    val error = feed.error
 
-    LaunchedEffect(retryKey) {
-        if (items != null) return@LaunchedEffect
-        error = null
-        try {
-            val list = PixivApi.fetchFollowLatest(1)
-            items = list
-            hasMore = list.size >= 60
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-        }
-    }
-
-    fun loadMore() {
-        if (loadingMore || !hasMore) return
-        loadingMore = true
-        scope.launch {
-            try {
-                val more = PixivApi.fetchFollowLatest(page + 1)
-                items = items.orEmpty() + more
-                page++
-                hasMore = more.size >= 60
-            } catch (_: Exception) {
-                // 静默失败：下拉重试即可
-            }
-            loadingMore = false
-        }
-    }
-
+    fun loadMore() = feed.loadMoreNow()
     val scrollBehavior = MiuixScrollBehavior()
     PixoSubScreen(title = Str.follow_new(), onBack = onBack, scrollBehavior = scrollBehavior) { innerPadding ->
             if (waterfall) {
@@ -81,7 +59,7 @@ fun FollowScreen(
                     hasMore = hasMore,
                     onLoadMore = { loadMore() },
                     error = error,
-                    onRetry = { retryKey++ },
+                    onRetry = { feed.retry() },
                     loading = items == null,
                 )
             } else {
@@ -93,7 +71,7 @@ fun FollowScreen(
         ) {
             when {
                 items == null && error != null -> item {
-                    ErrorState(error ?: "", onRetry = { retryKey++ })
+                    ErrorState(error ?: "", onRetry = { feed.retry() })
                 }
                 items == null -> item { LoadingState() }
                 items.orEmpty().isEmpty() -> item {

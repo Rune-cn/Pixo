@@ -43,78 +43,31 @@ fun BookmarksScreen(
 ) {
     var currentRestrict by rememberSaveable { mutableStateOf(restrict) }
     val cacheKey = "bookmarks:$currentRestrict"
-    var items by remember(cacheKey, SettingsRevision.current) {
-        mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey])
-    }
-    val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
-    var offset by remember(currentRestrict) { mutableIntStateOf(items?.size ?: 0) }
+    // App API 只认 max_bookmark_id 游标（offset 恒被忽略），游标随每页更新
     var maxBookmarkId by remember(currentRestrict) { mutableLongStateOf(0L) }
-    var hasMore by remember(currentRestrict) { mutableStateOf(true) }
-    var loading by remember(currentRestrict) { mutableStateOf(items == null) }
-    var loadingMore by remember(currentRestrict) { mutableStateOf(false) }
-    var refreshing by remember(currentRestrict) { mutableStateOf(false) }
-    var error by remember(currentRestrict) { mutableStateOf<String?>(null) }
-    var retryKey by remember(currentRestrict) { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
+    val feed = rememberPagedFeed(
+        cacheKey = cacheKey,
+        cache = FeedCache.illust,
+        pageSize = 24,
+        idOf = { it.id },
+        load = { page ->
+            val offset = if (page == 1) 0 else (page - 1) * 24
+            val cursor = if (page == 1) null else maxBookmarkId.takeIf { it > 0L }
+            val result = PixivApi.fetchIllustBookmarks(currentRestrict, offset, cursor, 24)
+            maxBookmarkId = result.nextMaxBookmarkId ?: 0L
+            Page(result.works, result.hasMore)
+        },
+    )
+    val items = feed.items
+    val loading = feed.loading
+    val loadingMore = feed.loadingMore
+    val refreshing = feed.refreshing
+    val hasMore = feed.hasMore
+    val error = feed.error
+    val listState = feed.listState
 
-    val initial = items
-    LaunchedEffect(cacheKey, retryKey) {
-        if (initial != null && initial.isNotEmpty()) return@LaunchedEffect
-        loading = true
-        error = null
-        try {
-            val page = PixivApi.fetchIllustBookmarks(currentRestrict, 0, null, 24)
-            FeedCache.illust[cacheKey] = page.works
-            items = page.works
-            offset = page.works.size
-            maxBookmarkId = page.nextMaxBookmarkId ?: 0L
-            hasMore = page.hasMore
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-            logError("Pixo", "load failed", e)
-        }
-        loading = false
-    }
-
-    fun refresh() {
-        scope.launch {
-            refreshing = true
-            try {
-                val page = PixivApi.fetchIllustBookmarks(currentRestrict, 0, null, 24)
-                FeedCache.illust[cacheKey] = page.works
-                items = page.works
-                offset = page.works.size
-                maxBookmarkId = page.nextMaxBookmarkId ?: 0L
-                hasMore = page.hasMore
-                error = null
-            } catch (e: Exception) {
-                error = e.friendlyMessage()
-                logError("Pixo", "load failed", e)
-            }
-            refreshing = false
-        }
-    }
-
-    fun loadMore() {
-        if (loadingMore || !hasMore) return
-        scope.launch {
-            loadingMore = true
-            try {
-                val page = PixivApi.fetchIllustBookmarks(currentRestrict, offset, maxBookmarkId.takeIf { it > 0L }, 24)
-                val cur = (items ?: emptyList()).toMutableList()
-                val seen = HashSet(cur.map { it.id })
-                cur.addAll(page.works.filter { it.id !in seen })
-                items = cur
-                FeedCache.illust[cacheKey] = cur
-                offset = cur.size
-                maxBookmarkId = page.nextMaxBookmarkId ?: 0L
-                hasMore = page.hasMore
-            } catch (_: Exception) {
-            }
-            loadingMore = false
-        }
-    }
-
+    fun refresh() = feed.refreshNow()
+    fun loadMore() = feed.loadMoreNow()
     val list = items.orEmpty()
     LaunchedEffect(listState, list.size) {
         snapshotFlow {
@@ -151,7 +104,7 @@ fun BookmarksScreen(
                         }
                     },
                     error = error,
-                    onRetry = { retryKey++ },
+                    onRetry = { feed.retry() },
                     loading = loading && list.isEmpty(),
                     emptyHint = { EmptyHint() },
                 )
@@ -172,7 +125,7 @@ fun BookmarksScreen(
                 when {
                     loading && list.isEmpty() -> item { LoadingState() }
                     error != null && list.isEmpty() -> item {
-                        ErrorState(error ?: "", onRetry = { retryKey++ })
+                        ErrorState(error ?: "", onRetry = { feed.retry() })
                     }
                 }
                 if (list.isNotEmpty()) {

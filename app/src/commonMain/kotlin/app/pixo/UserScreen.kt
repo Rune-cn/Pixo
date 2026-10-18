@@ -66,6 +66,9 @@ fun UserScreen(
     onOpenFollows: (Long, String) -> Unit,
     waterfall: Boolean = false,
 ) {
+    // 注意：作者主页没有走 rememberPagedFeed —— 它一次要并发取「插画 / 漫画 / 小说」
+    // 三个标签页的数据，并且用户资料与作品列表分属两条通道（Token / 网页），
+    // 与其它单列表页面的形状不同；这里保留针对性实现，避免为统一而牺牲首屏体验。
     val illustKey = "userIllusts:$userId"
     val mangaKey = "userManga:$userId"
     val novelKey = "userNovels:$userId"

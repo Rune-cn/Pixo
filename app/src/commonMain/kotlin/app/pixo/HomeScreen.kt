@@ -68,83 +68,26 @@ fun HomePage(
     onOpenUser: (Long) -> Unit,
     bottomPadding: Dp = 0.dp,
 ) {
-    val cacheKey = "home:feed"
-    var items by remember(SettingsRevision.current) { mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey]) }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0)
-    var loading by remember { mutableStateOf(items == null) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var refreshing by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
-
-    val initial = items
     val loggedIn = AppPrefs.cookie.isNotBlank() || PixivAuth.isTokenMode
-    LaunchedEffect(cacheKey, retryKey, loggedIn) {
-        if (initial != null) return@LaunchedEffect
-        loading = true
-        error = null
-        try {
-            val list = PixivApi.fetchTopFeed(0, 30)
-            FeedCache.illust[cacheKey] = list
-            items = list
-            hasMore = list.size >= 30
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-            logError("Pixo", "load failed", e)
-        }
-        loading = false
-    }
+    val feed = rememberPagedFeed(
+        cacheKey = "home:feed",
+        cache = FeedCache.illust,
+        pageSize = 30,
+        reloadKey = loggedIn,
+        idOf = { it.id },
+        load = { page -> Page(PixivApi.fetchTopFeed((page - 1) * 30, 30)) },
+    )
+    val items = feed.items
+    val loading = feed.loading
+    val loadingMore = feed.loadingMore
+    val refreshing = feed.refreshing
+    val hasMore = feed.hasMore
+    val error = feed.error
+    val listState = feed.listState
 
-    fun refresh() {
-        scope.launch {
-            refreshing = true
-            try {
-                val list = PixivApi.fetchTopFeed(0, 30)
-                FeedCache.illust[cacheKey] = list
-                items = list
-                hasMore = list.size >= 30
-                error = null
-            } catch (e: Exception) {
-                error = e.friendlyMessage()
-                logError("Pixo", "load failed", e)
-            }
-            refreshing = false
-        }
-    }
-
-    fun loadMore() {
-        if (loadingMore || !hasMore) return
-        scope.launch {
-            loadingMore = true
-            val n = items?.size ?: 0
-            try {
-                val more = PixivApi.fetchTopFeed(n, 30)
-                val cur = (items ?: emptyList()).toMutableList()
-                val seen = HashSet(cur.map { it.id })
-                cur.addAll(more.filter { it.id !in seen })
-                FeedCache.illust[cacheKey] = cur
-                items = cur
-                hasMore = more.size >= 30
-            } catch (_: Exception) {
-            }
-            loadingMore = false
-        }
-    }
-
+    fun refresh() = feed.refreshNow()
+    fun loadMore() = feed.loadMoreNow()
     val list = items.orEmpty()
-    LaunchedEffect(listState, list.size) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            val total = info.totalItemsCount
-            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-            total > 0 && last >= total - 3
-        }.collect { nearEnd -> if (nearEnd) loadMore() }
-    }
-    SideEffect {
-        FeedCache.indexes[cacheKey] = listState.firstVisibleItemIndex
-    }
 
     val scrollBehavior = MiuixScrollBehavior()
     PixoTabFrame(title = Str.nav_home(), scrollBehavior = scrollBehavior) { frame ->
@@ -187,7 +130,7 @@ fun HomePage(
                                         Spacer(Modifier.height(12.dp))
                                         Button(onClick = onOpenSettings) { Text(Str.go_settings()) }
                                     } else {
-                                        ErrorState(error ?: "", onRetry = { retryKey++ })
+                                        ErrorState(error ?: "", onRetry = { feed.retry() })
                                     }
                                 }
 
@@ -235,7 +178,7 @@ fun HomePage(
                             Spacer(Modifier.height(12.dp))
                             Button(onClick = onOpenSettings) { Text(Str.go_settings()) }
                         } else {
-                            ErrorState(error ?: "", onRetry = { retryKey++ })
+                            ErrorState(error ?: "", onRetry = { feed.retry() })
                         }
                     }
                 }

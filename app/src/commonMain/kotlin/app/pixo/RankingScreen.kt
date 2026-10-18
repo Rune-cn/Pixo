@@ -42,74 +42,27 @@ fun RankingScreen(
 ) {
     var currentMode by rememberSaveable { mutableStateOf(mode) }
     val cacheKey = "rank:$content:$currentMode"
-    var items by remember(cacheKey, SettingsRevision.current) {
-        mutableStateOf<List<PixivWork>?>(FeedCache.illust[cacheKey])
-    }
-    val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
-    var loading by remember { mutableStateOf(items == null) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var refreshing by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
+    val feed = rememberPagedFeed(
+        cacheKey = cacheKey,
+        cache = FeedCache.illust,
+        pageSize = 50,
+        idOf = { it.id },
+        load = { page ->
+            val batch = if (content == "manga") PixivApi.fetchMangaRanking(currentMode, page)
+            else PixivApi.fetchRanking(currentMode, page)
+            Page(batch)
+        },
+    )
+    val items = feed.items
+    val loading = feed.loading
+    val loadingMore = feed.loadingMore
+    val refreshing = feed.refreshing
+    val hasMore = feed.hasMore
+    val error = feed.error
+    val listState = feed.listState
 
-    val initial = items
-    LaunchedEffect(cacheKey, retryKey) {
-        if (initial != null) return@LaunchedEffect
-        loading = true
-        error = null
-        try {
-            val list = if (content == "manga") PixivApi.fetchMangaRanking(currentMode, 1)
-            else PixivApi.fetchRanking(currentMode, 1)
-            FeedCache.illust[cacheKey] = list
-            items = list
-            hasMore = list.size >= 50
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-            logError("Pixo", "load failed", e)
-        }
-        loading = false
-    }
-
-    fun refresh() {
-        scope.launch {
-            refreshing = true
-            try {
-                val list = if (content == "manga") PixivApi.fetchMangaRanking(currentMode, 1)
-                else PixivApi.fetchRanking(currentMode, 1)
-                FeedCache.illust[cacheKey] = list
-                items = list
-                hasMore = list.size >= 50
-                error = null
-            } catch (e: Exception) {
-                error = e.friendlyMessage()
-                logError("Pixo", "load failed", e)
-            }
-            refreshing = false
-        }
-    }
-
-    fun loadMore() {
-        if (loadingMore || !hasMore) return
-        scope.launch {
-            loadingMore = true
-            val page = ((items?.size ?: 0) / 50) + 1
-            try {
-                val more = if (content == "manga") PixivApi.fetchMangaRanking(currentMode, page)
-                else PixivApi.fetchRanking(currentMode, page)
-                val cur = (items ?: emptyList()).toMutableList()
-                val seen = HashSet(cur.map { it.id })
-                cur.addAll(more.filter { it.id !in seen })
-                items = cur
-                FeedCache.illust[cacheKey] = cur
-                hasMore = more.size >= 50
-            } catch (_: Exception) {
-            }
-            loadingMore = false
-        }
-    }
-
+    fun refresh() = feed.refreshNow()
+    fun loadMore() = feed.loadMoreNow()
     val list = items.orEmpty()
     LaunchedEffect(listState, list.size) {
         snapshotFlow {
@@ -148,7 +101,7 @@ fun RankingScreen(
                         }
                     },
                     error = error,
-                    onRetry = { retryKey++ },
+                    onRetry = { feed.retry() },
                     loading = loading && list.isEmpty(),
                 )
             } else {
@@ -168,7 +121,7 @@ fun RankingScreen(
                 }
                 when {
                     loading && list.isEmpty() -> item { LoadingState() }
-                    error != null && list.isEmpty() -> item { ErrorState(error ?: "", onRetry = { retryKey++ }) }
+                    error != null && list.isEmpty() -> item { ErrorState(error ?: "", onRetry = { feed.retry() }) }
                 }
                 if (list.isNotEmpty()) {
                     items(list, key = { it.id }) { work ->
@@ -193,69 +146,23 @@ fun NovelRankingScreen(
 ) {
     var currentMode by rememberSaveable { mutableStateOf(mode) }
     val cacheKey = "novelRank:$currentMode"
-    var items by remember(cacheKey) { mutableStateOf<List<PixivNovel>?>(FeedCache.novels[cacheKey]) }
-    val listState = key(cacheKey) { rememberLazyListState(initialFirstVisibleItemIndex = FeedCache.indexes[cacheKey] ?: 0) }
-    var loading by remember { mutableStateOf(items == null) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var refreshing by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var retryKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
+    val feed = rememberPagedFeed(
+        cacheKey = cacheKey,
+        cache = FeedCache.novels,
+        pageSize = 50,
+        idOf = { it.id },
+        load = { page -> Page(PixivApi.fetchNovelRanking(currentMode, page)) },
+    )
+    val items = feed.items
+    val loading = feed.loading
+    val loadingMore = feed.loadingMore
+    val refreshing = feed.refreshing
+    val hasMore = feed.hasMore
+    val error = feed.error
+    val listState = feed.listState
 
-    val initial = items
-    LaunchedEffect(cacheKey, retryKey) {
-        if (initial != null) return@LaunchedEffect
-        loading = true
-        error = null
-        try {
-            val list = PixivApi.fetchNovelRanking(currentMode, 1)
-            FeedCache.novels[cacheKey] = list
-            items = list
-            hasMore = list.size >= 50
-        } catch (e: Exception) {
-            error = e.friendlyMessage()
-            logError("Pixo", "load failed", e)
-        }
-        loading = false
-    }
-
-    fun refresh() {
-        scope.launch {
-            refreshing = true
-            try {
-                val list = PixivApi.fetchNovelRanking(currentMode, 1)
-                FeedCache.novels[cacheKey] = list
-                items = list
-                hasMore = list.size >= 50
-                error = null
-            } catch (e: Exception) {
-                error = e.friendlyMessage()
-                logError("Pixo", "load failed", e)
-            }
-            refreshing = false
-        }
-    }
-
-    fun loadMore() {
-        if (loadingMore || !hasMore) return
-        scope.launch {
-            loadingMore = true
-            val page = ((items?.size ?: 0) / 50) + 1
-            try {
-                val more = PixivApi.fetchNovelRanking(currentMode, page)
-                val cur = (items ?: emptyList()).toMutableList()
-                val seen = HashSet(cur.map { it.id })
-                cur.addAll(more.filter { it.id !in seen })
-                items = cur
-                FeedCache.novels[cacheKey] = cur
-                hasMore = more.size >= 50
-            } catch (_: Exception) {
-            }
-            loadingMore = false
-        }
-    }
-
+    fun refresh() = feed.refreshNow()
+    fun loadMore() = feed.loadMoreNow()
     val list = items.orEmpty()
     LaunchedEffect(listState, list.size) {
         snapshotFlow {
@@ -291,7 +198,7 @@ fun NovelRankingScreen(
                 }
                 when {
                     loading && list.isEmpty() -> item { LoadingState() }
-                    error != null && list.isEmpty() -> item { ErrorState(error ?: "", onRetry = { retryKey++ }) }
+                    error != null && list.isEmpty() -> item { ErrorState(error ?: "", onRetry = { feed.retry() }) }
                 }
                 if (list.isNotEmpty()) {
                     items(list, key = { it.id }) { n ->
