@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -65,6 +66,7 @@ import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -78,13 +80,25 @@ fun AboutScreen(onBack: () -> Unit) {
     var checking by remember { mutableStateOf(false) }
     var checkStatus by remember { mutableStateOf<String?>(null) }
     var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
+    // 更新日志（当前安装版本）：行尾状态 + Markdown 弹窗
+    var logLoading by remember { mutableStateOf(false) }
+    var logStatus by remember { mutableStateOf<String?>(null) }
+    var logDoc by remember { mutableStateOf<Pair<String, String>?>(null) }
     val scope = rememberCoroutineScope()
     val upToDateText = Str.update_latest()
     val failedText = Str.update_failed()
+    val sUpdateLog = Str.update_log()
+    val sNotesUnavailable = Str.update_notes_unavailable()
     LaunchedEffect(checkStatus) {
         if (checkStatus != null) {
             kotlinx.coroutines.delay(3000)
             checkStatus = null
+        }
+    }
+    LaunchedEffect(logStatus) {
+        if (logStatus != null) {
+            kotlinx.coroutines.delay(3000)
+            logStatus = null
         }
     }
     val lazyListState = rememberLazyListState()
@@ -144,15 +158,17 @@ fun AboutScreen(onBack: () -> Unit) {
                 onOpenDoc = { title, content -> consoleDoc = title to content },
                 checking = checking,
                 checkStatus = checkStatus,
+                logLoading = logLoading,
+                logStatus = logStatus,
                 onCheckUpdate = {
                     if (!checking) {
                         checking = true
                         checkStatus = null
                         scope.launch {
-                            val outcome = runCatching { UpdateChecker.check(force = true) }
+                            val outcome = runCatching { UpdateChecker.check() }
                             checking = false
                             outcome.onSuccess { info ->
-                                if (info != null && UpdateChecker.isNewer(info.version, appVersionName())) {
+                                if (UpdateChecker.isNewer(info.version, appVersionName())) {
                                     pendingUpdate = info
                                 } else {
                                     checkStatus = upToDateText
@@ -163,9 +179,39 @@ fun AboutScreen(onBack: () -> Unit) {
                         }
                     }
                 },
+                onOpenUpdateLog = {
+                    if (!logLoading) {
+                        logLoading = true
+                        logStatus = null
+                        scope.launch {
+                            val outcome = runCatching { UpdateChecker.fetchByTag(appVersionName()) }
+                            logLoading = false
+                            outcome.onSuccess { info ->
+                                if (info != null) {
+                                    logDoc = sUpdateLog to info.notes.ifBlank { sNotesUnavailable }
+                                } else {
+                                    logStatus = failedText
+                                }
+                            }.onFailure {
+                                logStatus = failedText
+                            }
+                        }
+                    }
+                },
             )
             pendingUpdate?.let { info ->
                 UpdateAvailableSheet(info = info, onDismiss = { pendingUpdate = null })
+            }
+            // 检查中：居中进度圈（对齐 legado 的 CheckingUpdate 对话框）
+            if (checking) {
+                OverlayDialog(show = true, onDismissRequest = {}) {
+                    Box(
+                        Modifier.size(56.dp).padding(8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        InfiniteProgressIndicator()
+                    }
+                }
             }
         }
     }
@@ -175,6 +221,14 @@ fun AboutScreen(onBack: () -> Unit) {
             title = title,
             content = content,
             onDismiss = { consoleDoc = null },
+        )
+    }
+    // 更新日志弹窗：同一套 Markdown 渲染
+    logDoc?.let { (title, content) ->
+        DocSheet(
+            title = title,
+            content = content,
+            onDismiss = { logDoc = null },
         )
     }
 }
@@ -191,6 +245,9 @@ internal fun AboutContent(
     checking: Boolean,
     checkStatus: String?,
     onCheckUpdate: () -> Unit,
+    logLoading: Boolean,
+    logStatus: String?,
+    onOpenUpdateLog: () -> Unit,
 ) {
     val density = LocalDensity.current
     val sPrivacy = Str.privacy_policy()
@@ -375,6 +432,16 @@ internal fun AboutContent(
                                 )
                             },
                             onClick = onCheckUpdate,
+                        )
+                        ArrowPreference(
+                            title = Str.update_log(),
+                            endActions = {
+                                when {
+                                    logLoading -> ValueText("…")
+                                    logStatus != null -> ValueText(logStatus)
+                                }
+                            },
+                            onClick = onOpenUpdateLog,
                         )
                     }
                     Card(

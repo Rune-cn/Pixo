@@ -250,4 +250,5 @@ internal actual object Str {
     @Composable actual fun block_screenshots(): String = stringResource(Res.string.block_screenshots)
     @Composable actual fun block_screenshots_summary(): String = stringResource(Res.string.block_screenshots_summary)
     @Composable actual fun settings_section_privacy(): String = stringResource(Res.string.settings_section_privacy)
+    @Composable actual fun update_log(): String = stringResource(Res.string.update_log)
 }

@@ -252,6 +252,7 @@ furry.*</string>
     <string name="block_screenshots">Block screenshots</string>
     <string name="block_screenshots_summary">Prevent system screenshots and screen recording</string>
     <string name="settings_section_privacy">Privacy</string>
+    <string name="update_log">What's new</string>
 </resources>
 
 

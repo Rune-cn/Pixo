@@ -53,6 +53,17 @@ import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
 
+/**
+ * 启动检查每进程只跑一次（对齐 legado 的 ProcessStartupUpdateCheckGate）。
+ * 放在 object 里而不是 remember：Activity 重建（旋转/回到前台）不会重复检查。
+ */
+private object StartupCheckGate {
+    private val consumed = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** @return 本次进程内第一次调用时返回 true */
+    fun consume(): Boolean = !consumed.getAndSet(true)
+}
+
 @Composable
 fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var themeMode by rememberSaveable { mutableStateOf(savedThemeMode()) }
@@ -70,9 +81,12 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     // 启动时自动检查更新（设置 → 更新 可关闭）；同一版本只提醒一次
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     LaunchedEffect(Unit) {
+        // 每进程只真正检查一次（对齐 legado 的 ProcessStartupUpdateCheckGate）
+        if (!StartupCheckGate.consume()) return@LaunchedEffect
         if (!AppPrefs.autoCheckUpdate) return@LaunchedEffect
-        // 6 小时内只查一次；失败静默（不打扰用户），手动检查在「关于」页
-        val info = runCatching { UpdateChecker.check(force = false) }.getOrNull()
+        // 清单走 raw.githubusercontent.com 无 API 限流，冷启动检查成本很低；
+        // 失败静默（不打扰用户），手动检查在「关于」页
+        val info = runCatching { UpdateChecker.check() }.getOrNull()
             ?: return@LaunchedEffect
         if (UpdateChecker.isNewer(info.version, appVersionName()) &&
             info.version != AppPrefs.lastNotifiedVersion

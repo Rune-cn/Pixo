@@ -252,5 +252,6 @@ furry.*</string>
     <string name="block_screenshots">禁止截屏</string>
     <string name="block_screenshots_summary">阻止系统截图与录屏（对系统级截屏生效）</string>
     <string name="settings_section_privacy">隐私</string>
+    <string name="update_log">更新日志</string>
 </resources>
 

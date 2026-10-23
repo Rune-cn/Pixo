@@ -64,28 +64,22 @@ object UpdateChecker {
     private const val MANIFEST_URL =
         "https://raw.githubusercontent.com/$OWNER/$REPO/main/update-manifests/latest.json"
 
-    /** 自动检查的最小间隔：GitHub 未认证接口只有 60 次/小时（按 IP，共享网络更容易耗尽）。 */
-    private const val AUTO_CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
-
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
      * 检查更新（对外入口）。
      *
-     * - 自动检查（[force] = false）6 小时内只跑一次，避免撞限流
-     * - API 失败（常见：403 限流）时退回「网页重定向」探测版本：
-     *   `GET https://github.com/{owner}/{repo}/releases/latest` 会 302 到 `/releases/tag/vX.Y.Z`，
-     *   这条走的是网页，不消耗 API 配额，只是拿不到更新说明
+     * 每次冷启动 / 手动点击都会真正发起检查（不节流）：
+     * 清单走 `raw.githubusercontent.com`，不属于 GitHub API，没有 60 次/小时限流；
+     * 是否提示由调用方决定（版本比较 + 已提醒去重）。
      *
-     * @return 最新版本信息；6 小时内已检查过且非强制时返回 null
+     * 顺序：清单（含完整说明）→ GitHub API → 网页重定向（只剩版本号）。
      */
-    suspend fun check(force: Boolean = false): UpdateInfo? {
-        val now = System.currentTimeMillis()
-        if (!force && now - AppPrefs.updateCheckedAt < AUTO_CHECK_INTERVAL_MS) return null
+    suspend fun check(): UpdateInfo {
         val info = try {
             fetchFromManifest() ?: fetchLatest()
         } catch (e: Exception) {
-            logError("Update", "GitHub API failed, fallback to web redirect", e)
+            logError("Update", "update check failed, fallback to web redirect", e)
             val version = runCatching { fetchLatestVersionByRedirect() }.getOrNull()
                 ?: throw e
             UpdateInfo(
@@ -95,9 +89,43 @@ object UpdateChecker {
                 apkUrls = emptyMap(),
             )
         }
-        AppPrefs.updateCheckedAt = System.currentTimeMillis()
-        AppPrefs.updateLatestVersion = info.version
         return info
+    }
+
+    /**
+     * 按版本号取该版本 Release 的说明（「更新日志」用）。
+     *
+     * 当前版本恰好等于清单里的最新版时直接用清单（避免 API 限流）；
+     * 否则走 `GET /releases/tags/vX.Y.Z`。找不到返回 null。
+     */
+    suspend fun fetchByTag(tag: String): UpdateInfo? {
+        val normalized = normalize(tag)
+        val manifest = runCatching { fetchFromManifest() }.getOrNull()
+        if (manifest != null && manifest.version == normalized) return manifest
+
+        return withContext(ioDispatcher) {
+            val request = Request.Builder()
+                .url("https://api.github.com/repos/$OWNER/$REPO/releases/tags/v$normalized")
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "Pixo/${appVersionName()}")
+                .build()
+            val text = PixivHttp.client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use ""
+                response.body?.string().orEmpty()
+            }
+            if (text.isBlank()) return@withContext null
+            val root = json.parseToJsonElement(text).jsonObject
+            val tagName = root["tag_name"]?.jsonPrimitive?.content.orEmpty()
+            if (tagName.isBlank()) return@withContext null
+            UpdateInfo(
+                version = normalize(tagName),
+                notes = root["body"]?.jsonPrimitive?.content.orEmpty(),
+                pageUrl = root["html_url"]?.jsonPrimitive?.content.orEmpty()
+                    .ifBlank { RELEASES_PAGE },
+                apkUrls = emptyMap(),
+            )
+        }
     }
 
     /**
