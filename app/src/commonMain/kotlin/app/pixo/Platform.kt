@@ -23,6 +23,9 @@ expect val ioDispatcher: CoroutineDispatcher
 /** 是否为桌面端（JVM）。桌面端用 ESC 键模拟系统返回。 */
 expect val isDesktop: Boolean
 
+/** 当前设备 ABI（Android 如 arm64-v8a；桌面端为空串，没有 APK 概念）。 */
+expect val deviceAbi: String
+
 
 expect object LocalAppLocale {
     val current: String
@@ -62,6 +65,13 @@ expect fun openUrlInBrowser(url: String)
 
 /** 分享文本/链接：Android 弹系统分享面板，桌面端复制到剪贴板。 */
 expect fun shareText(text: String)
+
+/**
+ * 下载 APK 并拉起系统安装器。
+ *
+ * @return null 表示成功；否则返回可直接展示的错误描述
+ */
+expect suspend fun installApkFromUrl(url: String, fileName: String): String?
 
 /** 把下载的图片字节写入下载目录（返回保存位置说明，失败返回 null）。 */
 expect suspend fun writeDownloadFile(fileName: String, bytes: ByteArray): String?

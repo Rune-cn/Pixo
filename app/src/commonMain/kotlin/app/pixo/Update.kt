@@ -1,6 +1,9 @@
 package app.pixo
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -8,16 +11,21 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -149,7 +157,12 @@ object UpdateChecker {
                 notes = root["notes"]?.jsonPrimitive?.content.orEmpty(),
                 pageUrl = root["page_url"]?.jsonPrimitive?.content.orEmpty()
                     .ifBlank { RELEASES_PAGE },
-                apkUrls = emptyMap(),
+                apkUrls = buildMap {
+                    root["apk_urls"]?.jsonObject?.forEach { (name, element) ->
+                        val url = (element as? JsonPrimitive)?.content.orEmpty()
+                        if (url.isNotBlank()) put(name, url)
+                    }
+                },
             )
         } catch (_: Exception) {
             null
@@ -233,17 +246,27 @@ object UpdateChecker {
 }
 
 /**
- * 「发现新版本」底部弹窗。
+ * 「发现新版本」底部弹窗（对齐 legado-with-MD3 的 UpdateSheet）。
  *
- * Release 说明是 Markdown，直接用项目里的 [MarkdownBlock] 渲染
- * （与「关于」页的文档弹窗同一套渲染器，支持标题/列表/代码块/链接）。
+ * 结构：当前版本 / 新版本 / ABI 三行信息 → 可长按复制的 Markdown 更新说明
+ * → 「下载更新」主按钮（下载 APK 并拉起系统安装器）→ 「稍后」。
  */
 @Composable
 internal fun UpdateAvailableSheet(info: UpdateInfo, onDismiss: () -> Unit) {
     var show by remember { mutableStateOf(true) }
+    var installing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val sCurrent = Str.update_current_version()
+    val sNew = Str.update_new_version()
+    val sDownload = Str.update_download()
+    val sDownloading = Str.update_downloading()
+    val sNotesUnavailable = Str.update_notes_unavailable()
+
     WindowBottomSheet(
         show = show,
-        title = Str.update_available(info.version),
+        title = Str.check_update(),
         onDismissRequest = { show = false },
         onDismissFinished = onDismiss,
         insideMargin = DpSize(0.dp, 0.dp),
@@ -256,20 +279,78 @@ internal fun UpdateAvailableSheet(info: UpdateInfo, onDismiss: () -> Unit) {
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 30.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            MarkdownBlock(
-                content = info.notes.ifBlank { Str.update_notes_unavailable() },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            VersionRow(label = sCurrent, value = appVersionName())
+            VersionRow(label = sNew, value = info.version, highlight = true)
+            if (deviceAbi.isNotBlank()) VersionRow(label = "ABI", value = deviceAbi)
+
+            SelectionContainer {
+                MarkdownBlock(
+                    content = info.notes.ifBlank { sNotesUnavailable },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             Button(
                 onClick = {
-                    if (info.pageUrl.isNotBlank()) openUrlInBrowser(info.pageUrl)
-                    show = false
+                    if (!installing) {
+                        installing = true
+                        error = null
+                        scope.launch {
+                            val message = installUpdate(info)
+                            installing = false
+                            if (message != null) error = message
+                        }
+                    }
                 },
+                enabled = !installing,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(Str.open_in_browser()) }
+            ) { Text(if (installing) sDownloading else sDownload) }
+
+            error?.let {
+                Text(
+                    text = it,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.error,
+                )
+            }
+
             Button(onClick = { show = false }, modifier = Modifier.fillMaxWidth()) {
                 Text(Str.cancel())
             }
         }
     }
+}
+
+/** 版本信息行：label + value（新版本用主题色高亮）。 */
+@Composable
+private fun VersionRow(label: String, value: String, highlight: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = value,
+            style = MiuixTheme.textStyles.body2,
+            color = if (highlight) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * 下载并安装：按当前 ABI 挑 APK 直链；没有直链时退回浏览器打开下载页。
+ *
+ * @return null 表示成功；否则返回错误描述
+ */
+private suspend fun installUpdate(info: UpdateInfo): String? {
+    val abi = deviceAbi
+    val url = info.apkUrls[abi]
+        ?: info.apkUrls.entries.firstOrNull { abi.isNotEmpty() && it.key.contains(abi) }?.value
+    if (url.isNullOrBlank()) {
+        if (info.pageUrl.isNotBlank()) openUrlInBrowser(info.pageUrl)
+        return if (abi.isEmpty()) "桌面端请在浏览器下载安装包" else "当前通道未提供 APK 直链，请在浏览器下载"
+    }
+    return installApkFromUrl(url, "pixo-${info.version}-$abi.apk")
 }

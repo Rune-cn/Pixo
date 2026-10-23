@@ -19,6 +19,8 @@ actual val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
 actual val isDesktop: Boolean = true
 
+actual val deviceAbi: String = ""
+
 
 val LocalPixoWindow = staticCompositionLocalOf<java.awt.Window?> { null }
 
@@ -131,6 +133,12 @@ actual fun openUrlInBrowser(url: String) {
         }
     } catch (_: Exception) {
     }
+}
+
+/** 桌面端没有 APK 安装概念：交给系统浏览器打开下载页。 */
+actual suspend fun installApkFromUrl(url: String, fileName: String): String? {
+    openUrlInBrowser(url)
+    return null
 }
 
 actual fun shareText(text: String) {

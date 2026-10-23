@@ -251,4 +251,8 @@ internal actual object Str {
     @Composable actual fun block_screenshots_summary(): String = stringResource(app.pixo.R.string.block_screenshots_summary)
     @Composable actual fun settings_section_privacy(): String = stringResource(app.pixo.R.string.settings_section_privacy)
     @Composable actual fun update_log(): String = stringResource(app.pixo.R.string.update_log)
+    @Composable actual fun update_download(): String = stringResource(app.pixo.R.string.update_download)
+    @Composable actual fun update_current_version(): String = stringResource(app.pixo.R.string.update_current_version)
+    @Composable actual fun update_new_version(): String = stringResource(app.pixo.R.string.update_new_version)
+    @Composable actual fun update_downloading(): String = stringResource(app.pixo.R.string.update_downloading)
 }

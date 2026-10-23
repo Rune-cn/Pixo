@@ -253,6 +253,10 @@ furry.*</string>
     <string name="block_screenshots_summary">Prevent system screenshots and screen recording</string>
     <string name="settings_section_privacy">Privacy</string>
     <string name="update_log">What\'s new</string>
+    <string name="update_download">Download update</string>
+    <string name="update_current_version">Current version</string>
+    <string name="update_new_version">New version</string>
+    <string name="update_downloading">Downloading…</string>
 </resources>
 
 

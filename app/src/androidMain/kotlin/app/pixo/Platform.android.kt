@@ -37,6 +37,9 @@ actual val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
 actual val isDesktop: Boolean = false
 
+actual val deviceAbi: String
+    get() = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+
 
 internal lateinit var androidAppContext: Context
 
@@ -180,6 +183,47 @@ actual fun openUrlInBrowser(url: String) {
         LogBuffer.add("openUrlInBrowser: failed (${e.message})")
     }
 }
+
+/**
+ * 下载 APK 到系统「下载」目录并拉起系统安装器。
+ * 需要用户在系统设置里允许「安装未知来源应用」（Manifest 已声明 REQUEST_INSTALL_PACKAGES）。
+ */
+actual suspend fun installApkFromUrl(url: String, fileName: String): String? =
+    kotlinx.coroutines.withContext(ioDispatcher) {
+        try {
+            val bytes = PixivHttp.fetchBytes(PixivHttp.webJsonHeaders().url(url))
+            val resolver = androidAppContext.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/vnd.android.package-archive")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: return@withContext "写入系统下载目录失败"
+            try {
+                resolver.openOutputStream(uri)?.use { it.write(bytes) }
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+            } catch (e: Exception) {
+                runCatching { resolver.delete(uri, null, null) }
+                return@withContext "下载失败：${e.message}"
+            }
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            try {
+                androidAppContext.startActivity(intent)
+            } catch (e: Exception) {
+                return@withContext "需要允许安装未知来源应用（系统设置 → 安装未知应用）"
+            }
+            null
+        } catch (e: Exception) {
+            "下载失败：${e.friendlyMessage()}"
+        }
+    }
 
 actual fun shareText(text: String) {
     if (!::androidAppContext.isInitialized) return

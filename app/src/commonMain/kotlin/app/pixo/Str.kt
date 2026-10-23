@@ -253,4 +253,8 @@ internal expect object Str {
     @Composable fun block_screenshots_summary(): String
     @Composable fun settings_section_privacy(): String
     @Composable fun update_log(): String
+    @Composable fun update_download(): String
+    @Composable fun update_current_version(): String
+    @Composable fun update_new_version(): String
+    @Composable fun update_downloading(): String
 }

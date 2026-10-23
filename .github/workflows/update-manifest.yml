@@ -21,12 +21,12 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
-          gh release view "$TAG" --json body -q .body > /tmp/notes.md
-          jq -n \
-            --arg v "$VERSION" \
-            --arg url "https://github.com/Rune-cn/Pixo/releases/tag/$TAG" \
-            --rawfile n /tmp/notes.md \
-            '{version: $v, notes: $n, page_url: $url}' > update-manifests/latest.json
+          gh release view "$TAG" --json tagName,body,htmlUrl,assets \
+            | jq '{version: (.tagName | sub("^v"; "")),
+                   notes: .body,
+                   page_url: .htmlUrl,
+                   apk_urls: (.assets | map({key: .name, value: .browser_download_url}) | from_entries)}' \
+            > update-manifests/latest.json
           cat update-manifests/latest.json
 
       - name: Commit and push manifest
