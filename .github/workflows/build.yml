@@ -14,6 +14,8 @@
 #
 # 约定：发布开关只有 release job 的 PUBLISH_NIGHTLY 一处定义，
 #       三个发布步骤共用，改条件时不用逐个改。
+# 另外：发布 Release 后由 update-manifest.yml 自动同步
+#       update-manifests/latest.json（更新检查用的清单，含完整更新说明）。
 name: Build
 
 on:

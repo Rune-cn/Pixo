@@ -55,6 +55,15 @@ object UpdateChecker {
 
     private const val RELEASES_PAGE = "https://github.com/$OWNER/$REPO/releases"
 
+    /**
+     * 更新清单（legado-with-MD3 的做法）：
+     * `raw.githubusercontent.com` 不属于 GitHub API，没有 60 次/小时限流，
+     * 而且由仓库维护者随 Release 一起更新（见 .github/workflows/update-manifest.yml），
+     * 所以更新说明（Markdown 原文）任何时候都能拿到。
+     */
+    private const val MANIFEST_URL =
+        "https://raw.githubusercontent.com/$OWNER/$REPO/main/update-manifests/latest.json"
+
     /** 自动检查的最小间隔：GitHub 未认证接口只有 60 次/小时（按 IP，共享网络更容易耗尽）。 */
     private const val AUTO_CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
 
@@ -74,7 +83,7 @@ object UpdateChecker {
         val now = System.currentTimeMillis()
         if (!force && now - AppPrefs.updateCheckedAt < AUTO_CHECK_INTERVAL_MS) return null
         val info = try {
-            fetchLatest()
+            fetchFromManifest() ?: fetchLatest()
         } catch (e: Exception) {
             logError("Update", "GitHub API failed, fallback to web redirect", e)
             val version = runCatching { fetchLatestVersionByRedirect() }.getOrNull()
@@ -89,6 +98,34 @@ object UpdateChecker {
         AppPrefs.updateCheckedAt = System.currentTimeMillis()
         AppPrefs.updateLatestVersion = info.version
         return info
+    }
+
+    /**
+     * 优先读更新清单（含完整说明）；清单缺失时退回 API。
+     */
+    private suspend fun fetchFromManifest(): UpdateInfo? = withContext(ioDispatcher) {
+        val request = Request.Builder()
+            .url(MANIFEST_URL)
+            .header("User-Agent", "Pixo/${appVersionName()}")
+            .build()
+        try {
+            val text = PixivHttp.client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use ""
+                response.body?.string().orEmpty()
+            }
+            val root = json.parseToJsonElement(text).jsonObject
+            val version = root["version"]?.jsonPrimitive?.content.orEmpty()
+            if (version.isBlank()) return@withContext null
+            UpdateInfo(
+                version = normalize(version),
+                notes = root["notes"]?.jsonPrimitive?.content.orEmpty(),
+                pageUrl = root["page_url"]?.jsonPrimitive?.content.orEmpty()
+                    .ifBlank { RELEASES_PAGE },
+                apkUrls = emptyMap(),
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**

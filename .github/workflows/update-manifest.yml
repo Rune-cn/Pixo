@@ -1,0 +1,38 @@
+name: Update manifest
+
+# 发布 Release 时自动同步 update-manifests/latest.json（更新检查用）。
+# 说明走 raw.githubusercontent.com（不属于 GitHub API，无 60 次/小时限流），
+# 因此更新说明永远拿得到，不会出现「请前往发布页查看更新内容」的降级提示。
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  write-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate manifest from release
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          gh release view "$TAG" --json body -q .body > /tmp/notes.md
+          jq -n \
+            --arg v "$VERSION" \
+            --arg url "https://github.com/Rune-cn/Pixo/releases/tag/$TAG" \
+            --rawfile n /tmp/notes.md \
+            '{version: $v, notes: $n, page_url: $url}' > update-manifests/latest.json
+          cat update-manifests/latest.json
+
+      - name: Commit and push manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update-manifests/latest.json
+          git diff --cached --quiet || git commit -m "chore(update): 同步 update-manifests/latest.json"
+          git push
