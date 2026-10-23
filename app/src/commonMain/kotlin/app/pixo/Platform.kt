@@ -90,6 +90,15 @@ expect fun rememberImportSettingsFile(onLoaded: (String?) -> Unit): () -> Unit
  */
 expect suspend fun loadUgoiraFrames(zipUrl: String, frameFiles: List<String>): List<ByteArray>?
 
+/**
+ * 应用「禁止截屏」。
+ *
+ * Android 给窗口加 `FLAG_SECURE`（系统截图 / 录屏 / 最近任务预览都会被屏蔽）；
+ * 桌面端无对应能力，空实现。
+ */
+@Composable
+expect fun ApplyScreenshotBlock(blocked: Boolean)
+
 @Composable
 expect fun applyWindowBackground(background: Color)
 

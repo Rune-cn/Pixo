@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.view.WindowManager
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
@@ -468,6 +469,19 @@ actual fun rememberImportSettingsFile(onLoaded: (String?) -> Unit): () -> Unit {
 @Composable
 actual fun SystemBackHandler(enabled: Boolean, onBack: () -> Unit) {
     BackHandler(enabled = enabled, onBack = onBack)
+}
+
+@Composable
+actual fun ApplyScreenshotBlock(blocked: Boolean) {
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.context as? Activity)?.window ?: return@SideEffect
+        if (blocked) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
 }
 
 @Composable

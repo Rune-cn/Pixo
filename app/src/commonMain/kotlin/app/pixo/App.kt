@@ -64,6 +64,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     var waterfall by rememberSaveable { mutableStateOf(AppPrefs.waterfall) }
     var imageQuality by rememberSaveable { mutableStateOf(AppPrefs.imageQuality) }
     var disableSwipeBack by rememberSaveable { mutableStateOf(AppPrefs.disableSwipeBack) }
+    var blockScreenshots by rememberSaveable { mutableStateOf(AppPrefs.blockScreenshots) }
     val navController = rememberNavController()
 
     // 启动时自动检查更新（设置 → 更新 可关闭）；同一版本只提醒一次
@@ -137,6 +138,8 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
     LaunchedEffect(language) { applyAppLanguage(language) }
     MiuixTheme(controller = controller) {
         AppEnvironment(language = language) {
+            // 禁止截屏：FLAG_SECURE 需要随开关即时生效
+            ApplyScreenshotBlock(blockScreenshots)
             applyWindowBackground(MiuixTheme.colorScheme.surface)
             val backStackEntry by navController.currentBackStackEntryAsState()
             val current = backStackEntry?.destination
@@ -247,6 +250,11 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                             onDisableSwipeBackChange = {
                                 disableSwipeBack = it
                                 AppPrefs.disableSwipeBack = it
+                            },
+                            blockScreenshots = blockScreenshots,
+                            onBlockScreenshotsChange = {
+                                blockScreenshots = it
+                                AppPrefs.blockScreenshots = it
                             },
                             onOpenTagBlock = { navController.navigate(TagBlockSettings) },
                             onOpenAuthorBlock = { navController.navigate(AuthorBlockSettings) },
@@ -448,7 +456,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                 )
                 } // 内容盒（带 layerBackdrop 取景）到此结束；两条底栏必须在其外，
                     AnimatedVisibility(
-                        visible = !floatingBar && isTabPage,
+                        visible = !floatingBar && isTabPage && BottomBarVisibility.visible,
                         enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
                         exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
                     ) {
@@ -478,7 +486,7 @@ fun App(deepLinkSignal: State<PixivDeepLink?>? = null) {
                         }
                     }
                     AnimatedVisibility(
-                        visible = floatingBar && isTabPage,
+                        visible = floatingBar && isTabPage && BottomBarVisibility.visible,
                         enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it },
                         exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it },
                     ) {
@@ -539,6 +547,8 @@ private fun MainTabsHost(
 ) {
     // 手动滑动落定后同步悬浮底栏高亮
     LaunchedEffect(mainPagerState.pagerState.currentPage) { mainPagerState.syncPage() }
+    // 切标签后新页面在顶部：底栏恢复显示
+    LaunchedEffect(mainPagerState.selectedPage) { BottomBarVisibility.show() }
     // 子页面「去设置」：回到标签根后把 Pager 落到设置页
     LaunchedEffect(pendingTabPage) {
         val target = pendingTabPage ?: return@LaunchedEffect

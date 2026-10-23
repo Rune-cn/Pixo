@@ -225,7 +225,7 @@ furry.*</string>
     <string name="image_quality">Image quality</string>
     <string name="quality_standard">Standard</string>
     <string name="quality_high">High (original)</string>
-    <string name="author_block">Blocked people</string>
+    <string name="author_block">Blocked users</string>
     <string name="author_block_hint">One name or ID per line (case-insensitive match)</string>
     <string name="block_this_author">Block this person</string>
     <string name="disable_swipe_back">Disable swipe-to-exit</string>
@@ -248,6 +248,9 @@ furry.*</string>
     <string name="login_imported">Login info imported</string>
     <string name="login_import_failed">Import failed: unrecognized content</string>
     <string name="import_action">Import</string>
+    <string name="block_screenshots">Block screenshots</string>
+    <string name="block_screenshots_summary">Prevent system screenshots and screen recording</string>
+    <string name="settings_section_privacy">Privacy</string>
 </resources>
 
 

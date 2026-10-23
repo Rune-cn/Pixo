@@ -87,6 +87,8 @@ fun HomePage(
 
     fun refresh() = feed.refreshNow()
     fun loadMore() = feed.loadMoreNow()
+    // 上滑收起底栏、下滑弹出（瀑布流走 StaggeredWorkGrid 内部的跟踪）
+    TrackBottomBarScroll { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
     val list = items.orEmpty()
 
     val scrollBehavior = MiuixScrollBehavior()

@@ -34,6 +34,7 @@ data class SettingsBackup(
     val webdavPassword: String = "",
     val waterfall: Boolean = false,
     val autoCheckUpdate: Boolean = true,
+    val blockScreenshots: Boolean = false,
 ) {
     companion object {
         fun fromPrefs(): SettingsBackup = SettingsBackup(
@@ -55,6 +56,7 @@ data class SettingsBackup(
             webdavPassword = AppPrefs.webdavPassword,
             waterfall = AppPrefs.waterfall,
             autoCheckUpdate = AppPrefs.autoCheckUpdate,
+            blockScreenshots = AppPrefs.blockScreenshots,
         )
     }
 
@@ -77,6 +79,7 @@ data class SettingsBackup(
         AppPrefs.webdavPassword = webdavPassword
         AppPrefs.waterfall = waterfall
         AppPrefs.autoCheckUpdate = autoCheckUpdate
+        AppPrefs.blockScreenshots = blockScreenshots
     }
 }
 

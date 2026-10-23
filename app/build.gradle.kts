@@ -61,8 +61,8 @@ android {
         applicationId = "app.pixo"
         minSdk = 33
         targetSdk = 37
-        versionCode = 13
-        versionName = "1.1.2"
+        versionCode = 14
+        versionName = "1.1.3"
         // 只保留 zh/en 资源，去掉 androidx 其它语言副本，缩减 APK
         resourceConfigurations += setOf("zh", "en")
     }

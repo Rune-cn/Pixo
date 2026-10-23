@@ -247,4 +247,7 @@ internal actual object Str {
     @Composable actual fun login_imported(): String = stringResource(app.pixo.R.string.login_imported)
     @Composable actual fun login_import_failed(): String = stringResource(app.pixo.R.string.login_import_failed)
     @Composable actual fun import_action(): String = stringResource(app.pixo.R.string.import_action)
+    @Composable actual fun block_screenshots(): String = stringResource(app.pixo.R.string.block_screenshots)
+    @Composable actual fun block_screenshots_summary(): String = stringResource(app.pixo.R.string.block_screenshots_summary)
+    @Composable actual fun settings_section_privacy(): String = stringResource(app.pixo.R.string.settings_section_privacy)
 }

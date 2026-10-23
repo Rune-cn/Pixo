@@ -247,4 +247,7 @@ internal actual object Str {
     @Composable actual fun login_imported(): String = stringResource(Res.string.login_imported)
     @Composable actual fun login_import_failed(): String = stringResource(Res.string.login_import_failed)
     @Composable actual fun import_action(): String = stringResource(Res.string.import_action)
+    @Composable actual fun block_screenshots(): String = stringResource(Res.string.block_screenshots)
+    @Composable actual fun block_screenshots_summary(): String = stringResource(Res.string.block_screenshots_summary)
+    @Composable actual fun settings_section_privacy(): String = stringResource(Res.string.settings_section_privacy)
 }

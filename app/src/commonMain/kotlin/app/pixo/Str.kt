@@ -249,4 +249,7 @@ internal expect object Str {
     @Composable fun login_imported(): String
     @Composable fun login_import_failed(): String
     @Composable fun import_action(): String
+    @Composable fun block_screenshots(): String
+    @Composable fun block_screenshots_summary(): String
+    @Composable fun settings_section_privacy(): String
 }

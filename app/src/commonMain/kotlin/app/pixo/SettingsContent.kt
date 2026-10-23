@@ -27,6 +27,8 @@ fun ContentPage(
     onImageQualityChange: (String) -> Unit,
     disableSwipeBack: Boolean,
     onDisableSwipeBackChange: (Boolean) -> Unit,
+    blockScreenshots: Boolean,
+    onBlockScreenshotsChange: (Boolean) -> Unit,
     onOpenTagBlock: () -> Unit,
     onOpenAuthorBlock: () -> Unit,
     onBack: () -> Unit,
@@ -65,6 +67,17 @@ fun ContentPage(
                         summary = Str.disable_swipe_back_summary(),
                         checked = disableSwipeBack,
                         onCheckedChange = { onDisableSwipeBackChange(it) },
+                    )
+                }
+            }
+            item { SectionTitle(Str.settings_section_privacy()) }
+            item {
+                SettingsGroup {
+                    SwitchPreference(
+                        title = Str.block_screenshots(),
+                        summary = Str.block_screenshots_summary(),
+                        checked = blockScreenshots,
+                        onCheckedChange = { onBlockScreenshotsChange(it) },
                     )
                 }
             }

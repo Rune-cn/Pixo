@@ -74,6 +74,9 @@ fun StaggeredWorkGrid(
 ) {
     val gridState = rememberLazyStaggeredGridState()
 
+    // 瀑布流也参与底栏自动收起（只有标签根页会真正渲染底栏）
+    TrackBottomBarScroll { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
+
     // 懒加载：最后一个可见项接近末尾（剩余 <= 4）时触发加载更多
     LaunchedEffect(gridState, works.size) {
         snapshotFlow {

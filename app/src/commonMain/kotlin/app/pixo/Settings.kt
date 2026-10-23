@@ -74,6 +74,8 @@ object AppPrefs {
     var imageQuality: String by stringPref("image_quality", "standard")
     var waterfall: Boolean by boolPref("waterfall", false)
     var disableSwipeBack: Boolean by boolPref("disable_swipe_back", false)
+    /** 禁止截屏 / 录屏（FLAG_SECURE）。 */
+    var blockScreenshots: Boolean by boolPref("block_screenshots", false)
 
     // ---------- 内容过滤 ----------
     /** 标签屏蔽：正则（每行一条）。 */

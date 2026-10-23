@@ -248,6 +248,11 @@ actual fun SystemBackHandler(enabled: Boolean, onBack: () -> Unit) {
 }
 
 @Composable
+actual fun ApplyScreenshotBlock(blocked: Boolean) {
+    // 桌面端没有等价的系统级截屏保护
+}
+
+@Composable
 actual fun applyWindowBackground(background: Color) {
     val window = LocalPixoWindow.current
     SideEffect {

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,8 +78,11 @@ fun SettingsPage(
     }
 
     val scrollBehavior = MiuixScrollBehavior()
+    val listState = rememberLazyListState()
+    TrackBottomBarScroll { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
     PixoTabFrame(title = Str.nav_settings(), scrollBehavior = scrollBehavior) { framePadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = framePadding.calculateTopPadding(), bottom = bottomPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
