@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -273,23 +276,31 @@ internal fun UpdateAvailableSheet(info: UpdateInfo, onDismiss: () -> Unit) {
     ) {
         Column(
             Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 30.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .fillMaxSize()
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
         ) {
-            VersionRow(label = sCurrent, value = appVersionName())
-            VersionRow(label = sNew, value = info.version, highlight = true)
-            if (deviceAbi.isNotBlank()) VersionRow(label = "ABI", value = deviceAbi)
+            // 可滚动区：版本信息 + 更新说明（对齐 legado：内容滚动、按钮固定底部）
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                VersionRow(label = sCurrent, value = appVersionName(), bottomPadding = 4.dp)
+                VersionRow(label = sNew, value = info.version, highlight = true, bottomPadding = 4.dp)
+                if (deviceAbi.isNotBlank()) VersionRow(label = "ABI", value = deviceAbi, bottomPadding = 8.dp)
 
-            SelectionContainer {
-                MarkdownBlock(
-                    content = info.notes.ifBlank { sNotesUnavailable },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                SelectionContainer {
+                    MarkdownBlock(
+                        content = info.notes.ifBlank { sNotesUnavailable },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
             }
 
+            Spacer(Modifier.height(16.dp))
             Button(
                 onClick = {
                     if (!installing) {
@@ -305,22 +316,43 @@ internal fun UpdateAvailableSheet(info: UpdateInfo, onDismiss: () -> Unit) {
                 enabled = !installing,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (installing) sDownloading else sDownload) }
-
             error?.let {
                 Text(
                     text = it,
                     style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
-            }
-
-            Button(onClick = { show = false }, modifier = Modifier.fillMaxWidth()) {
-                Text(Str.cancel())
             }
         }
     }
 }
 
+/** 版本信息行：label + value（新版本用主题色高亮），间距对齐 legado。 */
+@Composable
+private fun VersionRow(
+    label: String,
+    value: String,
+    highlight: Boolean = false,
+    bottomPadding: Dp = 4.dp,
+) {
+    Row(
+        Modifier.padding(bottom = bottomPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.footnote2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = value,
+            style = MiuixTheme.textStyles.body2,
+            color = if (highlight) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
+        )
+    }
+}
 /** 版本信息行：label + value（新版本用主题色高亮）。 */
 @Composable
 private fun VersionRow(label: String, value: String, highlight: Boolean = false) {
