@@ -1,6 +1,11 @@
 {
-  "version": "1.1.4",
-  "notes": "v1.1.4 更新检查链路测试版本（无安装包）\n\n用于验证「发现新版本」弹窗与 Markdown 渲染，非正式更新。",
-  "page_url": "https://github.com/Rune-cn/Pixo/releases/tag/v1.1.4",
-  "apk_urls": {}
+  "version": "1.1.3",
+  "notes": "## Pixo v1.1.3\n\n> 本版相对 v1.1.2 的变更（构建自最新代码，含 1.1.3 发布后的全部修复）。\n\n### 新增\n\n- **设置 → 登录**：导出 / 导入完整登录信息（JSON；兼容旧版调试文本）\n- **禁止截屏**开关（设置 → 内容 → 隐私）：Android `FLAG_SECURE`\n- **更新检查**：改用仓库更新清单（`raw.githubusercontent.com`，无 API 限流），启动时真正生效；关于页新增「更新日志」（当前版本 changelog，Markdown 渲染）\n- **「发现新版本」弹窗对齐 legado**：当前版本 / 新版本 / ABI 信息行 + 可复制的 Markdown 说明 + 底部固定「下载更新」按钮（按 ABI 下载 APK 并拉起系统安装器）\n\n### 优化\n\n- 屏蔽人 → 屏蔽用户（文案统一）\n- 页面有底栏时：内容上滑自动收起、下滑自动弹出、回到顶部恢复显示（普通与液态玻璃底栏都适用）\n- 调试页移除登录信息导出（已迁至「登录」页）\n",
+  "page_url": "https://github.com/Rune-cn/Pixo/releases/tag/v1.1.3",
+  "apk_urls": {
+    "pixo-1.1.3-arm64-v8a.apk": "https://github.com/Rune-cn/Pixo/releases/download/v1.1.3/pixo-1.1.3-arm64-v8a.apk",
+    "pixo-1.1.3-armeabi-v7a.apk": "https://github.com/Rune-cn/Pixo/releases/download/v1.1.3/pixo-1.1.3-armeabi-v7a.apk",
+    "pixo-1.1.3-x86.apk": "https://github.com/Rune-cn/Pixo/releases/download/v1.1.3/pixo-1.1.3-x86.apk",
+    "pixo-1.1.3-x86_64.apk": "https://github.com/Rune-cn/Pixo/releases/download/v1.1.3/pixo-1.1.3-x86_64.apk"
+  }
 }
